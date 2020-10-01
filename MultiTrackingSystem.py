@@ -1,15 +1,18 @@
-import numpy as np
-from FrameGen import FrameGen
 import os
-from DetectedObject import TrackingObject
+
+import imageio
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
 from filterpy.stats import multivariate_gaussian
+from matplotlib import cm
 from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib import cm
+
+from DetectedObject import TrackingObject
+from FrameGen import FrameGen
 from Utils import get_color
-import imageio
+
 
 class MultiTrackingSystem():
     def __init__(self,iter_n,tolerance,x_lim = [-80, 70],y_lim = [-20, 60],gen_fig = False):
@@ -24,7 +27,7 @@ class MultiTrackingSystem():
         self.cur_frame = 0
         self.gen_fig = gen_fig
         
-    def fit_dbgen(self,folder,freames_name,eps,min_samples):
+    def fit_dbgen(self,folder,frames_name,eps,min_samples):
         self.frame_gen = FrameGen(frames_name,eps,min_samples,folder).frame_generator()
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
@@ -118,6 +121,7 @@ class MultiTrackingSystem():
                 self.tracking_list[cur_key].detected_centers.append(next_detection_position)
                 self.tracking_list[cur_key].bounding_boxes.append(next_frame[next_key].bounding_box)
                 self.tracking_list[cur_key].point_clouds.append(next_frame[next_key].point_cloud)
+        
     
     def batch_tracking(self):
         for i in tqdm(range(self.iter_n-1)):
@@ -125,6 +129,9 @@ class MultiTrackingSystem():
             if self.gen_fig:
                 self.visualization()
             self.track_next_frame()
+        for key in self.tracking_list.keys():
+            self.out_of_tracking_list[key] = self.tracking_list[key]
+        self.tracking_list.clear()
             
     def visualization(self):
         plt.figure(figsize=(20,int(20*((self.y_lim[1]-self.y_lim[0])/(self.x_lim[1]-self.x_lim[0])))))
@@ -155,27 +162,12 @@ class MultiTrackingSystem():
     
                 
             
-                    
-
-                
-
-            
-
-
-
-
-
-
-
-        
-
-
 if __name__ == "__main__":
     folder = r'./frames/2019-8-27-7-0-0-BF1(0-18000frames)/{}'
     os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/US 395')
     frames_name = os.listdir(r'./frames/2019-8-27-7-0-0-BF1(0-18000frames)/')
     frames_name.sort(key = lambda x : x.split(' ')[2][:-5])
-    test = MultiTrackingSystem(iter_n = 1800, tolerance = 3)
+    test = MultiTrackingSystem(iter_n = 10, tolerance = 3)
     test.fit_dbgen(folder, frames_name, 2.0, 10)
     test.batch_tracking()
     # test.svae_gif()

@@ -1,9 +1,13 @@
-from sklearn.cluster import DBSCAN
-import numpy as np
-import cv2
-import pandas as pd
-from DetectedObject import DetectedObject
 import os
+
+import cv2
+import numpy as np
+import pandas as pd
+from sklearn.cluster import DBSCAN
+
+from DetectedObject import DetectedObject
+
+
 class FrameGen():
     def __init__(self,frame_path,eps,min_samples,folder_path):
         self.frame_path = frame_path

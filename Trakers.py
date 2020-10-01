@@ -1,7 +1,8 @@
+import numpy as np
 from filterpy.common import Q_discrete_white_noise
 from filterpy.kalman import KalmanFilter
 from filterpy.stats import plot_covariance_ellipse
-import numpy as np
+
 
 def kalman_tracker(ini_x,ini_y):
     dt = 1.0 # time step
