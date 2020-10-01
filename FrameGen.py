@@ -27,7 +27,7 @@ class FrameGen():
                     rect = cv2.minAreaRect(include_point)
                     center = rect[0]
                     box_corner = cv2.boxPoints(rect)
-                    detected_obj = DetectedObject(center,include_point,box_corner)
+                    detected_obj = DetectedObject(np.array(center),include_point,box_corner)
                     frame_dic[ind] = detected_obj
                 yield frame_dic 
 
