@@ -137,7 +137,7 @@ class MultiTrackingSystem():
         plt.figure(figsize=(20,int(20*((self.y_lim[1]-self.y_lim[0])/(self.x_lim[1]-self.x_lim[0])))))
         plt.ylim(self.y_lim[0],self.y_lim[1]) # figure height is 80
         plt.xlim(self.x_lim[0],self.x_lim[1]) # length is 150
-
+        plt.text(self.x_lim[0],self.y_lim[1],'{}'.format(self.cur_frame),fontsize = 25, c = 'blue')
         for key in self.tracking_list.keys():
             c = get_color(key)
             if type(self.tracking_list[key].detected_centers[-1]) == int:
