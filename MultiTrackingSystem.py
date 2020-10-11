@@ -27,8 +27,8 @@ class MultiTrackingSystem():
         self.cur_frame = 0
         self.gen_fig = gen_fig
         
-    def fit_dbgen(self,folder,frames_name,eps,min_samples):
-        self.frame_gen = FrameGen(frames_name,eps,min_samples,folder).frame_generator()
+    def fit_dbgen(self,frames_name,eps,min_samples):
+        self.frame_gen = FrameGen(frames_name,eps,min_samples).frame_generator()
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
             detected_obj = next_frame[key]

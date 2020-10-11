@@ -9,9 +9,8 @@ from DetectedObject import DetectedObject
 
 
 class FrameGen():
-    def __init__(self,frame_path,eps,min_samples,folder_path):
+    def __init__(self,frame_path,eps,min_samples):
         self.frame_path = frame_path
-        self.folder_path = folder_path
         self.eps = eps
         self.min_samples = min_samples
         self.db = DBSCAN(eps=self.eps,min_samples=self.min_samples)
@@ -20,7 +19,7 @@ class FrameGen():
     def frame_generator(self):
         while True:
             for i in range(len(self.frame_path)):
-                point_cloud = np.array(pd.read_csv(self.folder_path.format(self.frame_path[i])).loc[:,['X','Y']])
+                point_cloud = np.array((pd.read_csv(self.frame_path[i])).loc[:,['X','Y']])
                 label = self.db.fit_predict(point_cloud)
                 uniq_label = np.unique(label)
                 if -1 in uniq_label:
