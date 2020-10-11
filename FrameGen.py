@@ -6,21 +6,20 @@ import pandas as pd
 from sklearn.cluster import DBSCAN
 
 from DetectedObject import DetectedObject
-
+from LidarDBSCAN import AdaptiveDBSCAN
 
 class FrameGen():
-    def __init__(self,frame_path,eps,min_samples):
+    def __init__(self,frame_path):
         self.frame_path = frame_path
-        self.eps = eps
-        self.min_samples = min_samples
-        self.db = DBSCAN(eps=self.eps,min_samples=self.min_samples)
+
         
 
-    def frame_generator(self):
+    def DBSCANframe_generator(self,eps,min_samples):
+        db = DBSCAN(eps=eps,min_samples=min_samples)
         while True:
             for i in range(len(self.frame_path)):
                 point_cloud = np.array((pd.read_csv(self.frame_path[i])).loc[:,['X','Y']])
-                label = self.db.fit_predict(point_cloud)
+                label = db.fit_predict(point_cloud)
                 uniq_label = np.unique(label)
                 if -1 in uniq_label:
                     uniq_label = uniq_label[uniq_label!=-1]
@@ -33,7 +32,24 @@ class FrameGen():
                     detected_obj = DetectedObject(np.array(center),include_point,box_corner)
                     frame_dic[ind] = detected_obj
                 yield frame_dic 
-
+    def ADBSCANframe_generator(self,beta,min_sample_1,min_sample_2,min_sample_3):
+        Adb = AdaptiveDBSCAN(beta,min_sample_1,min_sample_2,min_sample_3)
+        while True:
+            for i in range(len(self.frame_path)):
+                point_cloud = np.array((pd.read_csv(self.frame_path[i])).loc[:,['X','Y','distance_m']])
+                label = Adb.fit_predict(point_cloud)
+                uniq_label = np.unique(label)
+                if -1 in uniq_label:
+                    uniq_label = uniq_label[uniq_label!=-1]
+                frame_dic = {}
+                for ind in range(len(uniq_label)):
+                    include_point = point_cloud[label == uniq_label[ind]].astype(np.float32)[:,[0,1]]
+                    rect = cv2.minAreaRect(include_point)
+                    center = rect[0]
+                    box_corner = cv2.boxPoints(rect)
+                    detected_obj = DetectedObject(np.array(center),include_point,box_corner)
+                    frame_dic[ind] = detected_obj
+                yield frame_dic 
 
 if __name__ == "__main__":
     

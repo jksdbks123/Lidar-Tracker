@@ -15,7 +15,7 @@ from Utils import get_color
 
 
 class MultiTrackingSystem():
-    def __init__(self,iter_n,tolerance,x_lim = [-80, 70],y_lim = [-20, 60],gen_fig = False):
+    def __init__(self,iter_n,tolerance,x_lim = [-80, 70],y_lim = [-20, 60],gen_fig = False,cluster_algorithm = 'DBSCAN'):
         self.tracking_list = {}
         self.out_of_tracking_list = {}
         self.frame_gen = 0
@@ -26,9 +26,10 @@ class MultiTrackingSystem():
         self.y_lim = y_lim
         self.cur_frame = 0
         self.gen_fig = gen_fig
+        self.cluster_algorithm = cluster_algorithm
         
     def fit_dbgen(self,frames_name,eps,min_samples):
-        self.frame_gen = FrameGen(frames_name,eps,min_samples).frame_generator()
+        self.frame_gen = FrameGen(frames_name).DBSCANframe_generator(eps,min_samples)
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
             detected_obj = next_frame[key]
@@ -37,7 +38,16 @@ class MultiTrackingSystem():
         if 'Gifs' not in os.listdir(r'./'):
             os.makedirs(r'./Gifs')
         self.visualization()
-
+    def fit_adbgen(self,frames_name,beta,min_sample1,min_sample2,min_sample3):
+        self.frame_gen = FrameGen(frames_name).ADBSCANframe_generator(beta,min_sample1,min_sample2,min_sample3)
+        next_frame = next(self.frame_gen)
+        for key in next_frame.keys():
+            detected_obj = next_frame[key]
+            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box)
+            self.post_tracking_ind += 1
+        if 'Gifs' not in os.listdir(r'./'):
+            os.makedirs(r'./Gifs')
+        self.visualization()
 
     def get_failed_new_ind(self,next_frame):
         center_probabilities_matrix = np.zeros(shape = (len(self.tracking_list.keys()),len(next_frame.keys())))
@@ -152,12 +162,12 @@ class MultiTrackingSystem():
         plt.savefig('./Gifs/{}.png'.format(self.cur_frame))
         plt.close()
 
-    def svae_gif(self):
+    def svae_gif(self,file_name):
         images = []
         filenames = ['./Gifs/{}.png'.format(i) for i in range(self.iter_n)]
         for filename in filenames:
             images.append(imageio.imread(filename))
-        imageio.mimsave('./tracking_result.gif', images)
+        imageio.mimsave('./{}.gif'.format(file_name), images)
         print('Gif successfully saved')
     
                 
