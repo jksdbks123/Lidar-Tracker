@@ -6,8 +6,8 @@ from matplotlib import pyplot as plt
 
 
 def get_color(key):
-    c_ind = int(key%len(cm.Set1.colors))
-    c = cm.Set1(c_ind) 
+    c_ind = int(key%len(cm.tab20.colors))
+    c = cm.tab20(c_ind) 
     return np.array(c)
 def visualize_single_obj(detected_obj):
     pass

@@ -18,6 +18,7 @@ class MultiTrackingSystem():
     def __init__(self,iter_n,tolerance,x_lim = [-80, 70],y_lim = [-20, 60],gen_fig = False,cluster_algorithm = 'DBSCAN'):
         self.tracking_list = {}
         self.out_of_tracking_list = {}
+        self.frames_objs = []
         self.frame_gen = 0
         self.iter_n = iter_n
         self.tolerance = tolerance
@@ -40,6 +41,18 @@ class MultiTrackingSystem():
         self.visualization()
     def fit_adbgen(self,frames_name,beta,min_sample1,min_sample2,min_sample3):
         self.frame_gen = FrameGen(frames_name).ADBSCANframe_generator(beta,min_sample1,min_sample2,min_sample3)
+        next_frame = next(self.frame_gen)
+        for key in next_frame.keys():
+            detected_obj = next_frame[key]
+            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box)
+            self.post_tracking_ind += 1
+        if 'Gifs' not in os.listdir(r'./'):
+            os.makedirs(r'./Gifs')
+        self.visualization()
+
+    def fit_adbgen_pcap(self,file_path,beta,min_sample1,min_sample2,min_sample3):
+        
+        self.frame_gen = FrameGen(file_path).ADBSCAN_pcap_frame_generator(beta,min_sample1,min_sample2,min_sample3)
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
             detected_obj = next_frame[key]
@@ -139,6 +152,12 @@ class MultiTrackingSystem():
             if self.gen_fig:
                 self.visualization()
             self.track_next_frame()
+            cur_frame_objs = {}
+            for key in self.tracking_list.keys():
+                cur_frame_objs[key] = [self.tracking_list[key].estimated_centers[-1],
+                self.tracking_list[key].bounding_boxes[-1],
+                self.tracking_list[key].point_clouds[-1]]
+            self.frames_objs.append(cur_frame_objs)
         for key in self.tracking_list.keys():
             self.out_of_tracking_list[key] = self.tracking_list[key]
         self.tracking_list.clear()
@@ -172,12 +191,4 @@ class MultiTrackingSystem():
     
                 
             
-if __name__ == "__main__":
-    folder = r'./frames/2019-8-27-7-0-0-BF1(0-18000frames)/{}'
-    os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/US 395')
-    frames_name = os.listdir(r'./frames/2019-8-27-7-0-0-BF1(0-18000frames)/')
-    frames_name.sort(key = lambda x : x.split(' ')[2][:-5])
-    test = MultiTrackingSystem(iter_n = 10, tolerance = 3)
-    test.fit_dbgen(folder, frames_name, 2.0, 10)
-    test.batch_tracking()
-    # test.svae_gif()
+
