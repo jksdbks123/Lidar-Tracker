@@ -11,7 +11,6 @@ class AdaptiveDBSCAN():
         self.min_sample_3 = min_sample_3
         self.c_min = c_min
         self.delta = delta
-    
     def fit_predict(self,X):
         self.X = X
         neighborhoods = []
