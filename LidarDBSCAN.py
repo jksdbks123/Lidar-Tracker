@@ -1,6 +1,7 @@
 from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster._dbscan_inner import dbscan_inner
 import numpy as np
+
 class AdaptiveDBSCAN():
     def __init__(self,beta,min_sample_1,min_sample_2,min_sample_3,delta = 0.15,c_min = True):
         self.X = 0
@@ -23,12 +24,15 @@ class AdaptiveDBSCAN():
             neighborhoods.append(np.where(nnds<radius)[0])
         neighborhoods = np.array(neighborhoods)
         n_neighbors = np.array([len(n) for n in neighborhoods])
-        if self.c_min == True:
+        if self.c_min:
             min_points = 5
         else:
             min_points = self.min_sample_1 * self.X[:,2]**(self.min_sample_2) + self.min_sample_3
             min_points[min_points<3] = 3
         core_samples = np.asarray(n_neighbors >= min_points,dtype=np.uint8)
         labels = np.full(self.X.shape[0], -1, dtype=np.intp)
-        dbscan_inner(core_samples, neighborhoods, labels)
+        try: 
+            dbscan_inner(core_samples, neighborhoods, labels)
+        except: # if no object is detected, return full -1 labels 
+            pass
         return labels 
