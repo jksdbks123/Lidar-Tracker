@@ -24,7 +24,8 @@ class FrameGen():
             rect = cv2.minAreaRect(include_point)
             center = rect[0]
             box_corner = cv2.boxPoints(rect)
-            detected_obj = DetectedObject(np.array(center),include_point,box_corner)
+            elevation_intensity = point_cloud[label == uniq_label[ind]].astype(np.float32)[:,[3,4]]
+            detected_obj = DetectedObject(np.array(center),include_point,box_corner,elevation_intensity)
             frame_dic[ind] = detected_obj
         return frame_dic
 
@@ -61,7 +62,7 @@ class FrameGen():
         frame_gen = lidar_reader.frame_gen()
         while True:
             while True:
-                point_cloud = next(frame_gen)[:,[1,2,4]]
+                point_cloud = next(frame_gen)[:,[1,2,4,3,5]] # X,Y,D,Z,I
                 frame_dic = self.extract_frame_dic(point_cloud,Adb)
                 yield frame_dic
             

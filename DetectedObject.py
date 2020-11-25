@@ -1,6 +1,6 @@
 from Trakers import kalman_tracker
 class TrackingObject():
-    def __init__(self,initial_position,initial_point_cloud,initial_bounding_box):
+    def __init__(self,initial_position,initial_point_cloud,initial_bounding_box,elevation_intensity):
         """
         docstring
         """
@@ -9,12 +9,13 @@ class TrackingObject():
         self.estimated_centers = [initial_position] # [x,y] narray
         self.point_clouds = [initial_point_cloud] # [x,y] narray
         self.bounding_boxes = [initial_bounding_box] # [x,y] naaray
+        self.elevation_intensities = [elevation_intensity]
         self.failed_tracking_counting = 0
         
     
 class DetectedObject():
-    def __init__(self,position,point_cloud,bounding_box):
+    def __init__(self,position,point_cloud,bounding_box,elevation_intensity):
         self.position = position 
         self.point_cloud = point_cloud
         self.bounding_box = bounding_box
-    
+        self.elevation_intensity = elevation_intensity

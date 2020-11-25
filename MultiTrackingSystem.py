@@ -34,7 +34,7 @@ class MultiTrackingSystem():
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
             detected_obj = next_frame[key]
-            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box)
+            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box,detected_obj.elevation_intensity)
             self.post_tracking_ind += 1
         if 'Gifs' not in os.listdir(r'./'):
             os.makedirs(r'./Gifs')
@@ -44,7 +44,7 @@ class MultiTrackingSystem():
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
             detected_obj = next_frame[key]
-            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box)
+            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box,detected_obj.elevation_intensity)
             self.post_tracking_ind += 1
         if 'Gifs' not in os.listdir(r'./'):
             os.makedirs(r'./Gifs')
@@ -56,7 +56,8 @@ class MultiTrackingSystem():
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
             detected_obj = next_frame[key]
-            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box)
+            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,
+                                                                        detected_obj.bounding_box,detected_obj.elevation_intensity)
             self.post_tracking_ind += 1
         if 'Gifs' not in os.listdir(r'./'):
             os.makedirs(r'./Gifs')
@@ -108,13 +109,14 @@ class MultiTrackingSystem():
                     self.tracking_list[failed_key].estimated_centers.append(np.array([next_x,next_y])) # append pred x,y using only pred
                     self.tracking_list[failed_key].detected_centers.append(-1) # detection center
                     self.tracking_list[failed_key].bounding_boxes.append(-1) # bounding box
+                    self.tracking_list[failed_key].elevation_intensities.append(-1)
         """
         Processing new detection
         """
         for i in new_detection_ind:
             new_key = next_frame_obj_keys[i]
             detected_obj = next_frame[new_key]
-            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box)
+            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box,detected_obj.elevation_intensity)
             self.post_tracking_ind += 1
         """
         Update tracking
@@ -136,6 +138,9 @@ class MultiTrackingSystem():
                     self.tracking_list[cur_key].estimated_centers.append(np.array([next_x,next_y])) # append pred x,y using only pred
                     self.tracking_list[cur_key].detected_centers.append(-1) # detection center
                     self.tracking_list[cur_key].bounding_boxes.append(-1) # bounding box
+                    self.tracking_list[cur_key].elevation_intensities.append(-1)
+
+                    
             else:
                 self.tracking_list[cur_key].tracker.update(next_detection_position) # update
                 self.tracking_list[cur_key].failed_tracking_counting = 0 # clear the failed times
@@ -144,7 +149,7 @@ class MultiTrackingSystem():
                 self.tracking_list[cur_key].detected_centers.append(next_detection_position)
                 self.tracking_list[cur_key].bounding_boxes.append(next_frame[next_key].bounding_box)
                 self.tracking_list[cur_key].point_clouds.append(next_frame[next_key].point_cloud)
-        
+                self.tracking_list[cur_key].elevation_intensities.append(next_frame[next_key].elevation_intensity)
     
     def batch_tracking(self):
         for i in tqdm(range(self.iter_n-1)):
