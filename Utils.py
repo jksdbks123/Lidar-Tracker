@@ -1,6 +1,5 @@
 import imageio
 import numpy as np
-from celluloid import Camera
 from matplotlib import animation, cm
 from matplotlib import pyplot as plt
 
