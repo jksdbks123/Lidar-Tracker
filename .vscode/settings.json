@@ -1,4 +1,4 @@
 {
-    "python.pythonPath": "/Users/czhui960/opt/anaconda3/envs/tracking/bin/python",
+    "python.pythonPath": "/Users/czhui960/opt/anaconda3/envs/tf2/bin/python",
     "jupyter.jupyterServerType": "local"
 }
