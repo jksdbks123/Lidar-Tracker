@@ -53,10 +53,12 @@ class TrainingSetGen():
             op3.visualization.draw_geometries(pcds)
         
     def is_input_correct(self,cur_input):
-        if cur_input == 0 or cur_input == 1 or cur_input == 'n' or cur_input == 'N' or cur_input == 'exit':
+        inputs = ['0','1','n','N','exit']
+        if cur_input in inputs:
             return True
         else:
             return False
+        
     def extract_pcds(self,tracking_list,obj_id):
         pcds = []
         intensities = []
@@ -85,14 +87,14 @@ class TrainingSetGen():
             self.show_all_traj(pcds)
             cur_input = input('Save All Trackings?:')
             correct_input = self.is_input_correct(cur_input)
-            if cur_input == 'exit':
-                break
             while correct_input:
                 correct_input = self.is_input_correct(cur_input)
                 print('Wrong Input')
                 if correct_input:
                     break
-            if cur_input == 0 or cur_input == 1:
+            if cur_input == 'exit':
+                break
+            if (cur_input == '0') | (cur_input == '1'):
                 added_samples = 0
                 for i in range(len(pcds)):
                     comfirmed_samples.append(pcds[i])
