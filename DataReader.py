@@ -4,9 +4,11 @@ import dpkt
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import open3d as op3 
 
 class LidarLoader():
-    def __init__(self,file_path):
+    def __init__(self,file_path,bck_voxel_path,detecting_range,with_bf = True): # with_bf == True: LidarLoader is used for generate post BF frames 
+                                                                 # else the LidarLodder is used for generate bck_voxel
         self.Data_order = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
     [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
     [-7.254,1.4],[0.333,-4.2],[-0.333,1.4],[-6.148,-1.4],
@@ -21,7 +23,12 @@ class LidarLoader():
         self.lidar_reader = 0
         self.file_path = file_path
         self.load_reader()
-
+        self.bck_voxel_path =bck_voxel_path
+        self.detecting_range = detecting_range
+        self.BF_flag = with_bf
+        if with_bf:
+            self.bck_voxel = op3.io.read_voxel_grid(self.bck_voxel_path)
+        
     def load_reader(self):
         try:
             fpcap = open(self.file_path, 'rb')
@@ -129,10 +136,10 @@ class LidarLoader():
         return X, Y, Z, intensities, azimuth, timestamps, distances
 
     def frame_gen(self):
+        
         while True:
             cur_culmulative_fires = 0
             frame = []
-            flag = True
             for ts,buf in self.lidar_reader:
                 eth = dpkt.ethernet.Ethernet(buf)
                 data = eth.data.data.data
@@ -152,15 +159,22 @@ class LidarLoader():
                     if cur_culmulative_fires==150:
                         cur_culmulative_fires = 0
                         temp = np.concatenate(frame)
-                        temp = temp[temp[:,4]!=0] # filter out sky laser
+                        nonsky_labels = (temp[:,4]!=0)&(temp[:,4]<self.detecting_range) # filter out sky laser
+
+                        if self.BF_flag:
+                            nonbck_labels = ~np.array(self.bck_voxel.check_if_included(op3.utility.Vector3dVector(temp[:,[1,2,3]])))  
+                            temp = temp[nonbck_labels&nonsky_labels]
+                        else:
+                            temp = temp[nonsky_labels]
                         frame = []
                         yield temp    
                 else:
                     continue
-if __name__ == "__main__":
-    os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/US 395')
-    file_path  = os.listdir()[-4]
-    lidar_reader = LidarLoader(file_path)
-    frame_gen = lidar_reader.frame_gen()
-    print(next(frame_gen).shape)
-    print(next(frame_gen).shape)
+                
+# if __name__ == "__main__":
+#     os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/US 395')
+#     file_path  = os.listdir()[-4]
+#     lidar_reader = LidarLoader(file_path,)
+#     frame_gen = lidar_reader.frame_gen()
+#     print(next(frame_gen).shape)
+#     print(next(frame_gen).shape)

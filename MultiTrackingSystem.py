@@ -1,5 +1,4 @@
 import os
-
 import imageio
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -8,14 +7,13 @@ from filterpy.stats import multivariate_gaussian
 from matplotlib import cm
 from scipy.optimize import linear_sum_assignment
 from tqdm import tqdm
-
 from DetectedObject import TrackingObject
 from FrameGen import FrameGen
-from Utils import get_color
-
+from Utils import *
 
 class MultiTrackingSystem():
-    def __init__(self,iter_n,tolerance,x_lim = [-80, 70],y_lim = [-20, 60],gen_fig = False,cluster_algorithm = 'DBSCAN'):
+    def __init__(self,iter_n,tolerance,bf_resolution,detecting_range,freq_factor,
+                 iter_bf,pcap_file_path,BF = True,gen_fig = False):
         self.tracking_list = {}
         self.out_of_tracking_list = {}
         self.frames_objs = []
@@ -23,44 +21,53 @@ class MultiTrackingSystem():
         self.iter_n = iter_n
         self.tolerance = tolerance
         self.post_tracking_ind = 0
-        self.x_lim = x_lim
-        self.y_lim = y_lim
         self.cur_frame = 0
         self.gen_fig = gen_fig
-        self.cluster_algorithm = cluster_algorithm
-        
-    def fit_dbgen(self,frames_name,eps,min_samples):
-        self.frame_gen = FrameGen(frames_name).DBSCANframe_generator(eps,min_samples)
-        next_frame = next(self.frame_gen)
-        for key in next_frame.keys():
-            detected_obj = next_frame[key]
-            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box,detected_obj.elevation_intensity)
-            self.post_tracking_ind += 1
-        if 'Gifs' not in os.listdir(r'./'):
-            os.makedirs(r'./Gifs')
-        self.visualization()
-    def fit_adbgen(self,frames_name,beta,min_sample1,min_sample2,min_sample3):
-        self.frame_gen = FrameGen(frames_name).ADBSCANframe_generator(beta,min_sample1,min_sample2,min_sample3)
-        next_frame = next(self.frame_gen)
-        for key in next_frame.keys():
-            detected_obj = next_frame[key]
-            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,detected_obj.bounding_box,detected_obj.elevation_intensity)
-            self.post_tracking_ind += 1
-        if 'Gifs' not in os.listdir(r'./'):
-            os.makedirs(r'./Gifs')
-        self.visualization()
-
-    def fit_adbgen_pcap(self,file_path,beta,min_sample1,min_sample2,min_sample3):
-        
-        self.frame_gen = FrameGen(file_path).ADBSCAN_pcap_frame_generator(beta,min_sample1,min_sample2,min_sample3)
+        self.bf_resolution = bf_resolution
+        self.detecting_range = detecting_range
+        self.freq_factor = freq_factor
+        self.iter_bf = iter_bf
+        self.pcap_file_path = pcap_file_path
+        self.x_lim = [-detecting_range,detecting_range]
+        self.y_lim = [-detecting_range,detecting_range]
+        self.bck_voxel_path = 0
+        self.BF = BF
+    def initial_work_space(self):
+        if 'Results' not in os.listdir():
+            os.makedirs('Results')
+        bck_save_path = os.path.join(os.getcwd(),'Results')
+        if 'bck_voxel.ply' not in os.listdir(os.path.join(os.getcwd(),'Results')):
+            #resolution, freq_factor, iter_n, file_path, save_path, detecting_range
+            generate_background_voxel(self.bf_resolution,self.freq_factor,self.iter_bf,
+                                      self.pcap_file_path,bck_save_path,self.detecting_range)
+        self.bck_voxel_path = os.path.join(bck_save_path,'bck_voxel.ply')
+        if 'Gifs' not in os.listdir(os.path.join(os.getcwd(),'Results')):
+            os.makedirs(os.path.join(bck_save_path,'Gifs'))
+            
+    def fit_dbgen_pcap(self,eps,min_samples):
+        if self.BF:
+            self.frame_gen = FrameGen(self.pcap_file_path,self.detecting_range,self.bck_voxel_path).DBSCAN_pcap_frame_generator(eps,min_samples)
+        else:
+            self.frame_gen = FrameGen(self.pcap_file_path,self.detecting_range,self.bck_voxel_path,with_bf=False).DBSCAN_pcap_frame_generator(eps,min_samples)
+            
         next_frame = next(self.frame_gen)
         for key in next_frame.keys():
             detected_obj = next_frame[key]
             self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,
                                                                         detected_obj.bounding_box,detected_obj.elevation_intensity)
             self.post_tracking_ind += 1
-        if 'Gifs' not in os.listdir(r'./'):
-            os.makedirs(r'./Gifs')
+        self.visualization()
+        
+
+    def fit_adbgen_pcap(self,beta,min_sample1,min_sample2,min_sample3):
+        
+        self.frame_gen = FrameGen(self.pcap_file_path,self.detecting_range,self.bck_voxel_path).ADBSCAN_pcap_frame_generator(beta,min_sample1,min_sample2,min_sample3)
+        next_frame = next(self.frame_gen)
+        for key in next_frame.keys():
+            detected_obj = next_frame[key]
+            self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,
+                                                                        detected_obj.bounding_box,detected_obj.elevation_intensity)
+            self.post_tracking_ind += 1
         self.visualization()
 
     def get_failed_new_ind(self,next_frame):
@@ -183,17 +190,52 @@ class MultiTrackingSystem():
                 plt.plot(self.tracking_list[key].bounding_boxes[-1][[0,-1],0],self.tracking_list[key].bounding_boxes[-1][[0,-1],1],c = 'r')
                 plt.text(self.tracking_list[key].detected_centers[-1][0],self.tracking_list[key].detected_centers[-1][1],'{}d'.format(key),fontsize = 20) # detection center
                 plt.text(self.tracking_list[key].estimated_centers[-1][0],self.tracking_list[key].estimated_centers[-1][1],'{}e'.format(key),fontsize = 20) # e
-        plt.savefig('./Gifs/{}.png'.format(self.cur_frame))
+        plt.savefig('./Results/Gifs/{}.png'.format(self.cur_frame))
         plt.close()
 
     def svae_gif(self,file_name):
         images = []
-        filenames = ['./Gifs/{}.png'.format(i) for i in range(self.iter_n)]
+        filenames = ['./Results/Gifs/{}.png'.format(i) for i in range(self.iter_n)]
         for filename in filenames:
             images.append(imageio.imread(filename))
-        imageio.mimsave('./{}.gif'.format(file_name), images)
+        imageio.mimsave('./Results/{}.gif'.format(file_name), images)
         print('Gif successfully saved')
+        
+if __name__ == "__main__":
+    # os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/USA pkwy')
+    # pcap_file_path  = r'./2019-12-18-10-0-0.pcap'
+    # iter_n = 50
+    # tolerance = 4
+    # bf_resolution = 0.2
+    # detecting_range = 60
+    # freq_factor = 0.008
+    # iter_bf = 3000
+    # alpha = np.pi * (0.2)/180
+    # beta = 12
+    # corr = np.sin(alpha/2) * 2
+    # min_sample_1 = 19657
+    # min_sample_2 = -2.138
+    # min_sample_3 = -100
+    # multi_tracking = MultiTrackingSystem(iter_n, tolerance,bf_resolution,detecting_range,freq_factor,iter_bf,pcap_file_path,gen_fig= True)
+    # multi_tracking.initial_work_space()
+    # multi_tracking.fit_adbgen_pcap(beta,min_sample_1,min_sample_2,min_sample_3)
+    # multi_tracking.batch_tracking()
+    # multi_tracking.svae_gif('US')
     
+    os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/USA pkwy')
+    pcap_file_path  = r'./2019-12-18-10-0-0-BF1(0-18000frames).pcap'
+    iter_n = 700
+    tolerance = 4
+    bf_resolution = 0.2
+    detecting_range = 50
+    freq_factor = 0.008
+    iter_bf = 3000
+
+    multi_tracking = MultiTrackingSystem(iter_n, tolerance,bf_resolution,detecting_range,freq_factor,iter_bf,pcap_file_path,gen_fig= True,BF=False)
+    multi_tracking.initial_work_space()
+    multi_tracking.fit_dbgen_pcap(3,7)
+    multi_tracking.batch_tracking()
+    multi_tracking.svae_gif('US')
+                    
                 
-            
 
