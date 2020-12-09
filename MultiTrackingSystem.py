@@ -50,7 +50,7 @@ class MultiTrackingSystem():
         else:
             self.frame_gen = FrameGen(self.pcap_file_path,self.detecting_range,self.bck_voxel_path,with_bf=False).DBSCAN_pcap_frame_generator(eps,min_samples)
             
-        next_frame = next(self.frame_gen)
+        next_frame = next(self.frame_gen)# initialization
         for key in next_frame.keys():
             detected_obj = next_frame[key]
             self.tracking_list[self.post_tracking_ind] = TrackingObject(detected_obj.position,detected_obj.point_cloud,
@@ -92,7 +92,7 @@ class MultiTrackingSystem():
         self.out_of_tracking_list[failed_key] = self.tracking_list[failed_key]
         _ = self.tracking_list.pop(failed_key)
 
-    def track_next_frame(self):
+    def track_next_frame(self): # update in each iteration
         next_frame = next(self.frame_gen)
         tracking_obj_keys = list(self.tracking_list.keys())
         next_frame_obj_keys = list(next_frame.keys())

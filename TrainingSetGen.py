@@ -148,7 +148,7 @@ if __name__ == "__main__":
     os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/USA pkwy')
     bck_path = r'./Results/bck_voxel.ply'
     file_path  = os.listdir()[-1]
-    label_sys = TrainingSetGen(file_path,600,bck_path)
+    label_sys = TrainingSetGen(file_path,100,bck_path)
     label_sys.generate_trackings()
     label_sys.labeling()
     
