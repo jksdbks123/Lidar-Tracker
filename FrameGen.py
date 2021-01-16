@@ -18,7 +18,7 @@ class FrameGen():
     def extract_frame_dic(self,point_cloud,Adb):
         if len(point_cloud) == 0:
             return {}
-        label = Adb.fit_predict(point_cloud)
+        label = Adb.fit_predict(point_cloud)# cluster part point_cloud: 2D array [[2.1,2.3],[2.2,3.4],[x,y],[100,121]] label:[0,0,1,-1]
         uniq_label = np.unique(label)
         if -1 in uniq_label:
             uniq_label = uniq_label[uniq_label!=-1]
@@ -31,7 +31,8 @@ class FrameGen():
             elevation_intensity = point_cloud[label == uniq_label[ind]].astype(np.float32)[:,[3,4]]
             detected_obj = DetectedObject(np.array(center),include_point,box_corner,elevation_intensity)
             frame_dic[ind] = detected_obj
-        return frame_dic
+
+        return frame_dic #next_frame
 
     def DBSCAN_pcap_frame_generator(self,eps,min_samples):
         db = DBSCAN(eps=eps,min_samples=min_samples)
@@ -54,3 +55,14 @@ class FrameGen():
                 yield frame_dic
             
             
+if __name__ == "__main__":
+    pcap_file_path = r'/Users/czhui960/Documents/Lidar/to ZHIHUI/USA pkwy/2019-12-18-10-0-0-BF1(0-18000frames).pcap'
+    detecting_range = 40 #meter
+    bck_voxel_path = 0
+    eps = 1
+    min_samples = 7
+    frame_gen = FrameGen(pcap_file_path,detecting_range,bck_voxel_path,with_bf=False).DBSCAN_pcap_frame_generator(eps,min_samples)
+    for i in range(100):
+        next_frame = next(frame_gen)
+        if i == 10:
+            print(next_frame[0].point_cloud)

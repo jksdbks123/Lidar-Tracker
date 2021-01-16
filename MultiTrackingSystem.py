@@ -86,7 +86,11 @@ class MultiTrackingSystem():
         """
         failed_tracked_ind = np.setdiff1d(np.arange(len(self.tracking_list.keys())),cur_tracking_ind) # in the relative position who failed to tracking 
         new_detection_ind = np.setdiff1d(np.arange(len(next_frame.keys())),next_detection_ind)
+        
         return failed_tracked_ind, new_detection_ind,cur_tracking_ind,next_detection_ind
+
+        
+
 
     def drop_tracking(self,failed_key): # drop failed tracking object out of tracking list
         self.out_of_tracking_list[failed_key] = self.tracking_list[failed_key]
@@ -96,8 +100,10 @@ class MultiTrackingSystem():
         next_frame = next(self.frame_gen)
         tracking_obj_keys = list(self.tracking_list.keys())
         next_frame_obj_keys = list(next_frame.keys())
-        failed_tracked_ind,new_detection_ind,cur_tracking_ind,next_detection_ind = self.get_failed_new_ind(next_frame)
+        failed_tracked_ind,new_detection_ind,cur_tracking_ind,next_detection_ind = self.get_failed_new_ind(next_frame)# self.prob_trakcing
 
+        
+        
         """
         Processing failed tracking
         """
