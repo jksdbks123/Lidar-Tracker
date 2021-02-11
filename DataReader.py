@@ -1,4 +1,4 @@
-from tqdm import tqdm_notebook
+from tqdm import tqdm
 import datetime
 import dpkt
 import numpy as np
@@ -172,10 +172,13 @@ class LidarLoader():
                 else:
                     continue
                 
-# if __name__ == "__main__":
-#     os.chdir(r'/Users/czhui960/Documents/Lidar/to ZHIHUI/US 395')
-#     file_path  = os.listdir()[-4]
-#     lidar_reader = LidarLoader(file_path,)
-#     frame_gen = lidar_reader.frame_gen()
-#     print(next(frame_gen).shape)
-#     print(next(frame_gen).shape)
+if __name__ == "__main__":
+    file_path  = '../to ZHIHUI/USA pkwy/2019-12-18-10-0-0.pcap'
+    bck_voxel_path = 0
+    detecting_range = 50
+    lidar_reader = LidarLoader(file_path,bck_voxel_path,detecting_range,with_bf = False)
+    frame_gen = lidar_reader.frame_gen()
+    frames = []
+    for i in tqdm(range(100)):
+        frames.append(next(frame_gen))
+    
