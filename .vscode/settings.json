@@ -1,4 +1,5 @@
 {
     "python.pythonPath": "/Users/czhui960/opt/anaconda3/envs/tf2/bin/python",
-    "jupyter.jupyterServerType": "local"
+    "jupyter.jupyterServerType": "local",
+    "git.ignoreLimitWarning": true
 }
