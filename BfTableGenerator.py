@@ -1,18 +1,19 @@
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 import dpkt
 import numpy as np
 import open3d as op3 
 import pandas as pd
 import os
+
 class RansacCollector():
     def __init__(self,pcap_path,frames_set): 
         """
         frames_set -> frame indexes to use in the development of td map
         td_maps -> 1800 * 32 * ts
         thred_map -> thredshold map
+        
         """
-        
-        
         self.frames_set = frames_set
         self.pcap_path = pcap_path
         self.td_maps = None
@@ -21,8 +22,43 @@ class RansacCollector():
             os.mkdir('Output File')
         self.output_path = os.path.join(os.getcwd(),'Output File')
         
-    def gen_tdmap(self):
+    def sampling_effectiveness_test(self,Sampling_intervals):
         
+        if self.td_maps is None:
+            return None
+        
+        sub_maps = []
+        self.gen_thredmap(d = 1.4,thred_s = 0.6,N = 20,delta_thred = 1e-3,step = 0.01,inuse_frame = self.frames_set)
+        overall_map = self.thred_map.copy()
+        np.save(os.path.join(self.output_path,'thred_map_overall.npy'),self.thred_map)
+                
+        for N in Sampling_intervals:
+            frame_intervals = np.arange(10,17950,N)
+            inuse = [np.arange(inter - 10, inter + 10) for inter in frame_intervals]
+            inuse = np.concatenate(inuse).astype('int')
+            self.gen_thredmap(d = 1.4,thred_s = 0.6,N = 20,delta_thred = 1e-3,step = 0.01,inuse_frame = inuse)
+            np.save(os.path.join(self.output_path,'thred_map_{}.npy'.format(N)),self.thred_map)
+            sub_maps.append(self.thred_map.copy())
+            print('Sampling Interval:', N)
+            
+        diffs_02 = [1-np.abs((sub_maps[i] - overall_map)<0.2).sum()/(1800*32) for i in range(len(sub_maps))]
+        diffs_05 = [1-np.abs((sub_maps[i] - overall_map)<0.5).sum()/(1800*32) for i in range(len(sub_maps))]
+        dic = {'Sampling_intervals':Sampling_intervals,
+               'Diff<0.2m':diffs_02,
+               'Diff<0.5m':diffs_05}
+        pd.DataFrame(dic).to_csv(os.path.join(self.output_path,'test_result.csv'),index=False)
+        plt.figure(figsize=(10,5))
+        plt.plot(diffs_02,label = 'Diff < 0.2m',marker = 'x')
+        plt.plot(diffs_05,label = 'Diff < 0.5m',marker = 'x')
+        plt.xticks(np.arange(len(diffs_02)),Sampling_intervals)
+        plt.legend(fontsize = 13)
+        plt.ylabel('Diffsum',fontsize = 15)
+        plt.xlabel('Sampling Interval',fontsize = 15)
+        plt.savefig(os.path.join(self.output_path,'test_result.png'),dpi = 300)
+        plt.show()
+        
+    def gen_tdmap(self):
+    
         lidar_reader = TDmapLoader(self.pcap_path)
         frame_gen = lidar_reader.frame_gen()
         td_maps = [] 
@@ -32,31 +68,28 @@ class RansacCollector():
             td_maps.append(one_frame)
         aggregated_maps = np.array(td_maps) # 1800 * 32 * len(ts)
         self.td_maps = aggregated_maps
-        # aggregated_maps_sorted = aggregated_maps[:,:,lidar_reader.Data_order[:,0].argsort()] 
     
-    def gen_thredmap(self):
+    def gen_thredmap(self,d,thred_s,N,delta_thred,step,inuse_frame):
+        
         if self.td_maps is None:
-            return 0
-        aggregated_maps_temp = self.td_maps[self.frames_set,:,:].copy()
-        for i in tqdm(range(1800)):
-            for j in range(32):
-                ts_b = aggregated_maps_temp[:,i,j].copy()
-                ts_b[ts_b == 0] = 200
-                aggregated_maps_temp[:,i,j] = ts_b
+            return None
+        aggregated_maps_temp = self.td_maps[inuse_frame,:,:].copy()
         threshold_map = np.zeros((1800,32))
         print('Generating Threshold Map')
         for i in tqdm(range(1800)):
             for j in range(32):
                 t_s = aggregated_maps_temp[:,i,j].copy()
-                threshold_value = self.get_thred(t_s,step=0.1)
+                threshold_value = self.get_thred(t_s,d,thred_s,N,delta_thred,step)
                 threshold_map[i,j] = threshold_value
         self.thred_map = threshold_map
         
-    def get_thred(self,ts,d = 1.4,thred_s = 0.6,N = 20,delta_thred = 1e-3,step = 0.1):# Ransac Para
+    def get_thred(self,ts,d ,thred_s ,N ,delta_thred ,step ):# Ransac Para
+        
         samples = []
-        ts = ts[ts!=200]
-        if len(ts) == 0:
+        emp_ratio = len(ts[ts==0])/len(ts)
+        if emp_ratio > 0.8:
             return 200
+        ts = ts[ts!=0]
         flag = True                             
         for i in range(N):
             sample = np.random.choice(ts,replace=False)
@@ -75,6 +108,7 @@ class RansacCollector():
         return next_thred
     
     def gen_pcdseq(self,frame_index_list): # gen_pcdseq is to generate pcd sequence, background points are represented by red and the targets are labeled by blue
+        
         pcds_dir = os.path.join(self.output_path,'PcdSequence')
         if 'PcdSequence' not in os.listdir(self.output_path):
             os.mkdir(pcds_dir)
@@ -332,9 +366,22 @@ class TDmapLoader():
 
             
 if __name__ == "__main__":
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/Vateran')
-    collector = RansacCollector(pcap_path=r'./Vateran.pcap',frames_set = np.arange(0,2000,1).astype('int'))
+    # os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/Vateran')
+    # frame_set = np.arange(0,12000,1).astype('int')
+    # td_frame_set = np.arange(10,18000,100)
+    # collector = RansacCollector(pcap_path=r'./Vateran.pcap',frames_set = frame_set)
+    # collector.gen_tdmap()
+    # collector.gen_thredmap(d = 1.4,thred_s = 0.6,N = 20,delta_thred = 1e-3,step = 0.01,inuse_frame=td_frame_set)
+    # collector.save_tdmap()
+    # collector.gen_pcdseq(collector.frames_set)
+    """
+    
+    Run This Code, An Analysis Result Will Be Saved in The Output Folder.
+    
+    """
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/LiDAR Data For Zhihui/LosAltosInt')
+    frame_set = np.arange(0,17950,1).astype('int')
+    Ns = [100,200,300,400,500,600,900,1000,1200,1500,1800,2000,3000,3600]
+    collector = RansacCollector(pcap_path=r'./2020-12-19-16-30-0.pcap',frames_set = frame_set)
     collector.gen_tdmap()
-    collector.gen_thredmap()
-    collector.save_tdmap()
-    collector.gen_pcdseq(collector.frames_set)
+    collector.sampling_effectiveness_test(Ns)
