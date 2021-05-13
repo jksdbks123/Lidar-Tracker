@@ -7,7 +7,7 @@ import pandas as pd
 import os
 
 class RansacCollector():
-    def __init__(self,pcap_path,frames_set): 
+    def __init__(self,pcap_path,frames_set,thred_map_path = None): 
         """
         frames_set -> frame indexes to use in the development of td map
         td_maps -> 1800 * 32 * ts
@@ -17,7 +17,17 @@ class RansacCollector():
         self.frames_set = frames_set
         self.pcap_path = pcap_path
         self.td_maps = None
-        self.thred_map = None
+        self.azimuths = np.arange(0,360,0.2)
+        self.thred_map = thred_map_path
+        self.theta = np.sort(np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
+                            [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
+                            [-7.254,1.4],[0.333,-4.2],[-0.333,1.4],[-6.148,-1.4],
+                            [-5.333,4.2],[1.333,-1.4],[0.667,4.2],[-4,-1.4],
+                            [-4.667,1.4],[1.667,-4.2],[1,1.4],[-3.667,-4.2],
+                            [-3.333,4.2],[3.333,-1.4],[2.333,1.4],[-2.667,-1.4],
+                            [-3,1.4],[7,-1.4],[4.667,1.4],[-2.333,-4.2],
+                            [-2,4.2],[15,-1.4],[10.333,1.4],[-1.333,-1.4]
+                            ])[:,0])
         if 'Output File' not in os.listdir(os.getcwd()):
             os.mkdir('Output File')
         self.output_path = os.path.join(os.getcwd(),'Output File')
@@ -74,10 +84,11 @@ class RansacCollector():
         if self.td_maps is None:
             return None
         aggregated_maps_temp = self.td_maps[inuse_frame,:,:].copy()
-        threshold_map = np.zeros((1800,32))
+        threshold_map = np.zeros((32,1800))
+        
         print('Generating Threshold Map')
-        for i in tqdm(range(1800)):
-            for j in range(32):
+        for i in tqdm(range(32)):
+            for j in range(1800):
                 t_s = aggregated_maps_temp[:,i,j].copy()
                 threshold_value = self.get_thred(t_s,d,thred_s,N,delta_thred,step)
                 threshold_map[i,j] = threshold_value
@@ -123,41 +134,32 @@ class RansacCollector():
         print('Thred Map Saved at',os.path.join(self.output_path ))
     
     def gen_pcd(self,frame_index):
-        theta = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
-                            [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
-                            [-7.254,1.4],[0.333,-4.2],[-0.333,1.4],[-6.148,-1.4],
-                            [-5.333,4.2],[1.333,-1.4],[0.667,4.2],[-4,-1.4],
-                            [-4.667,1.4],[1.667,-4.2],[1,1.4],[-3.667,-4.2],
-                            [-3.333,4.2],[3.333,-1.4],[2.333,1.4],[-2.667,-1.4],
-                            [-3,1.4],[7,-1.4],[4.667,1.4],[-2.333,-4.2],
-                            [-2,4.2],[15,-1.4],[10.333,1.4],[-1.333,-1.4]
-                            ])[:,0]
         rbg_red = np.array([204,47,107]) # red
         rbg_blue = np.array([0,0,255]) # blue
         td_freq_map = self.td_maps[frame_index]
         Xs = []
         Ys = []
         Zs = []
-        Labels = []
         for i in range(td_freq_map.shape[0]):
-            longitudes = theta*np.pi / 180
-            latitudes = i*0.2* np.pi / 180 
+            longitudes = self.theta[i] * np.pi / 180
+            latitudes = self.azimuths * np.pi / 180 
             hypotenuses = td_freq_map[i] * np.cos(longitudes)
             X = hypotenuses * np.sin(latitudes)
             Y = hypotenuses * np.cos(latitudes)
             Z = td_freq_map[i] * np.sin(longitudes)
-            Label =  (td_freq_map[i]<self.thred_map[i]).astype('int')   
-            Xs.append(X)
-            Ys.append(Y)
-            Zs.append(Z)
-            Labels.append(Label)
+            Label =  (td_freq_map[i]<self.thred_map[i])
+            Valid_ind =  (td_freq_map[i] != 0)&(Label) # None zero index
+            Xs.append(X[Valid_ind])
+            Ys.append(Y[Valid_ind])
+            Zs.append(Z[Valid_ind])
         Xs = np.concatenate(Xs)
         Ys = np.concatenate(Ys)
         Zs = np.concatenate(Zs)
-        Labels = np.concatenate(Labels)
-        color_labels = np.zeros((len(Labels),3))
-        color_labels[Labels == 1] = rbg_blue
-        color_labels[Labels == 0] = rbg_red
+        # Labels = np.concatenate(Labels)
+        color_labels = np.full((len(Xs),3),rbg_blue)
+        # color_labels[Labels == 1] = rbg_blue
+        # color_labels[Labels == 0] = rbg_red
+        
         pcd = op3.geometry.PointCloud()
         pcd.points = op3.utility.Vector3dVector(np.concatenate([Xs.reshape(-1,1),Ys.reshape(-1,1),Zs.reshape(-1,1)],axis = 1))
         pcd.colors = op3.utility.Vector3dVector(color_labels/255)
@@ -280,8 +282,8 @@ class TDmapLoader():
         azimuth_ind = np.around(frame[:,0]/0.2).astype('int')
         azimuth_ind[azimuth_ind == 1800] = 0
         theta_ind = frame[:,-1].astype('int')
-        td_freq_map = np.zeros((1800,32))
-        td_freq_map[azimuth_ind,theta_ind] = frame[:,1]
+        td_freq_map = np.zeros((32,1800))
+        td_freq_map[theta_ind,azimuth_ind] = frame[:,1]
         return td_freq_map
     
     def cal_angle_diff(self,advance_angle,lagging_angle):
@@ -339,7 +341,7 @@ class TDmapLoader():
                             frame.append(np.concatenate([azimuth[:frame_end_index].flatten().reshape(-1,1),
                                                          distances[:frame_end_index].flatten().reshape(-1,1),
                                                          intensities[:frame_end_index].flatten().reshape(-1,1)],axis = 1))
-                            temp = np.concatenate(frame)
+                            temp = np.concatenate(frame) # n x 3
                             theta_ind = np.tile(np.arange(32),block_num).reshape(-1,1)
                             temp[:,0][temp[:,0]>360] -= 360
                             temp[:,0][temp[:,0]<0] += 360
@@ -354,7 +356,7 @@ class TDmapLoader():
                                                          intensities[frame_end_index:].flatten().reshape(-1,1)],axis = 1))
                             td_freq_map = self.gen_td_map(temp)
                             
-                            yield td_freq_map #32*1800
+                            yield td_freq_map[np.argsort(self.omega),:] #32*1800
                             
                         else:
                             culmulative_azimuth = temp_culmulative_azimuth
@@ -366,22 +368,23 @@ class TDmapLoader():
 
             
 if __name__ == "__main__":
-    # os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/Vateran')
-    # frame_set = np.arange(0,12000,1).astype('int')
-    # td_frame_set = np.arange(10,18000,100)
-    # collector = RansacCollector(pcap_path=r'./Vateran.pcap',frames_set = frame_set)
-    # collector.gen_tdmap()
-    # collector.gen_thredmap(d = 1.4,thred_s = 0.6,N = 20,delta_thred = 1e-3,step = 0.01,inuse_frame=td_frame_set)
-    # collector.save_tdmap()
-    # collector.gen_pcdseq(collector.frames_set)
-    """
-    
-    Run This Code, An Analysis Result Will Be Saved in The Output Folder.
-    
-    """
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/LiDAR Data For Zhihui/LosAltosInt')
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
+    # thred_map = np.load(r'Output File/thred_map_1200.npy')
     frame_set = np.arange(0,17950,1).astype('int')
-    Ns = [100,200,300,400,500,600,900,1000,1200,1500,1800,2000,3000,3600]
-    collector = RansacCollector(pcap_path=r'./2020-12-19-16-30-0.pcap',frames_set = frame_set)
+    collector = RansacCollector(pcap_path=r'./2020-7-27-10-30-0.pcap',frames_set = frame_set)
     collector.gen_tdmap()
-    collector.sampling_effectiveness_test(Ns)
+    collector.gen_thredmap(d = 1.4,thred_s = 0.7,N = 20,delta_thred = 1e-3,step = 0.01,inuse_frame = frame_set)
+    collector.gen_pcdseq(np.arange(0,5000))
+    # """
+    
+    # Run This Code, An Analysis Result Will Be Saved in The Output Folder.
+    
+    # """
+    # os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/LiDAR Data For Zhihui/LosAltosInt')
+    # frame_set = np.arange(0,17950,1).astype('int')
+    # Ns = [100,200,300,400,500,600,900,1000,1200,1500,1800,2000,3000,3600]
+    # collector = RansacCollector(pcap_path=r'./2020-12-19-16-30-0.pcap',frames_set = frame_set)
+    # collector.gen_tdmap()
+    # collector.sampling_effectiveness_test(Ns)
+    
+    
