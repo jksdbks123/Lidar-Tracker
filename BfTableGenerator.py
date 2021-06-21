@@ -7,17 +7,16 @@ import pandas as pd
 import os
 
 class RansacCollector():
-    def __init__(self,pcap_path,frames_set,thred_map_path = None): 
+    def __init__(self,pcap_path,update_frame_num,thred_map_path = None): 
         """
-        frames_set -> frame indexes to use in the development of td map
-        td_maps -> 1800 * 32 * ts
+        update_frame_num -> frame indexes to use in the development of td map
+        aggregated_map -> 1800 * 32 * ts
         thred_map -> thredshold map
         
         """
-        self.frames_set = frames_set
+        self.update_frame_num = update_frame_num
         self.pcap_path = pcap_path
-        self.td_maps = None
-        self.azimuths = np.arange(0,360,0.2)
+        self.aggregated_map = None
         self.thred_map = thred_map_path
         self.theta = np.sort(np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
                             [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
@@ -28,44 +27,12 @@ class RansacCollector():
                             [-3,1.4],[7,-1.4],[4.667,1.4],[-2.333,-4.2],
                             [-2,4.2],[15,-1.4],[10.333,1.4],[-1.333,-1.4]
                             ])[:,0])
+        self.azimuths = np.arange(0,360,0.2)
+        
         if 'Output File' not in os.listdir(os.getcwd()):
             os.mkdir('Output File')
         self.output_path = os.path.join(os.getcwd(),'Output File')
         
-    def sampling_effectiveness_test(self,Sampling_intervals):
-        
-        if self.td_maps is None:
-            return None
-        
-        sub_maps = []
-        self.gen_thredmap(d = 1.4,thred_s = 0.6,N = 20,delta_thred = 1e-3,step = 0.01,inuse_frame = self.frames_set)
-        overall_map = self.thred_map.copy()
-        np.save(os.path.join(self.output_path,'thred_map_overall.npy'),self.thred_map)
-                
-        for N in Sampling_intervals:
-            frame_intervals = np.arange(10,17950,N)
-            inuse = [np.arange(inter - 10, inter + 10) for inter in frame_intervals]
-            inuse = np.concatenate(inuse).astype('int')
-            self.gen_thredmap(d = 1.4,thred_s = 0.6,N = 20,delta_thred = 1e-3,step = 0.01,inuse_frame = inuse)
-            np.save(os.path.join(self.output_path,'thred_map_{}.npy'.format(N)),self.thred_map)
-            sub_maps.append(self.thred_map.copy())
-            print('Sampling Interval:', N)
-            
-        diffs_02 = [1-np.abs((sub_maps[i] - overall_map)<0.2).sum()/(1800*32) for i in range(len(sub_maps))]
-        diffs_05 = [1-np.abs((sub_maps[i] - overall_map)<0.5).sum()/(1800*32) for i in range(len(sub_maps))]
-        dic = {'Sampling_intervals':Sampling_intervals,
-               'Diff<0.2m':diffs_02,
-               'Diff<0.5m':diffs_05}
-        pd.DataFrame(dic).to_csv(os.path.join(self.output_path,'test_result.csv'),index=False)
-        plt.figure(figsize=(10,5))
-        plt.plot(diffs_02,label = 'Diff < 0.2m',marker = 'x')
-        plt.plot(diffs_05,label = 'Diff < 0.5m',marker = 'x')
-        plt.xticks(np.arange(len(diffs_02)),Sampling_intervals)
-        plt.legend(fontsize = 13)
-        plt.ylabel('Diffsum',fontsize = 15)
-        plt.xlabel('Sampling Interval',fontsize = 15)
-        plt.savefig(os.path.join(self.output_path,'test_result.png'),dpi = 300)
-        plt.show()
         
     def gen_tdmap(self):
     
@@ -73,21 +40,21 @@ class RansacCollector():
         frame_gen = lidar_reader.frame_gen()
         td_maps = [] 
         print('Loading pcap...')
-        for i in tqdm(range(np.max(self.frames_set)+1)):
+        for i in tqdm(range(self.update_frame_num)):
             one_frame = next(frame_gen)
             td_maps.append(one_frame)
         aggregated_maps = np.array(td_maps) # 1800 * 32 * len(ts)
-        self.td_maps = aggregated_maps
-    
-    def gen_thredmap(self,d,thred_s,N,delta_thred,step,inuse_frame):
+        self.aggregated_map = aggregated_maps
+
+    def gen_thredmap(self,d,thred_s,N,delta_thred,step):
         
-        if self.td_maps is None:
+        if self.aggregated_map is None:
             return None
-        aggregated_maps_temp = self.td_maps[inuse_frame,:,:].copy()
+        aggregated_maps_temp = self.aggregated_map.copy()
         threshold_map = np.zeros((32,1800))
         
         print('Generating Threshold Map')
-        for i in tqdm(range(32)):
+        for i in range(32):
             for j in range(1800):
                 t_s = aggregated_maps_temp[:,i,j].copy()
                 threshold_value = self.get_thred(t_s,d,thred_s,N,delta_thred,step)

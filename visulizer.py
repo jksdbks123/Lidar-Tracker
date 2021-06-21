@@ -16,7 +16,7 @@ def save_view_point(initial_pcd):
     return filename
     
 def show_3d_sequence():
-    pcds_path = os.path.join(os.path.join(os.getcwd(),'Output File'),'PcdSequence')
+    pcds_path = os.path.join(os.path.join(os.getcwd(),'Output File'),'Output Pcd')
     initial_pcd = op3.io.read_point_cloud(pcds_path+"/{}.pcd".format(0))
     veiw_control_path = save_view_point(initial_pcd)
     vis = op3.visualization.Visualizer()
@@ -46,5 +46,5 @@ def show_3d_sequence():
     vis.destroy_window()  
 
 if __name__ == "__main__":
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/US395')
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
     show_3d_sequence()
