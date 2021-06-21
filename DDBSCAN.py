@@ -20,8 +20,8 @@ class Raster_DBSCAN():
         self.Td_map_size = Td_map_szie
         self.eps = eps
         self.min_samples = min_samples
-        self.Height_fringe = int(self.window_size[0]/2)
-        self.Width_fringe = int(self.window_size[1]/2)
+        self.Height_fringe = int(self.window_size[0]/2) 
+        self.Width_fringe = int(self.window_size[1]/2) # azimuth
         self.Td_map = None #Two-Dimentional Map   
         self.Labeling_map = None #
         self.Foreground_map = None # A mask  indicating those pixels are required to be clustered

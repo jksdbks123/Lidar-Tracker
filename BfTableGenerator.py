@@ -163,6 +163,7 @@ class RansacCollector():
         pcd = op3.geometry.PointCloud()
         pcd.points = op3.utility.Vector3dVector(np.concatenate([Xs.reshape(-1,1),Ys.reshape(-1,1),Zs.reshape(-1,1)],axis = 1))
         pcd.colors = op3.utility.Vector3dVector(color_labels/255)
+        
         return pcd
     
         
