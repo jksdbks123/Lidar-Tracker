@@ -199,7 +199,7 @@ class MOT():
         print('Generating Traj Files...')
         for key in tqdm(self.Off_tracking_pool): 
             sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
-            sum_file.to_csv(self.traj_path + '/{}.csv'.format(1),index = False)
+            sum_file.to_csv(self.traj_path + '/{}.csv'.format(key),index = False)
             keys.append(key)
             start_frame.append(self.Off_tracking_pool[key].start_frame)
             lengths.append(len(self.Off_tracking_pool[key].post_seq))
