@@ -198,7 +198,7 @@ class MOT():
         lengths = []
         for key in self.Off_tracking_pool:
             sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
-            sum_file.to_csv(os.path(self.traj_path,'{}.csv'.format(key)),index = False)
+            sum_file.to_csv(os.path.join((self.traj_path,'{}.csv'.format(key)),index = False))
             keys.append(key)
             start_frame.append(self.Off_tracking_pool[key].start_frame)
             lengths.append(len(self.Off_tracking_pool.post_seq))
@@ -290,8 +290,9 @@ if __name__ == "__main__":
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
     os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/US395/')
-    mot = MOT(r'./US395.pcap',ending_frame=4000,background_update_frame = 1000,**params)
+    mot = MOT(r'./US395.pcap',ending_frame=1000,background_update_frame = 100,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
+    mot.save_result()
 
         
