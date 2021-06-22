@@ -1,8 +1,6 @@
 from BfTableGenerator import *
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
-from scipy.optimize import linear_sum_assignment
-import pandas as pd
 
 class MOT():
     def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = True):

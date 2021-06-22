@@ -1,6 +1,8 @@
 import numpy as np
 import open3d as op3
 from scipy.spatial import distance
+import pandas as pd
+from scipy.optimize import linear_sum_assignment
 
 class detected_obj():
     def __init__(self):
