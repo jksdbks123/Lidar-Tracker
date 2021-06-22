@@ -196,17 +196,18 @@ class MOT():
         keys = []
         start_frame = []
         lengths = []
-        for key in self.Off_tracking_pool:
+        print('Generating Traj Files...')
+        for key in tqdm(self.Off_tracking_pool): 
             sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
-            sum_file.to_csv(os.path.join((self.traj_path,'{}.csv'.format(key)),index = False))
+            sum_file.to_csv(self.traj_path + '/{}.csv'.format(1),index = False)
             keys.append(key)
             start_frame.append(self.Off_tracking_pool[key].start_frame)
-            lengths.append(len(self.Off_tracking_pool.post_seq))
+            lengths.append(len(self.Off_tracking_pool[key].post_seq))
         pd.DataFrame({
             'Glb_ID':keys,
             'Start_Frame':start_frame,
             'Len':lengths
-        }).to_csv(os.path.join(self.data_collector.output_path,'Summary.csv'))
+        }).to_csv(self.data_collector.output_path+'/Summary.csv')
             
     def save_cur_pcd(self,Td_map,Labeling_map,Tracking_pool,f):
         
