@@ -75,13 +75,19 @@ class MOT():
         frame_gen = lidar_reader.frame_gen()
         self.frame_gen = frame_gen
         aggregated_maps = []
-        Frame_ind = 0
+        Frame_ind_init = 0
         
-        Td_map = next(frame_gen)
-        aggregated_maps.append(Td_map)
-        Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
-        Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-        xylwh_init,unique_label_init = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map)
+        while True: #Iterate Unitil a frame with one or more target is detected 
+            Td_map = next(frame_gen)
+            aggregated_maps.append(Td_map)
+            Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
+            Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
+            xylwh_init,unique_label_init = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map)
+            if self.save_pcd:
+                self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
+            Frame_ind_init += 1
+            if len(unique_label_init)>0:
+                break
 
         mea_init = extract_mea_state_vec(xylwh_init)
         # m: n x 5 x 1
@@ -90,16 +96,14 @@ class MOT():
         P_init = np.full((xylwh_init.shape[0],A.shape[0],A.shape[0]),P_em)
 
         for i,label in enumerate(unique_label_init):
-            create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],label,mea_init[i],Frame_ind)
+            create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
             
-        if self.save_pcd:
-            self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
             
         state_cur,P_cur,glb_id_cur = state_init,P_init,unique_label_init 
-        pbar = tqdm(range(1,self.ending_frame))
+        pbar = tqdm(range(Frame_ind_init,self.ending_frame))
+        
         for Frame_ind in pbar:
-            
             pbar.set_description('Tracking {} frame'.format(Frame_ind))
             if (Frame_ind % self.background_update_frame == 0) & (Frame_ind != 0): 
                 aggregated_maps = np.array(aggregated_maps)
@@ -124,48 +128,57 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
-            mea_next = extract_mea_state_vec(xylwh_next)
-            State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next,R)
-            associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
-            associated_ind_glb_,associated_ind_label_ = [],[]
-            for i,ass_id in enumerate(associated_ind_glb):
-                if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
-                    associated_ind_glb_.append(ass_id)
-                    associated_ind_label_.append(associated_ind_label[i])
-            associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
             
-            """
-            Failed tracking and new detections
-            """
-            # in a but not in b
-            failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_glb) 
-            
-            if len(failed_tracked_ind) > 0:
-                for fid in failed_tracked_ind:
-                    process_fails(self.Tracking_pool,self.Off_tracking_pool,glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
+            if len(unique_lebel_next) > 0: # if object detected at next frame 
+                mea_next = extract_mea_state_vec(xylwh_next)
+                State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next,R)
+                associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
+                associated_ind_glb_,associated_ind_label_ = [],[]
+                for i,ass_id in enumerate(associated_ind_glb):
+                    if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
+                        associated_ind_glb_.append(ass_id)
+                        associated_ind_label_.append(associated_ind_label[i])
+                associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
+                
+                """
+                Failed tracking and new detections
+                """
+                # in a but not in b
+                failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_glb) 
+                
+                if len(failed_tracked_ind) > 0:
+                    for fid in failed_tracked_ind:
+                        process_fails(self.Tracking_pool,self.Off_tracking_pool,
+                                      glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
 
-            new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
-            if len(new_detection_ind) > 0:
-                for n_id in new_detection_ind:
-                    state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
-                    create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
-                    self.Global_id += 1
-            
+                new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
+                if len(new_detection_ind) > 0:
+                    for n_id in new_detection_ind:
+                        state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
+                        create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
+                                             unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                        self.Global_id += 1
                 
-            if len(associated_ind_glb) != 0:
-                state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
-                glb_ids = glb_ids[associated_ind_glb]
-                mea_next = mea_next[associated_ind_label]
-                unique_lebel_next = unique_lebel_next[associated_ind_label]
-                
-                """
-                Associate detections 
-                """
+                    
+                if len(associated_ind_glb) != 0:
+                    state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
+                    glb_ids = glb_ids[associated_ind_glb]
+                    mea_next = mea_next[associated_ind_label]
+                    unique_lebel_next = unique_lebel_next[associated_ind_label]
+                    
+                    """
+                    Associate detections 
+                    """
+                    for i,glb_id in enumerate(glb_ids):
+
+                        associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
+                                            unique_lebel_next[i],
+                                            mea_next[i])
+            else:
                 for i,glb_id in enumerate(glb_ids):
-
-                    associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
-                                        unique_lebel_next[i],
-                                        mea_next[i])
+                        process_fails(self.Tracking_pool,self.Off_tracking_pool,
+                                      glb_id,state_cur_[i],P_cur_[i],missing_thred)
+                        
             if self.save_pcd:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
                 
@@ -178,10 +191,25 @@ class MOT():
                     
  
     def save_result(self):
+        
         if 'Output Trajs' not in os.listdir(self.data_collector.output_path ):
             self.traj_path = os.path.join(self.data_collector.output_path,'Output Trajs')
             os.mkdir(self.traj_path)
-        
+        keys = []
+        start_frame = []
+        lengths = []
+        for key in self.Off_tracking_pool:
+            sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
+            sum_file.to_csv(os.path(self.traj_path,'{}.csv'.format(key)),index = False)
+            keys.append(key)
+            start_frame.append(self.Off_tracking_pool[key].start_frame)
+            lengths.append(len(self.Off_tracking_pool.post_seq))
+        pd.DataFrame({
+            'Glb_ID':keys,
+            'Start_Frame':start_frame,
+            'Len':lengths
+        }).to_csv(os.path.join(self.data_collector.output_path,'Summary.csv'))
+            
     def save_cur_pcd(self,Td_map,Labeling_map,Tracking_pool,f):
         
         td_freq_map = Td_map
@@ -264,7 +292,7 @@ if __name__ == "__main__":
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
     os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/US395/')
-    mot = MOT(r'./US395.pcap',ending_frame=17950,background_update_frame = 2000,**params)
+    mot = MOT(r'./US395.pcap',ending_frame=4000,background_update_frame = 1000,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
 

@@ -12,7 +12,7 @@ class detected_obj():
         self.label_seq = [] # represented labels at each frame 
         self.mea_seq = []
         self.post_seq = []
-
+#calibration 
 theta_raw = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
                             [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
                             [-7.254,1.4],[0.333,-4.2],[-0.333,1.4],[-6.148,-1.4],
@@ -24,8 +24,14 @@ theta_raw = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
                             ])[:,0]
 theta = np.sort(theta_raw)
 azimuths = np.arange(0,360,0.2)
+# color map 
 np.random.seed(150)
 color_map = np.random.random((100,3))
+#sum file
+col_names_ = ['X_Coord_est','Y_Coord_est','X_Len_est','Y_Len_est','Z_Len_est','X_Vel_est','Y_Vel_est','X_Acc_est','Y_Acc_est']
+col_names = ['X_Coord_mea','Y_Coord_mea','X_Len_mea','Y_Len_mea','Z_Len_mea']
+
+#xylwh xylwh, xy
 
 def convert_point_cloud(Td_map, Labeling_map, Thred_map): 
     td_freq_map = Td_map
@@ -160,3 +166,19 @@ def get_affinity_mat(state,state_,P_,mea,R):
                 State_affinity[i][j] = 1e3
             
     return State_affinity
+
+def get_summary_file(post_seq,mea_seq):
+    temp = np.array(post_seq)
+    temp = temp.reshape(temp.shape[0],temp.shape[1])[:,[0,1,2,3,4,5,6,10,11]]
+    df_ = pd.DataFrame(temp,columns= col_names_)
+    temp = mea_seq
+    emp = []
+    for i,vec in enumerate(temp):
+        if type(vec) == int:
+            emp.append(-np.ones(len(col_names)).astype(np.int8))
+        else:
+            emp.append(vec.flatten())
+    emp = np.array(emp)
+    df = pd.DataFrame(emp,columns = col_names)
+    summary = pd.concat([df,df_],axis = 1)
+    return summary
