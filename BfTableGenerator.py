@@ -63,7 +63,6 @@ class RansacCollector():
         
     def get_thred(self,ts,d ,thred_s ,N ,delta_thred ,step ):# Ransac Para
         
-        samples = []
         emp_ratio = len(ts[ts==0])/len(ts)
         if emp_ratio > 0.8:
             return 200
@@ -71,7 +70,6 @@ class RansacCollector():
         flag = True                             
         for i in range(N):
             sample = np.random.choice(ts,replace=False)
-            samples.append(sample)
             if len(ts[(ts > sample - d)&(ts < sample + d)])/len(ts) > thred_s:
                 flag = False
                 break
