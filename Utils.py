@@ -1,5 +1,6 @@
 import numpy as np
 import open3d as op3
+from scipy.optimize.optimize import main
 from scipy.spatial import distance
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
@@ -184,3 +185,6 @@ def get_summary_file(post_seq,mea_seq):
     df = pd.DataFrame(emp,columns = col_names)
     summary = pd.concat([df,df_],axis = 1)
     return summary
+
+if __name__ == "__main__":
+    print('%06.0f.pcd'%17950)

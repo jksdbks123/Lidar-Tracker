@@ -224,11 +224,11 @@ class MOT():
             X = hypotenuses * np.sin(latitudes)
             Y = hypotenuses * np.cos(latitudes)
             Z = td_freq_map[i] * np.sin(longitudes)
-            Valid_ind =  (td_freq_map[i] != 0)&(td_freq_map[i]<self.data_collector.thred_map[i]) # None zero index
-            Xs.append(X[Valid_ind])
-            Ys.append(Y[Valid_ind])
-            Zs.append(Z[Valid_ind])
-            Labels.append(Labeling_map[i][Valid_ind])
+            # Valid_ind =  (td_freq_map[i] != 0)&(td_freq_map[i]<self.data_collector.thred_map[i]) # None zero index
+            Xs.append(X)
+            Ys.append(Y)
+            Zs.append(Z)
+            Labels.append(Labeling_map[i])
         Xs = np.concatenate(Xs)
         Ys = np.concatenate(Ys)
         Zs = np.concatenate(Zs)
@@ -243,17 +243,10 @@ class MOT():
         XYZ = np.concatenate([Xs.reshape(-1,1),Ys.reshape(-1,1),Zs.reshape(-1,1)],axis = 1)
         pcd.points = op3.utility.Vector3dVector(XYZ)
         pcd.colors = op3.utility.Vector3dVector(Colors)
-        op3.io.write_point_cloud(os.path.join(self.pcd_path,"{}.pcd".format(f)), pcd)
-        
-                               
-            
-            
-            
-            
-            
-                
-                
-                
+        op3.io.write_point_cloud(os.path.join(self.pcd_path,'%06.0f.pcd'%f), pcd)
+
+
+                                 
     
     
 if __name__ == "__main__":
@@ -290,8 +283,8 @@ if __name__ == "__main__":
     R = np.diag([10,10,0.1,0.1,0.1])
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/US395/')
-    mot = MOT(r'./US395.pcap',ending_frame=1000,background_update_frame = 100,**params)
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
+    mot = MOT(r'./2020-7-27-10-30-0.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd=True,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
     mot.save_result()

@@ -17,7 +17,7 @@ def save_view_point(initial_pcd):
     
 def show_3d_sequence():
     pcds_path = os.path.join(os.path.join(os.getcwd(),'Output File'),'Output Pcd')
-    initial_pcd = op3.io.read_point_cloud(pcds_path+"/{}.pcd".format(0))
+    initial_pcd = op3.io.read_point_cloud(pcds_path+"/{}.pcd".format(500))
     veiw_control_path = save_view_point(initial_pcd)
     vis = op3.visualization.Visualizer()
     vis.create_window()
@@ -34,7 +34,7 @@ def show_3d_sequence():
     vis.add_geometry(initial_pcd)
     
     lisdir = os.listdir((pcds_path))
-    for i in range(len(lisdir)):
+    for i in range(0,len(lisdir)):
         time.sleep(0.1)
         pcd = op3.io.read_point_cloud(pcds_path+"/{}.pcd".format(i))
         vis.add_geometry(pcd)
@@ -47,4 +47,5 @@ def show_3d_sequence():
 
 if __name__ == "__main__":
     os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
-    show_3d_sequence()
+    # show_3d_sequence()
+    print(os.listdir(r'./Output File/Output Pcd'))
