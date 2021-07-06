@@ -1,3 +1,4 @@
+from posix import listdir
 import open3d as op3
 import numpy as np
 import os
@@ -15,9 +16,9 @@ def save_view_point(initial_pcd):
     vis.destroy_window()
     return filename
     
-def show_3d_sequence():
-    pcds_path = os.path.join(os.path.join(os.getcwd(),'Output File'),'Output Pcd')
-    initial_pcd = op3.io.read_point_cloud(pcds_path+"/{}.pcd".format(500))
+def show_3d_sequence(pcds_path):
+    lisdir = os.listdir(pcds_path)
+    initial_pcd = op3.io.read_point_cloud(os.path.join(pcds_path,listdir[0]))
     veiw_control_path = save_view_point(initial_pcd)
     vis = op3.visualization.Visualizer()
     vis.create_window()
@@ -33,10 +34,9 @@ def show_3d_sequence():
     
     vis.add_geometry(initial_pcd)
     
-    lisdir = os.listdir((pcds_path))
     for i in range(0,len(lisdir)):
         time.sleep(0.1)
-        pcd = op3.io.read_point_cloud(pcds_path+"/{}.pcd".format(i))
+        pcd = op3.io.read_point_cloud(os.path.join(pcds_path,listdir[i]))
         vis.add_geometry(pcd)
         vis.update_geometry(pcd)
         ctr.convert_from_pinhole_camera_parameters(param)

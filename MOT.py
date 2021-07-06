@@ -90,7 +90,6 @@ class MOT():
         mea_init = extract_mea_state_vec(xylwh_init)
         # m: n x 5 x 1
         state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],A.shape[0] - H.shape[0])).reshape(mea_init.shape[0],A.shape[0] - H.shape[0],-1)],axis = 1)
-        
         P_init = np.full((xylwh_init.shape[0],A.shape[0],A.shape[0]),P_em)
 
         for i,label in enumerate(unique_label_init):
@@ -118,8 +117,7 @@ class MOT():
                 P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
             glb_ids,P_cur,state_cur = np.array(glb_ids),np.array(P_cur),np.array(state_cur)
-
-            state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state 
+             
             # read next data 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
@@ -127,7 +125,8 @@ class MOT():
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
             
-            if len(unique_lebel_next) > 0: # if object detected at next frame 
+            if (len(unique_lebel_next) > 0)&(len(glb_ids) >0): # if object detected at next frame and exist object at current frame
+                state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                 mea_next = extract_mea_state_vec(xylwh_next)
                 State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next,R)
                 associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
@@ -172,11 +171,23 @@ class MOT():
                         associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
                                             unique_lebel_next[i],
                                             mea_next[i])
-            else:
-                for i,glb_id in enumerate(glb_ids):
-                        process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                      glb_id,state_cur_[i],P_cur_[i],missing_thred)
                         
+            elif (len(unique_lebel_next) == 0)&(len(glb_ids) > 0):
+                
+                state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
+                for i,glb_id in enumerate(glb_ids):
+                    process_fails(self.Tracking_pool,self.Off_tracking_pool,
+                                glb_id,state_cur_[i],P_cur_[i],missing_thred)
+                
+                    
+            elif (len(unique_lebel_next) > 0)&(len(glb_ids) == 0):
+                mea_next = extract_mea_state_vec(xylwh_next)
+                for n_id in range(len(mea_next)):
+                    state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
+                    create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
+                                            unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                    self.Global_id += 1
+           
             if self.save_pcd:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
                 
@@ -283,10 +294,8 @@ if __name__ == "__main__":
     R = np.diag([10,10,0.1,0.1,0.1])
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
-    mot = MOT(r'./2020-7-27-10-30-0.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd=True,**params)
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY')
+    mot = MOT(r'./USApkwy.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd=True,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
     mot.save_result()
-
-        

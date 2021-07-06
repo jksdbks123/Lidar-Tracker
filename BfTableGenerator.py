@@ -322,9 +322,9 @@ class TDmapLoader():
                             cur_azimuth = azimuth_per_block[-1]
             
 if __name__ == "__main__":
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY')
     # thred_map = np.load(r'Output File/thred_map_1200.npy')
-    collector = RansacCollector(pcap_path=r'./2020-7-27-10-30-0.pcap',update_frame_num=2000)
+    collector = RansacCollector(pcap_path=r'./USApkwy.pcap',update_frame_num=2000)
     collector.gen_tdmap()
     # collector.gen_thredmap(d = 1.4,thred_s = 0.7,N = 20,delta_thred = 1e-3,step = 0.01)
     # collector.gen_pcdseq(np.arange(0,5000))
