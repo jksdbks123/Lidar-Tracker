@@ -124,69 +124,66 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
-            
-            if (len(unique_lebel_next) > 0)&(len(glb_ids) >0): # if object detected at next frame and exist object at current frame
-                state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
-                mea_next = extract_mea_state_vec(xylwh_next)
-                State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next,R)
-                associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
-                associated_ind_glb_,associated_ind_label_ = [],[]
-                for i,ass_id in enumerate(associated_ind_glb):
-                    if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
-                        associated_ind_glb_.append(ass_id)
-                        associated_ind_label_.append(associated_ind_label[i])
-                associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
-                
-                """
-                Failed tracking and new detections
-                """
-                # in a but not in b
-                failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_glb) 
-                
-                if len(failed_tracked_ind) > 0:
-                    for fid in failed_tracked_ind:
-                        process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                      glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
+            if len(glb_ids) >0:
+                if len(unique_lebel_next) > 0:
+                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
+                    mea_next = extract_mea_state_vec(xylwh_next)
+                    State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next,R)
+                    associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
+                    associated_ind_glb_,associated_ind_label_ = [],[]
+                    for i,ass_id in enumerate(associated_ind_glb):
+                        if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
+                            associated_ind_glb_.append(ass_id)
+                            associated_ind_label_.append(associated_ind_label[i])
+                    associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
+                    
+                    """
+                    Failed tracking and new detections
+                    """
+                    # in a but not in b
+                    failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_glb) 
+                    
+                    if len(failed_tracked_ind) > 0:
+                        for fid in failed_tracked_ind:
+                            process_fails(self.Tracking_pool,self.Off_tracking_pool,
+                                        glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
 
-                new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
-                if len(new_detection_ind) > 0:
-                    for n_id in new_detection_ind:
+                    new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
+                    if len(new_detection_ind) > 0:
+                        for n_id in new_detection_ind:
+                            state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
+                            create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
+                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                            self.Global_id += 1
+                    
+                        
+                    if len(associated_ind_glb) != 0:
+                        state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
+                        glb_ids = glb_ids[associated_ind_glb]
+                        mea_next = mea_next[associated_ind_label]
+                        unique_lebel_next = unique_lebel_next[associated_ind_label]
+                        
+                        """
+                        Associate detections 
+                        """
+                        for i,glb_id in enumerate(glb_ids):
+
+                            associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
+                                                unique_lebel_next[i],
+                                                mea_next[i])
+                else:
+                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
+                    for i,glb_id in enumerate(glb_ids):
+                        process_fails(self.Tracking_pool,self.Off_tracking_pool,
+                                    glb_id,state_cur_[i],P_cur_[i],missing_thred)
+            else:    
+                if len(unique_lebel_next) > 0:
+                    mea_next = extract_mea_state_vec(xylwh_next)
+                    for n_id in range(len(mea_next)):
                         state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
                         create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                             unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
-                
-                    
-                if len(associated_ind_glb) != 0:
-                    state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
-                    glb_ids = glb_ids[associated_ind_glb]
-                    mea_next = mea_next[associated_ind_label]
-                    unique_lebel_next = unique_lebel_next[associated_ind_label]
-                    
-                    """
-                    Associate detections 
-                    """
-                    for i,glb_id in enumerate(glb_ids):
-
-                        associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
-                                            unique_lebel_next[i],
-                                            mea_next[i])
-                        
-            elif (len(unique_lebel_next) == 0)&(len(glb_ids) > 0):
-                
-                state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
-                for i,glb_id in enumerate(glb_ids):
-                    process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                glb_id,state_cur_[i],P_cur_[i],missing_thred)
-                
-                    
-            elif (len(unique_lebel_next) > 0)&(len(glb_ids) == 0):
-                mea_next = extract_mea_state_vec(xylwh_next)
-                for n_id in range(len(mea_next)):
-                    state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
-                    create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                            unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
-                    self.Global_id += 1
            
             if self.save_pcd:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)

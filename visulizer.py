@@ -17,8 +17,12 @@ def save_view_point(initial_pcd):
     return filename
     
 def show_3d_sequence(pcds_path):
+    
     lisdir = os.listdir(pcds_path)
-    initial_pcd = op3.io.read_point_cloud(os.path.join(pcds_path,listdir[0]))
+    inds = np.array([l[:-4] for l in lisdir]).astype('int')
+    lisdir = np.array(lisdir)[np.argsort(inds)]
+    pcd_name = os.path.join(pcds_path,lisdir[0])
+    initial_pcd = op3.io.read_point_cloud(pcd_name)
     veiw_control_path = save_view_point(initial_pcd)
     vis = op3.visualization.Visualizer()
     vis.create_window()
@@ -36,7 +40,8 @@ def show_3d_sequence(pcds_path):
     
     for i in range(0,len(lisdir)):
         time.sleep(0.1)
-        pcd = op3.io.read_point_cloud(os.path.join(pcds_path,listdir[i]))
+        pcd_name = os.path.join(pcds_path,lisdir[i])
+        pcd = op3.io.read_point_cloud(pcd_name)
         vis.add_geometry(pcd)
         vis.update_geometry(pcd)
         ctr.convert_from_pinhole_camera_parameters(param)
@@ -46,6 +51,6 @@ def show_3d_sequence(pcds_path):
     vis.destroy_window()  
 
 if __name__ == "__main__":
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
-    # show_3d_sequence()
-    print(os.listdir(r'./Output File/Output Pcd'))
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY')
+    show_3d_sequence(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY/Output File/Output Pcd/') 
+    # print(os.listdir(r'./Output File/Output Pcd'))
