@@ -237,12 +237,13 @@ class MOT():
                 Xs.append(X[Valid_ind])
                 Ys.append(Y[Valid_ind])
                 Zs.append(Z[Valid_ind])
+                Labels.append(Labeling_map[i][Valid_ind])
             else:
                 Xs.append(X)
                 Ys.append(Y)
                 Zs.append(Z)
+                Labels.append(Labeling_map[i])
                 
-            Labels.append(Labeling_map[i])
         Xs = np.concatenate(Xs)
         Ys = np.concatenate(Ys)
         Zs = np.concatenate(Zs)
