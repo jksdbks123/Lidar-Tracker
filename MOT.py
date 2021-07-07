@@ -3,16 +3,19 @@ from DDBSCAN import Raster_DBSCAN
 from Utils import *
 
 class MOT():
-    def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = None):
+    def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = None, save_Azimuth_Laser_info = True):
         """
         pcap_path : pcap file path 
         background_update_frame : background update freq
         """
         self.save_pcd = save_pcd
+        self.save_Azimuth_Laser_info = save_Azimuth_Laser_info
         self.pcap_path = pcap_path
         self.ending_frame = ending_frame
         self.traj_path = None
         self.pcd_path = None
+        self.Azimuth_Laser_info_path = None
+        
         
         # background filtering params 
         self.d = d
@@ -41,10 +44,14 @@ class MOT():
         
         self.pcd_path = os.path.join(self.data_collector.output_path,'Output Pcd')
         self.traj_path = os.path.join(self.data_collector.output_path,'Output Trajs')
+        self.Azimuth_Laser_info_path = os.path.join(self.data_collector.output_path,'Output Azimuth_Laser_info')
+        
         if 'Output Pcd' not in os.listdir(self.data_collector.output_path ):
             os.mkdir(self.pcd_path)
-        if 'Output Trajs' not in os.listdir(self.data_collector.output_path ):
+        if 'Output Trajs' not in os.listdir(self.data_collector.output_path):
             os.mkdir(self.traj_path)
+        if 'Output Azimuth_Laser_info' not in os.listdir(self.data_collector.output_path):
+            os.mkdir(self.Azimuth_Laser_info_path)
             
         lidar_reader = TDmapLoader(self.pcap_path)
         frame_gen = lidar_reader.frame_gen()
@@ -223,8 +230,11 @@ class MOT():
         Xs = []
         Ys = []
         Zs = []
-        
-        Labels = []
+        if self.save_Azimuth_Laser_info:
+            Azimuth_channels = []
+            Laser_ids = []
+            Distances = []
+            Labels = []
         for i in range(td_freq_map.shape[0]):
             longitudes = theta[i]*np.pi / 180
             latitudes = azimuths * np.pi / 180 
@@ -238,6 +248,10 @@ class MOT():
                 Ys.append(Y[Valid_ind])
                 Zs.append(Z[Valid_ind])
                 Labels.append(Labeling_map[i][Valid_ind])
+                if self.save_Azimuth_Laser_info:
+                    Azimuth_channels.append(np.where(Valid_ind)[0])
+                    Laser_ids.append(i*np.ones(Valid_ind.sum()).astype('int'))
+                    Distances.append(td_freq_map[i][Valid_ind])
             else:
                 Xs.append(X)
                 Ys.append(Y)
@@ -247,6 +261,13 @@ class MOT():
         Xs = np.concatenate(Xs)
         Ys = np.concatenate(Ys)
         Zs = np.concatenate(Zs)
+        if self.save_Azimuth_Laser_info :
+            Azimuth_channels = np.concatenate(Azimuth_channels)
+            Laser_ids = np.concatenate(Laser_ids)
+            Distances = np.concatenate(Distances)
+            LA_info = np.concatenate([Laser_ids.reshape(-1,1),Azimuth_channels.reshape(-1,1),Distances.reshape(-1,1)],axis = 1)
+            np.save(os.path.join(self.Azimuth_Laser_info_path,'%06.0f.npy'%f),LA_info)
+            
         Labels = np.concatenate(Labels).astype('int')
         Colors = np.zeros((len(Labels),3))
         for key in Tracking_pool:
@@ -299,7 +320,7 @@ if __name__ == "__main__":
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
     os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY')
-    mot = MOT(r'./USApkwy.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Filtered',**params)
+    mot = MOT(r'./USApkwy.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Filtered',save_Azimuth_Laser_info=True,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
     mot.save_result()
