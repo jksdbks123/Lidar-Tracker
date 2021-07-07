@@ -187,4 +187,5 @@ def get_summary_file(post_seq,mea_seq):
     return summary
 
 if __name__ == "__main__":
-    print('%06.0f.pcd'%17950)
+    a = 'pcd'
+    print(a is not None)

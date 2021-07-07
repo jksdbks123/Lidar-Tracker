@@ -3,7 +3,7 @@ from DDBSCAN import Raster_DBSCAN
 from Utils import *
 
 class MOT():
-    def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = True):
+    def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = None):
         """
         pcap_path : pcap file path 
         background_update_frame : background update freq
@@ -81,7 +81,7 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             xylwh_init,unique_label_init = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map)
-            if self.save_pcd:
+            if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             Frame_ind_init += 1
             if len(unique_label_init)>0:
@@ -185,7 +185,7 @@ class MOT():
                                                 unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
            
-            if self.save_pcd:
+            if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
                 
         """
@@ -232,10 +232,16 @@ class MOT():
             X = hypotenuses * np.sin(latitudes)
             Y = hypotenuses * np.cos(latitudes)
             Z = td_freq_map[i] * np.sin(longitudes)
-            # Valid_ind =  (td_freq_map[i] != 0)&(td_freq_map[i]<self.data_collector.thred_map[i]) # None zero index
-            Xs.append(X)
-            Ys.append(Y)
-            Zs.append(Z)
+            if self.save_pcd == 'Filtered':
+                Valid_ind =  (td_freq_map[i] != 0)&(td_freq_map[i]<self.data_collector.thred_map[i]) # None zero index
+                Xs.append(X[Valid_ind])
+                Ys.append(Y[Valid_ind])
+                Zs.append(Z[Valid_ind])
+            else:
+                Xs.append(X)
+                Ys.append(Y)
+                Zs.append(Z)
+                
             Labels.append(Labeling_map[i])
         Xs = np.concatenate(Xs)
         Ys = np.concatenate(Ys)
@@ -292,7 +298,7 @@ if __name__ == "__main__":
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
     os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY')
-    mot = MOT(r'./USApkwy.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd=True,**params)
+    mot = MOT(r'./USApkwy.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Filtered',**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
     mot.save_result()
