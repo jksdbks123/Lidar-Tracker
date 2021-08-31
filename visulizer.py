@@ -55,3 +55,4 @@ if __name__ == "__main__":
     show_3d_sequence(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest/Output File/Output Pcd/') 
     # print(os.listdir(r'./Output File/Output Pcd'))
     #just for a test
+    #a message from unr computer 
