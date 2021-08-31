@@ -292,9 +292,9 @@ if __name__ == "__main__":
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,13),
-        'eps': 1.5,
-        'min_samples':16
+        'win_size':(5,11),
+        'eps': 1.8,
+        'min_samples':15
     }
     A = np.array( # x,y,l,w,h,,x',y',l',w',h',x'',y''
     [[1,0,0,0,0,1,0,0,0,0,.5, 0],
@@ -319,8 +319,8 @@ if __name__ == "__main__":
     R = np.diag([10,10,0.1,0.1,0.1])
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY')
-    mot = MOT(r'./USApkwy.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Filtered',save_Azimuth_Laser_info=True,**params)
+    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
+    mot = MOT(r'./2020-7-27-10-30-0.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Filtered',save_Azimuth_Laser_info=True,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
     mot.save_result()
