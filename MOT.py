@@ -3,7 +3,7 @@ from DDBSCAN import Raster_DBSCAN
 from Utils import *
 
 class MOT():
-    def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = None, save_Azimuth_Laser_info = True):
+    def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = None, save_Azimuth_Laser_info = False):
         """
         pcap_path : pcap file path 
         background_update_frame : background update freq
@@ -82,7 +82,7 @@ class MOT():
         aggregated_maps = []
         Frame_ind_init = 0
         
-        while True: #Iterate Unitil a frame with one or more target is detected 
+        while True: #Iterate Until a frame with one or more target is detected 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
@@ -234,29 +234,27 @@ class MOT():
             Azimuth_channels = []
             Laser_ids = []
             Distances = []
-            Labels = []
+
+        Labels = []
         for i in range(td_freq_map.shape[0]):
-            longitudes = theta[i]*np.pi / 180
+            longitudes = theta[i] * np.pi / 180
             latitudes = azimuths * np.pi / 180 
             hypotenuses = td_freq_map[i] * np.cos(longitudes)
             X = hypotenuses * np.sin(latitudes)
             Y = hypotenuses * np.cos(latitudes)
             Z = td_freq_map[i] * np.sin(longitudes)
             if self.save_pcd == 'Filtered':
-                Valid_ind =  (td_freq_map[i] != 0)&(td_freq_map[i]<self.data_collector.thred_map[i]) # None zero index
-                Xs.append(X[Valid_ind])
-                Ys.append(Y[Valid_ind])
-                Zs.append(Z[Valid_ind])
-                Labels.append(Labeling_map[i][Valid_ind])
-                if self.save_Azimuth_Laser_info:
-                    Azimuth_channels.append(np.where(Valid_ind)[0])
-                    Laser_ids.append(i*np.ones(Valid_ind.sum()).astype('int'))
-                    Distances.append(td_freq_map[i][Valid_ind])
+                Valid_ind = (td_freq_map[i] != 0)&(td_freq_map[i]<self.data_collector.thred_map[i]) # None zero index
             else:
-                Xs.append(X)
-                Ys.append(Y)
-                Zs.append(Z)
-                Labels.append(Labeling_map[i])
+                Valid_ind = td_freq_map[i] != 0 
+            Xs.append(X[Valid_ind])
+            Ys.append(Y[Valid_ind])
+            Zs.append(Z[Valid_ind])
+            Labels.append(Labeling_map[i][Valid_ind])
+            if self.save_Azimuth_Laser_info:
+                Azimuth_channels.append(np.where(Valid_ind)[0])
+                Laser_ids.append(i*np.ones(Valid_ind.sum()).astype('int'))
+                Distances.append(td_freq_map[i][Valid_ind])
                 
         Xs = np.concatenate(Xs)
         Ys = np.concatenate(Ys)
@@ -319,8 +317,8 @@ if __name__ == "__main__":
     R = np.diag([10,10,0.1,0.1,0.1])
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
-    mot = MOT(r'./2020-7-27-10-30-0.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Filtered',save_Azimuth_Laser_info=True,**params)
+    os.chdir(r'E:/Data/Verteran')
+    mot = MOT(r'./Vateran.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Unfiltered',save_Azimuth_Laser_info=False,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
     mot.save_result()

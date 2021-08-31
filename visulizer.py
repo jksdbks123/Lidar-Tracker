@@ -1,4 +1,3 @@
-from posix import listdir
 import open3d as op3
 import numpy as np
 import os
@@ -51,8 +50,8 @@ def show_3d_sequence(pcds_path):
     vis.destroy_window()  
 
 if __name__ == "__main__":
-    os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest')
-    show_3d_sequence(r'/Users/czhui960/Documents/Lidar/RawLidarData/FrameSamplingTest/Output File/Output Pcd/') 
+    os.chdir(r'E:/Data/Verteran')
+    show_3d_sequence(r'E:/Data/Verteran/Output File/Output Pcd') 
     # print(os.listdir(r'./Output File/Output Pcd'))
     #just for a test
     #a message from unr computer 
