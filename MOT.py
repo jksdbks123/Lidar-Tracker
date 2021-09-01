@@ -42,15 +42,15 @@ class MOT():
         
     def initialization(self):
         
-        self.pcd_path = os.path.join(self.data_collector.output_path,'Output Pcd')
-        self.traj_path = os.path.join(self.data_collector.output_path,'Output Trajs')
-        self.Azimuth_Laser_info_path = os.path.join(self.data_collector.output_path,'Output Azimuth_Laser_info')
+        self.pcd_path = os.path.join(self.data_collector.output_path,'OutputPcd')
+        self.traj_path = os.path.join(self.data_collector.output_path,'OutputTrajs')
+        self.Azimuth_Laser_info_path = os.path.join(self.data_collector.output_path,'OutputAzimuthLaserInfo')
         
-        if 'Output Pcd' not in os.listdir(self.data_collector.output_path ):
+        if 'OutputPcd' not in os.listdir(self.data_collector.output_path ):
             os.mkdir(self.pcd_path)
-        if 'Output Trajs' not in os.listdir(self.data_collector.output_path):
+        if 'OutputTrajs' not in os.listdir(self.data_collector.output_path):
             os.mkdir(self.traj_path)
-        if 'Output Azimuth_Laser_info' not in os.listdir(self.data_collector.output_path):
+        if 'OutputAzimuthLaserInfo' not in os.listdir(self.data_collector.output_path):
             os.mkdir(self.Azimuth_Laser_info_path)
             
         lidar_reader = TDmapLoader(self.pcap_path)
@@ -205,8 +205,8 @@ class MOT():
  
     def save_result(self):
         
-        if 'Output Trajs' not in os.listdir(self.data_collector.output_path ):
-            self.traj_path = os.path.join(self.data_collector.output_path,'Output Trajs')
+        if 'OutputTrajs' not in os.listdir(self.data_collector.output_path ):
+            self.traj_path = os.path.join(self.data_collector.output_path,'OutputTrajs')
             os.mkdir(self.traj_path)
         keys = []
         start_frame = []

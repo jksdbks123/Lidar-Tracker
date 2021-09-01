@@ -10,7 +10,7 @@ def save_view_point(initial_pcd):
     vis.run()  # user changes the view and press "q" to terminate
     param = vis.get_view_control().convert_to_pinhole_camera_parameters()
     #./Output File/view_point.json 
-    filename = os.path.join(os.path.join(os.getcwd(),'Output File'),'view_point.json')
+    filename = os.path.join(os.path.join(os.getcwd(),'OutputFile'),'view_point.json')
     op3.io.write_pinhole_camera_parameters(filename, param)
     vis.destroy_window()
     return filename
@@ -51,7 +51,5 @@ def show_3d_sequence(pcds_path):
 
 if __name__ == "__main__":
     os.chdir(r'E:/Data/Verteran')
-    show_3d_sequence(r'E:/Data/Verteran/Output File/Output Pcd') 
+    show_3d_sequence(r'E:/Data/Verteran/OutputFile/OutputPcd') 
     # print(os.listdir(r'./Output File/Output Pcd'))
-    #just for a test
-    #a message from unr computer 

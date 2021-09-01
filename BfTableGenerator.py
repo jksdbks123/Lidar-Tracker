@@ -29,9 +29,9 @@ class RansacCollector():
                             ])[:,0])
         self.azimuths = np.arange(0,360,0.2)
         
-        if 'Output File' not in os.listdir(os.getcwd()):
-            os.mkdir('Output File')
-        self.output_path = os.path.join(os.getcwd(),'Output File')
+        if 'OutputFile' not in os.listdir(os.getcwd()):
+            os.mkdir('OutputFile')
+        self.output_path = os.path.join(os.getcwd(),'OutputFile')
         
         
     def gen_tdmap(self):
