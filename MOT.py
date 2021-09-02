@@ -317,8 +317,8 @@ if __name__ == "__main__":
     R = np.diag([10,10,0.1,0.1,0.1])
     P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
     missing_thred = 7
-    os.chdir(r'E:/Data/Verteran')
-    mot = MOT(r'./Vateran.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Unfiltered',save_Azimuth_Laser_info=False,**params)
+    os.chdir(r'E:/Data/Texas')
+    mot = MOT(r'./TexasMedian.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Unfiltered',save_Azimuth_Laser_info=False,**params)
     mot.initialization()
     mot.mot_tracking(missing_thred,A,P,H,Q,R)
     mot.save_result()
