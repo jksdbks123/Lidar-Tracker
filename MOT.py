@@ -3,7 +3,9 @@ from DDBSCAN import Raster_DBSCAN
 from Utils import *
 
 class MOT():
-    def __init__(self,pcap_path,background_update_frame,ending_frame,d ,thred_s ,N ,delta_thred ,step, win_size, eps, min_samples, save_pcd = None, save_Azimuth_Laser_info = False):
+    def __init__(self,pcap_path,output_file_path,background_update_frame,ending_frame,d ,thred_s ,N ,
+                 delta_thred ,step, win_size, eps, min_samples, missing_thred,
+                 save_pcd = None, save_Azimuth_Laser_info = False, result_type = 'split'):
         """
         pcap_path : pcap file path 
         background_update_frame : background update freq
@@ -15,6 +17,7 @@ class MOT():
         self.traj_path = None
         self.pcd_path = None
         self.Azimuth_Laser_info_path = None
+        self.result_type = result_type
         
         
         # background filtering params 
@@ -26,10 +29,11 @@ class MOT():
         self.win_size = win_size
         self.eps = eps 
         self.min_samples = min_samples
+        self.missing_thred = missing_thred
         
         ###
         self.background_update_frame = background_update_frame
-        self.data_collector = RansacCollector(pcap_path,background_update_frame)
+        self.data_collector = RansacCollector(pcap_path,output_file_path,background_update_frame)
         self.thred_map = None #two dimentional maps
         self.frame_gen = None
         self.db = None
@@ -68,13 +72,11 @@ class MOT():
         self.thred_map = self.data_collector.thred_map
         
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps, 
-                                min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)
+                                min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)     
         
+    def mot_tracking(self,A,P_em,H,Q,R):
         
-        
-    def mot_tracking(self,missing_thred,A,P_em,H,Q,R):
-        
-        
+        missing_thred = self.missing_thred
         
         lidar_reader = TDmapLoader(self.pcap_path)
         frame_gen = lidar_reader.frame_gen()
@@ -208,21 +210,44 @@ class MOT():
         if 'OutputTrajs' not in os.listdir(self.data_collector.output_path ):
             self.traj_path = os.path.join(self.data_collector.output_path,'OutputTrajs')
             os.mkdir(self.traj_path)
-        keys = []
-        start_frame = []
-        lengths = []
+        
         print('Generating Traj Files...')
-        for key in tqdm(self.Off_tracking_pool): 
-            sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
-            sum_file.to_csv(self.traj_path + '/{}.csv'.format(key),index = False)
-            keys.append(key)
-            start_frame.append(self.Off_tracking_pool[key].start_frame)
-            lengths.append(len(self.Off_tracking_pool[key].post_seq))
-        pd.DataFrame({
-            'Glb_ID':keys,
-            'Start_Frame':start_frame,
-            'Len':lengths
-        }).to_csv(self.data_collector.output_path+'/Summary.csv')
+        
+        if self.result_type == 'split':
+            keys = []
+            start_frame = []
+            lengths = []
+            for key in tqdm(self.Off_tracking_pool):  
+                sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
+                sum_file.to_csv(self.traj_path + '/{}.csv'.format(key),index = False)
+                keys.append(key)
+                start_frame.append(self.Off_tracking_pool[key].start_frame)
+                lengths.append(len(self.Off_tracking_pool[key].post_seq))
+                
+            pd.DataFrame({
+                'Glb_ID':keys,
+                'Start_Frame':start_frame,
+                'Len':lengths
+            }).to_csv(self.data_collector.output_path+'/Summary.csv')
+        else:
+            sums = []
+            keys = []
+            start_frame = []
+            lengths = []
+            for key in tqdm(self.Off_tracking_pool):  
+                sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
+                                            key,self.Off_tracking_pool[key].start_frame,self.missing_thred) 
+                sums.append(sum_file)
+                keys.append(key)
+                start_frame.append(self.Off_tracking_pool[key].start_frame)   
+                lengths.append(len(sum_file))    
+            pd.concat(sums).to_csv(self.traj_path + '/Trajctories.csv',index = False)
+            pd.DataFrame({
+                'Glb_ID':keys,
+                'Start_Frame':start_frame,
+                'Len':lengths
+            }).to_csv(self.data_collector.output_path+'/Summary.csv')
+
             
     def save_cur_pcd(self,Td_map,Labeling_map,Tracking_pool,f):
         
@@ -292,33 +317,19 @@ if __name__ == "__main__":
         'step':0.1,
         'win_size':(5,11),
         'eps': 1.8,
-        'min_samples':15
+        'min_samples':15,
+        'missing_thred':7,
+        'ending_frame' : 2500,
+        'background_update_frame':2000,
+        'save_pcd' : None,
+        'save_Azimuth_Laser_info' : False,
+        'result_type':'merged'
     }
-    A = np.array( # x,y,l,w,h,,x',y',l',w',h',x'',y''
-    [[1,0,0,0,0,1,0,0,0,0,.5, 0],
-     [0,1,0,0,0,0,1,0,0,0, 0,.5],
-     [0,0,1,0,0,0,0,1,0,0, 0, 0],
-     [0,0,0,1,0,0,0,0,1,0, 0, 0],
-     [0,0,0,0,1,0,0,0,0,1, 0, 0],
-     [0,0,0,0,0,1,0,0,0,0, 1, 0],
-     [0,0,0,0,0,0,1,0,0,0, 0, 1],
-     [0,0,0,0,0,0,0,1,0,0, 0, 0],
-     [0,0,0,0,0,0,0,0,1,0, 0, 0],
-     [0,0,0,0,0,0,0,0,0,1, 0, 0],
-     [0,0,0,0,0,0,0,0,0,0, 1, 0],
-     [0,0,0,0,0,0,0,0,0,0, 0, 1]]
-      )
-    Q = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*0.01
-    H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
-                [0,1,0,0,0,0,0,0,0,0,0,0],
-                [0,0,1,0,0,0,0,0,0,0,0,0],
-                [0,0,0,1,0,0,0,0,0,0,0,0],
-                [0,0,0,0,1,0,0,0,0,0,0,0]])
-    R = np.diag([10,10,0.1,0.1,0.1])
-    P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
-    missing_thred = 7
-    os.chdir(r'E:/Data/Texas')
-    mot = MOT(r'./TexasMedian.pcap',ending_frame=17950,background_update_frame = 2000,save_pcd='Unfiltered',save_Azimuth_Laser_info=False,**params)
+    
+    pcap_path = '../RawLidarData/USAPKWY/USApkwy.pcap'
+    output_file_path = '../RawLidarData/USAPKWY/'
+    print(os.listdir(output_file_path))
+    mot = MOT(pcap_path,output_file_path,**params)
     mot.initialization()
-    mot.mot_tracking(missing_thred,A,P,H,Q,R)
+    mot.mot_tracking(A,P,H,Q,R)
     mot.save_result()

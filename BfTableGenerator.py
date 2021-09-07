@@ -7,7 +7,7 @@ import pandas as pd
 import os
 
 class RansacCollector():
-    def __init__(self,pcap_path,update_frame_num,thred_map_path = None): 
+    def __init__(self,pcap_path,output_file_path,update_frame_num,thred_map_path = None): 
         """
         update_frame_num -> frame indexes to use in the development of td map
         aggregated_map -> 1800 * 32 * ts
@@ -29,9 +29,9 @@ class RansacCollector():
                             ])[:,0])
         self.azimuths = np.arange(0,360,0.2)
         
-        if 'OutputFile' not in os.listdir(os.getcwd()):
-            os.mkdir('OutputFile')
-        self.output_path = os.path.join(os.getcwd(),'OutputFile')
+        if 'OutputFile' not in os.listdir(output_file_path):
+            os.mkdir(os.path.join(output_file_path,'OutputFile'))
+        self.output_path = os.path.join(output_file_path,'OutputFile')
         
         
     def gen_tdmap(self):

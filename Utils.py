@@ -5,6 +5,31 @@ from scipy.spatial import distance
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
+# Kalman Filter Params
+
+A = np.array( # x,y,l,w,h,,x',y',l',w',h',x'',y''
+    [[1,0,0,0,0,1,0,0,0,0,.5, 0],
+     [0,1,0,0,0,0,1,0,0,0, 0,.5],
+     [0,0,1,0,0,0,0,1,0,0, 0, 0],
+     [0,0,0,1,0,0,0,0,1,0, 0, 0],
+     [0,0,0,0,1,0,0,0,0,1, 0, 0],
+     [0,0,0,0,0,1,0,0,0,0, 1, 0],
+     [0,0,0,0,0,0,1,0,0,0, 0, 1],
+     [0,0,0,0,0,0,0,1,0,0, 0, 0],
+     [0,0,0,0,0,0,0,0,1,0, 0, 0],
+     [0,0,0,0,0,0,0,0,0,1, 0, 0],
+     [0,0,0,0,0,0,0,0,0,0, 1, 0],
+     [0,0,0,0,0,0,0,0,0,0, 0, 1]]
+      )
+Q = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*0.01
+H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
+            [0,1,0,0,0,0,0,0,0,0,0,0],
+            [0,0,1,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,0,0,0]])
+R = np.diag([10,10,0.1,0.1,0.1])
+P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
+
 class detected_obj():
     def __init__(self):
         self.glb_id = None
@@ -33,6 +58,10 @@ color_map = np.random.random((100,3))
 #sum file
 col_names_ = ['X_Coord_est','Y_Coord_est','X_Len_est','Y_Len_est','Z_Len_est','X_Vel_est','Y_Vel_est','X_Acc_est','Y_Acc_est']
 col_names = ['X_Coord_mea','Y_Coord_mea','X_Len_mea','Y_Len_mea','Z_Len_mea']
+
+col_info = ['ObjectID','FrameIndex']
+col_est = ['Object_Length_est','Object_Width_est','Object_Height_est','Coord_x_est','Coord_y_est','Coord_dis_est','Speed_x','Speed_y','Speed_est']
+col_mea = ['Object_Length_mea','Object_Width_mea','Object_Height_mea','Coord_x_mea','Coord_y_mea','Coord_dis_mea']
 
 #xylwh xylwh, xy
 
@@ -170,7 +199,7 @@ def get_affinity_mat(state,state_,P_,mea,R):
             
     return State_affinity
 
-def get_summary_file(post_seq,mea_seq):
+def get_summary_file_split(post_seq,mea_seq):
     temp = np.array(post_seq)
     temp = temp.reshape(temp.shape[0],temp.shape[1])[:,[0,1,2,3,4,5,6,10,11]]
     df_ = pd.DataFrame(temp,columns= col_names_)
@@ -184,6 +213,36 @@ def get_summary_file(post_seq,mea_seq):
     emp = np.array(emp)
     df = pd.DataFrame(emp,columns = col_names)
     summary = pd.concat([df,df_],axis = 1)
+    return summary
+
+def get_summary_file(post_seq,mea_seq,key,start_frame,missing_thred):
+    
+    temp = np.array(post_seq)
+    temp = temp.reshape(temp.shape[0],temp.shape[1])[1:-missing_thred] # exclude first data point 
+    # [0,1,2,3,4,5,6,10,11]
+    temp_lwhxy = temp[:,[2,3,4,0,1]]
+    dis_est = np.sqrt(np.sum(temp_lwhxy[:,[3,4]]**2,axis = 1)).reshape(-1,1)
+    speed_xy = temp[:,[5,6]]*10  #m/s
+    speed = np.sqrt(np.sum(speed_xy**2,axis = 1)).reshape(-1,1)*3600/1000
+    est = np.concatenate([temp_lwhxy,dis_est,speed_xy,speed],axis = 1)
+    temp = mea_seq
+    emp = []
+    for i,vec in enumerate(temp):
+        if type(vec) == int:
+            emp.append(-np.ones(len(col_mea)-1))
+        else:
+            emp.append(vec.flatten())
+    emp = np.array(emp)[1:-missing_thred,[2,3,4,0,1]]
+    dis_mea = np.sqrt(np.sum(emp[:,[3,4]]**2,axis = 1)).reshape(-1,1)
+    mea = np.concatenate([emp,dis_mea],axis = 1)
+    timestp = []
+    for i in range(len(mea)):
+        f = i + start_frame + 1
+        timestp.append('%06.0f'%f)
+    timestp = np.array(timestp).reshape(-1,1)
+    objid = (np.ones(len(mea)) * key).astype(int).reshape(-1,1)
+    summary = np.concatenate([objid,timestp,mea,est],axis = 1)
+    summary = pd.DataFrame(summary,columns=col_info+col_mea+col_est)
     return summary
 
 if __name__ == "__main__":
