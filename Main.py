@@ -4,8 +4,8 @@ from Utils import *
 import json
 parser = argparse.ArgumentParser(description='This is a program generating trajectories from .pcap files')
 parser.add_argument('-p','--pcap', help='.pcap file path', required=True)
-parser.add_argument('-o','--output', help='designed output path', required=True)
-parser.add_argument('-c','--config', help='designed config path', required=True)
+parser.add_argument('-o','--output', help='specified output path', required=True)
+parser.add_argument('-c','--config', help='specified config path', required=True)
 args = parser.parse_args()
 
 
