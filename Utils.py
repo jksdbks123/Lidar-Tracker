@@ -229,7 +229,9 @@ def get_summary_file(post_seq,mea_seq,key,start_frame,missing_thred):
     emp = []
     for i,vec in enumerate(temp):
         if type(vec) == int:
-            emp.append(-np.ones(len(col_mea)-1))
+            emp_row = -np.empty(len(col_mea)-1)
+            emp_row[:] = np.nan
+            emp.append(emp_row)
         else:
             emp.append(vec.flatten())
     emp = np.array(emp)[1:-missing_thred,[2,3,4,0,1]]

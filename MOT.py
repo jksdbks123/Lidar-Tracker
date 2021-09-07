@@ -305,9 +305,7 @@ class MOT():
         op3.io.write_point_cloud(os.path.join(self.pcd_path,'%06.0f.pcd'%f), pcd)
 
 
-                                 
-    
-    
+
 if __name__ == "__main__":
     params = {
         'd':1.2,
@@ -326,9 +324,8 @@ if __name__ == "__main__":
         'result_type':'merged'
     }
     
-    pcap_path = '../RawLidarData/USAPKWY/USApkwy.pcap'
-    output_file_path = '../RawLidarData/USAPKWY/'
-    print(os.listdir(output_file_path))
+    pcap_path = 'E:\Data\Verteran\Vateran.pcap'
+    output_file_path = 'E:\Data\Verteran'
     mot = MOT(pcap_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking(A,P,H,Q,R)
