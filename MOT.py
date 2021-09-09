@@ -205,20 +205,21 @@ class MOT():
             self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)
                     
  
-    def save_result(self):
+    def save_result(self,ref_LLF,ref_xyz):
         
         if 'OutputTrajs' not in os.listdir(self.data_collector.output_path ):
             self.traj_path = os.path.join(self.data_collector.output_path,'OutputTrajs')
             os.mkdir(self.traj_path)
         
         print('Generating Traj Files...')
-        
+        T = generate_T(ref_LLF,ref_xyz)
+
         if self.result_type == 'split':
             keys = []
             start_frame = []
             lengths = []
             for key in tqdm(self.Off_tracking_pool):  
-                sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
+                sum_file = get_summary_file_split(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
                 sum_file.to_csv(self.traj_path + '/{}.csv'.format(key),index = False)
                 keys.append(key)
                 start_frame.append(self.Off_tracking_pool[key].start_frame)
@@ -235,13 +236,15 @@ class MOT():
             start_frame = []
             lengths = []
             for key in tqdm(self.Off_tracking_pool):  
+
                 sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
-                                            key,self.Off_tracking_pool[key].start_frame,self.missing_thred) 
+                                            key,self.Off_tracking_pool[key].start_frame,self.missing_thred,T) 
                 sums.append(sum_file)
                 keys.append(key)
                 start_frame.append(self.Off_tracking_pool[key].start_frame)   
                 lengths.append(len(sum_file))    
-            pd.concat(sums).to_csv(self.traj_path + '/Trajctories.csv',index = False)
+            sums = pd.concat(sums)
+            sums.to_csv(self.traj_path + '/Trajctories.csv',index = False)
             pd.DataFrame({
                 'Glb_ID':keys,
                 'Start_Frame':start_frame,
