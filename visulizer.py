@@ -2,27 +2,33 @@ import open3d as op3
 import numpy as np
 import os
 import time 
-def save_view_point(initial_pcd):
+import argparse
+def save_view_point(Initial_pcd,PCD_folder):
+    
     vis = op3.visualization.Visualizer()
     vis.create_window()
-    vis.add_geometry(initial_pcd)
+    vis.add_geometry(Initial_pcd)
     op3.visualization
     vis.run()  # user changes the view and press "q" to terminate
     param = vis.get_view_control().convert_to_pinhole_camera_parameters()
     #./Output File/view_point.json 
-    filename = os.path.join(os.path.join(os.getcwd(),'OutputFile'),'view_point.json')
+    filename = os.path.join(PCD_folder,'view_point.json')
     op3.io.write_pinhole_camera_parameters(filename, param)
     vis.destroy_window()
+    
     return filename
     
-def show_3d_sequence(pcds_path):
+def show_3d_sequence(PCD_folder):
     
-    lisdir = os.listdir(pcds_path)
+    lisdir = os.listdir(PCD_folder)
+    lisdir = np.array([l for l in lisdir if l.split('.')[1] == 'pcd'])
+    # exclude file path that is not .pcd
     inds = np.array([l[:-4] for l in lisdir]).astype('int')
-    lisdir = np.array(lisdir)[np.argsort(inds)]
-    pcd_name = os.path.join(pcds_path,lisdir[0])
+    lisdir = lisdir[np.argsort(inds)]
+    #initial pcd
+    pcd_name = os.path.join(PCD_folder,lisdir[0])
     initial_pcd = op3.io.read_point_cloud(pcd_name)
-    veiw_control_path = save_view_point(initial_pcd)
+    veiw_control_path = save_view_point(initial_pcd,PCD_folder)
     vis = op3.visualization.Visualizer()
     vis.create_window()
     
@@ -39,7 +45,7 @@ def show_3d_sequence(pcds_path):
     
     for i in range(0,len(lisdir)):
         time.sleep(0.1)
-        pcd_name = os.path.join(pcds_path,lisdir[i])
+        pcd_name = os.path.join(PCD_folder,lisdir[i])
         pcd = op3.io.read_point_cloud(pcd_name)
         vis.add_geometry(pcd)
         vis.update_geometry(pcd)
@@ -47,9 +53,14 @@ def show_3d_sequence(pcds_path):
         vis.poll_events()
         vis.update_renderer()
         vis.clear_geometries()
+        
     vis.destroy_window()  
 
 if __name__ == "__main__":
-    os.chdir(r'E:/Data/Verteran')
-    show_3d_sequence(r'E:/Data/Verteran/OutputFile/OutputPcd') 
-    # print(os.listdir(r'./Output File/Output Pcd'))
+    parser = argparse.ArgumentParser(description='This is a program visualize sequence .pcd files')
+    parser.add_argument('-i','--input', help='folder path that contains .pcd files', required=True)
+    args = parser.parse_args()
+    show_3d_sequence(args.input) 
+    
+    
+    
