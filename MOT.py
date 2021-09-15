@@ -1,6 +1,7 @@
 from BfTableGenerator import *
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
+import json
 
 class MOT():
     def __init__(self,pcap_path,output_file_path,background_update_frame,ending_frame,d ,thred_s ,N ,
@@ -77,14 +78,13 @@ class MOT():
     def mot_tracking(self,A,P_em,H,Q,R):
         
         missing_thred = self.missing_thred
-        
         lidar_reader = TDmapLoader(self.pcap_path)
         frame_gen = lidar_reader.frame_gen()
         self.frame_gen = frame_gen
         aggregated_maps = []
         Frame_ind_init = 0
         
-        while True: #Iterate Until a frame with one or more target is detected 
+        while True: #Iterate Until a frame with one or more targets are detected 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
@@ -320,16 +320,33 @@ if __name__ == "__main__":
         'eps': 1.8,
         'min_samples':15,
         'missing_thred':7,
-        'ending_frame' : 2500,
+        'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : None,
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'
     }
     
-    pcap_path = 'E:\Data\Verteran\Vateran.pcap'
-    output_file_path = 'E:\Data\Verteran'
+    input_path = '../RawLidarData/Veteran'
+    dir_lis = os.listdir(input_path)
+    pcap_path = 'None'
+    for f in dir_lis:
+        if 'pcap' in f.split('.'):
+            pcap_path = os.path.join(input_path,f)
+    if pcap_path == 'None':
+        print('Pcap file is not detected')
+    output_file_path = '../RawLidarData/Veteran'
+    config_path = os.path.join(input_path,'config.json')
+    ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
+    ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
+    ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
+    ref_LLH[:,2] = ref_LLH[:,2]/3.2808
+
+    with open(config_path) as f:
+        params = json.load(f)
+
     mot = MOT(pcap_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking(A,P,H,Q,R)
-    mot.save_result()
+    mot.save_result(ref_LLH,ref_xyz)
+    
