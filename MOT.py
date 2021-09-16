@@ -325,6 +325,7 @@ if __name__ == "__main__":
         'save_pcd' : None,
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'
+        
     }
     
     input_path = '../RawLidarData/Veteran'

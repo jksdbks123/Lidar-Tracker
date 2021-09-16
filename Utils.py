@@ -1,3 +1,4 @@
+from os import stat
 import numpy as np
 from numpy.core.fromnumeric import shape
 import open3d as op3
@@ -116,6 +117,17 @@ def extract_xylwh_by_frame(Labeling_map,Td_map,Thred_map):
 def extract_mea_state_vec(xylwh_set):
     return xylwh_set.reshape((-1,xylwh_set.shape[1],1))
 
+def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_init,start_frame):
+    
+    new_detection = detected_obj()
+    new_detection.glb_id = Global_id
+    new_detection.state = state_init
+    new_detection.label_seq.append(label_init)
+    new_detection.start_frame = start_frame
+    new_detection.mea_seq.append(mea_init)
+    new_detection.post_seq.append(state_init)
+    Tracking_pool[Global_id] = new_detection
+
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,start_frame):
     
     new_detection = detected_obj()
@@ -148,6 +160,9 @@ def associate_detections(Tracking_pool,glb_id,state,P,next_label,mea_next):
     Tracking_pool[glb_id].post_seq.append(state)
     Tracking_pool[glb_id].missing_count = 0
 
+def state_predict_NN(state,tracking_nn):
+    return tracking_nn(state).detach().numpy() # transfer to array
+
 def state_predict(A,Q,state,P):
     """
     state: s_k-1, (n x 10 x 1)
@@ -169,6 +184,10 @@ def state_update(A,H,state_,P_,R,mea):
     
     return state, P 
 
+def get_affinity_mat_NN(state):
+    # with _ predict, without _ is current state 
+    pass
+
 def get_affinity_mat(state,state_,P_,mea,R):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
@@ -182,8 +201,6 @@ def get_affinity_mat(state,state_,P_,mea,R):
         for j,m in enumerate(mea):
             u = m.copy().flatten()
             d = np.sqrt(np.sum((v[:2] - u[:2])**2))
-#             State_affinity[i][j] = multivariate_normal.pdf(u.flatten(),v_.flatten(),VI)
-#             State_affinity[i][j] = distance.mahalanobis(u.flatten(),v_.flatten(),np.linalg.inv(VI))
             if d < 7 :
                 simi_spatial = distance.mahalanobis(u[:2],v_sptial,VI_spatial)
                 simi_embed = distance.mahalanobis(u[2:],v_embed,VI_embed)
