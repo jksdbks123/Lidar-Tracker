@@ -66,7 +66,7 @@ class MOT_NN():
         frame_gen = lidar_reader.frame_gen()
         
         aggregated_maps = []
-        print('Initialization...')
+        print('Frame update frame:{} Initialization...'.format(self.background_update_frame))
         for i in tqdm(range(self.background_update_frame)):
             one_frame = next(frame_gen)
             aggregated_maps.append(one_frame)
@@ -107,11 +107,11 @@ class MOT_NN():
                 break
 
         mea_init = extract_mea_state_vec(xylwh_init).reshape(-1,5) # m: n x 5
-        state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0]),2)],axis = 1) # m: n x 7 xylwhx'y'
+        state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],2))],axis = 1) #  n x 7 xylwhx'y'
 
         for i,label in enumerate(unique_label_init):
             # Tracking_pool,Global_id,state_init,label_init,mea_init,start_frame
-            create_new_detection(self.Tracking_pool,self.Global_id,state_init[i],label,mea_init[i],Frame_ind_init)
+            create_new_detection_NN(self.Tracking_pool,self.Global_id,state_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
         
         state_cur,glb_id_cur = state_init,unique_label_init 
@@ -126,13 +126,13 @@ class MOT_NN():
                 self.thred_map = self.data_collector.thred_map
                 aggregated_maps = []
             """
-            Extract Matrix P and State of each tracklet in Current Tracking Pool
+            Extract State of each tracklet in Current Tracking Pool
             """
             glb_ids,state_cur = [],[]
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
                 state_cur.append(self.Tracking_pool[glb_id].state)
-            glb_ids,state_cur = np.array(glb_ids),np.array(state_cur)
+            glb_ids,state_cur = np.array(glb_ids),np.array(state_cur) # n x 7 
              
             # read next data 
             Td_map = next(frame_gen)
@@ -142,39 +142,50 @@ class MOT_NN():
             xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
             if len(glb_ids) >0:
                 if len(unique_lebel_next) > 0:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
-                    mea_next = extract_mea_state_vec(xylwh_next).reshape(-1,5)
-                    State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next,R)
+                    state_cur_ = state_predict_NN(state_cur,self.tracking_nn) # predict next state
+                    
+                    mea_next = extract_mea_state_vec(xylwh_next).reshape(-1,5) 
+                    
+                    State_affinity = get_affinity_mat_NN(state_cur_,mea_next)
+                    
                     associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
                     associated_ind_glb_,associated_ind_label_ = [],[]
                     for i,ass_id in enumerate(associated_ind_glb):
-                        if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
+                        if State_affinity[ass_id,associated_ind_label[i]] < 7:
                             associated_ind_glb_.append(ass_id)
                             associated_ind_label_.append(associated_ind_label[i])
                     associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
                     
                     """
-                    Failed tracking and new detections
+                    Failed Tracked 
                     """
                     # in a but not in b
                     failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_glb) 
                     
                     if len(failed_tracked_ind) > 0:
                         for fid in failed_tracked_ind:
-                            process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                        glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
+                            process_fails_NN(self.Tracking_pool,self.Off_tracking_pool,
+                                    glb_ids[fid],state_cur_[fid],missing_thred)
 
+                    """
+                    New Detection
+                    """
+                    
                     new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
                     if len(new_detection_ind) > 0:
                         for n_id in new_detection_ind:
-                            state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
-                            create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
-                            self.Global_id += 1
-                    
+                            # If new detected objects are detected within 30m, they shold not be created since they may be splited points
+                            if np.sqrt(np.sum(mea_next[n_id][:2]**2)) < 50:
+                                state_init = np.concatenate([mea_next[n_id],np.zeros(2)]) # n x 1 xylwhx'y'
+                                create_new_detection_NN(self.Tracking_pool,self.Global_id,
+                                                        state_init,unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                                self.Global_id += 1
+                        
                         
                     if len(associated_ind_glb) != 0:
-                        state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
+                        # update the new associations 
+                        
+                        state= state_update_NN(state_cur_[associated_ind_glb],mea_next[associated_ind_label])
                         glb_ids = glb_ids[associated_ind_glb]
                         mea_next = mea_next[associated_ind_label]
                         unique_lebel_next = unique_lebel_next[associated_ind_label]
@@ -183,23 +194,23 @@ class MOT_NN():
                         Associate detections 
                         """
                         for i,glb_id in enumerate(glb_ids):
-
-                            associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
+                            associate_detections_NN(self.Tracking_pool,glb_id,state[i],
                                                 unique_lebel_next[i],
                                                 mea_next[i])
                 else:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
+                    state_cur_ = state_predict_NN(state_cur,self.tracking_nn) # predict next state
                     for i,glb_id in enumerate(glb_ids):
-                        process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                    glb_id,state_cur_[i],P_cur_[i],missing_thred)
+                        process_fails_NN(self.Tracking_pool,self.Off_tracking_pool,
+                                    glb_id,state_cur_[i],missing_thred)
             else:    
                 if len(unique_lebel_next) > 0:
                     mea_next = extract_mea_state_vec(xylwh_next)
                     for n_id in range(len(mea_next)):
-                        state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
-                        create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                        state_init = np.concatenate([mea_init[n_id],np.zeros(2)]) # n x 7 xylwhx'y'
+                        create_new_detection_NN(self.Tracking_pool,self.Global_id,
+                                                state_init,unique_lebel_next[n_id],mea_init[n_id],Frame_ind)
                         self.Global_id += 1
+
            
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
@@ -329,7 +340,7 @@ if __name__ == "__main__":
         'missing_thred':7,
         'ending_frame' : 17950,
         'background_update_frame':2000,
-        'save_pcd' : None,
+        'save_pcd' : True,
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'
     }
@@ -352,11 +363,10 @@ if __name__ == "__main__":
     # TrackingModel Path
     model_path = './PosteriorModel/saved_model.pth' 
 
-    with open(config_path) as f:
-        params = json.load(f)
-
+    # with open(config_path) as f:
+    #     params = json.load(f)
     mot = MOT_NN(pcap_path,output_file_path,model_path,**params)
     mot.initialization()
-    mot.mot_tracking(A,P,H,Q,R)
+    mot.mot_tracking()
     mot.save_result(ref_LLH,ref_xyz)
     

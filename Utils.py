@@ -6,6 +6,7 @@ from scipy.optimize.optimize import main
 from scipy.spatial import distance
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
+import torch
 
 # Kalman Filter Params
 
@@ -151,6 +152,24 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
         Tracking_pool[glb_id].mea_seq.append(-1)
         Tracking_pool[glb_id].post_seq.append(state_cur_)
         
+def process_fails_NN(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,missing_thred):
+    if Tracking_pool[glb_id].missing_count > missing_thred:
+        Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+    else:
+        Tracking_pool[glb_id].missing_count += 1
+        Tracking_pool[glb_id].state = state_cur_
+        Tracking_pool[glb_id].label_seq.append(-1)
+        Tracking_pool[glb_id].mea_seq.append(-1)
+        Tracking_pool[glb_id].post_seq.append(state_cur_)
+
+def associate_detections_NN(Tracking_pool,glb_id,state,next_label,mea_next):
+    
+    Tracking_pool[glb_id].state = state
+    Tracking_pool[glb_id].label_seq.append(next_label)
+    Tracking_pool[glb_id].mea_seq.append(mea_next)
+    Tracking_pool[glb_id].post_seq.append(state)
+    Tracking_pool[glb_id].missing_count = 0
+
 def associate_detections(Tracking_pool,glb_id,state,P,next_label,mea_next):
     
     Tracking_pool[glb_id].state = state
@@ -161,7 +180,17 @@ def associate_detections(Tracking_pool,glb_id,state,P,next_label,mea_next):
     Tracking_pool[glb_id].missing_count = 0
 
 def state_predict_NN(state,tracking_nn):
-    return tracking_nn(state).detach().numpy() # transfer to array
+    
+    temp = state.copy()
+    cur_xy = state[:,[0,1]].copy()
+    torch_state = torch.tensor(temp[:,[0,1,-2,-1]]).float()
+    torch_state[:,[-2,-1]] = torch_state[:,[-2,-1]] / 10 # convert t0 m/0.1s 
+    pred_xy = tracking_nn(torch_state).detach().numpy() # n x 2
+    temp[:,[0,1]] = pred_xy
+    speed_xy = pred_xy - cur_xy
+    temp[:,[-2,-1]] = speed_xy
+    
+    return  temp
 
 def state_predict(A,Q,state,P):
     """
@@ -172,6 +201,11 @@ def state_predict(A,Q,state,P):
     P_ = np.matmul(np.matmul(A,P),A.transpose()) + Q
     return state_,P_
 
+def state_update_NN(state_,mea):
+    
+    state_[:,:2] = (state_[:,:2] + mea[:,:2])/2
+    return state_
+    
 def state_update(A,H,state_,P_,R,mea):
     """
     mea: m_k (m x 5 x 1)
@@ -210,11 +244,47 @@ def get_affinity_mat(state,state_,P_,mea,R):
             
     return State_affinity
 
+def get_affinity_mat_NN(state_cur_,mea_next):
+    
+    State_affinity_0 = np.empty((state_cur_.shape[0],mea_next.shape[0]))
+    # State_affinity_1 = np.empty((state_cur_.shape[0],mea_next.shape[0])) 
+    State_affinity_0.fill(1e3)
+    # State_affinity_1.fill(np.inf)
+    
+    for i,s_ in enumerate(state_cur_):    
+        v_ = s_.copy()
+        for j,m in enumerate(mea_next):
+            u = m.copy()
+            d = np.sqrt(np.sum((v_[:2] - u[:2])**2)) #Distance match
+            
+            if d < 7 :
+                State_affinity_0[i][j] = d
+            else:
+                State_affinity_0[i][j] = 1e3
+            
+    return State_affinity_0
+
 #sum file
 col_names_ = ['X_Coord_est','Y_Coord_est','X_Len_est','Y_Len_est','Z_Len_est','X_Vel_est','Y_Vel_est','X_Acc_est','Y_Acc_est']
 col_names = ['X_Coord_mea','Y_Coord_mea','X_Len_mea','Y_Len_mea','Z_Len_mea']
 
 def get_summary_file_split(post_seq,mea_seq):
+    temp = np.array(post_seq)
+    temp = temp.reshape(temp.shape[0],temp.shape[1])[:,[0,1,2,3,4,5,6,10,11]]
+    df_ = pd.DataFrame(temp,columns= col_names_)
+    temp = mea_seq
+    emp = []
+    for i,vec in enumerate(temp):
+        if type(vec) == int:
+            emp.append(-np.ones(len(col_names)).astype(np.int8))
+        else:
+            emp.append(vec.flatten())
+    emp = np.array(emp)
+    df = pd.DataFrame(emp,columns = col_names)
+    summary = pd.concat([df,df_],axis = 1)
+    return summary
+
+def get_summary_file_split_NN(post_seq,mea_seq):
     temp = np.array(post_seq)
     temp = temp.reshape(temp.shape[0],temp.shape[1])[:,[0,1,2,3,4,5,6,10,11]]
     df_ = pd.DataFrame(temp,columns= col_names_)

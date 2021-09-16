@@ -56,11 +56,17 @@ def show_3d_sequence(PCD_folder):
         
     vis.destroy_window()  
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='This is a program visualize sequence .pcd files')
-    parser.add_argument('-i','--input', help='folder path that contains .pcd files', required=True)
-    args = parser.parse_args()
-    show_3d_sequence(args.input) 
+# if __name__ == "__main__":
+    
+    # parser = argparse.ArgumentParser(description='This is a program visualize sequence .pcd files')
+    # parser.add_argument('-i','--input', help='folder path that contains .pcd files', required=True)
+    # args = parser.parse_args()
+    # show_3d_sequence(args.input) 
+    
+print(os.getcwd())
+input_path = '../RawLidarData/Veteran/OutputFile/OutputPcd'
+show_3d_sequence(input_path) 
+    
     
     
     
