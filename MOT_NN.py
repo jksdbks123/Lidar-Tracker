@@ -139,7 +139,8 @@ class MOT_NN():
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
+            xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame
+             
             if len(glb_ids) >0:
                 if len(unique_lebel_next) > 0:
                     state_cur_ = state_predict_NN(state_cur,self.tracking_nn) # predict next state
@@ -151,9 +152,10 @@ class MOT_NN():
                     associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
                     associated_ind_glb_,associated_ind_label_ = [],[]
                     for i,ass_id in enumerate(associated_ind_glb):
-                        if State_affinity[ass_id,associated_ind_label[i]] < 7:
+                        if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
                             associated_ind_glb_.append(ass_id)
                             associated_ind_label_.append(associated_ind_label[i])
+                            
                     associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
                     
                     """
@@ -170,17 +172,16 @@ class MOT_NN():
                     """
                     New Detection
                     """
-                    
+                            
                     new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
                     if len(new_detection_ind) > 0:
                         for n_id in new_detection_ind:
                             # If new detected objects are detected within 30m, they shold not be created since they may be splited points
-                            if np.sqrt(np.sum(mea_next[n_id][:2]**2)) < 50:
-                                state_init = np.concatenate([mea_next[n_id],np.zeros(2)]) # n x 1 xylwhx'y'
-                                create_new_detection_NN(self.Tracking_pool,self.Global_id,
-                                                        state_init,unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
-                                self.Global_id += 1
-                        
+                            # if np.sqrt(np.sum(mea_next[n_id][:2]**2)) > 30:
+                            state_init = np.concatenate([mea_next[n_id],np.zeros(2)]) # n x 1 xylwhx'y'
+                            create_new_detection_NN(self.Tracking_pool,self.Global_id,
+                                                    state_init,unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                            self.Global_id += 1
                         
                     if len(associated_ind_glb) != 0:
                         # update the new associations 
@@ -203,12 +204,13 @@ class MOT_NN():
                         process_fails_NN(self.Tracking_pool,self.Off_tracking_pool,
                                     glb_id,state_cur_[i],missing_thred)
             else:    
+                 
                 if len(unique_lebel_next) > 0:
-                    mea_next = extract_mea_state_vec(xylwh_next)
+                    mea_next = extract_mea_state_vec(xylwh_next).reshape(-1,5)
                     for n_id in range(len(mea_next)):
-                        state_init = np.concatenate([mea_init[n_id],np.zeros(2)]) # n x 7 xylwhx'y'
+                        state_init = np.concatenate([mea_next[n_id],np.zeros(2)]) # n x 7 xylwhx'y'
                         create_new_detection_NN(self.Tracking_pool,self.Global_id,
-                                                state_init,unique_lebel_next[n_id],mea_init[n_id],Frame_ind)
+                                                state_init,unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
 
            
@@ -335,7 +337,7 @@ if __name__ == "__main__":
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,11),
-        'eps': 1.8,
+        'eps': 1.75,
         'min_samples':15,
         'missing_thred':7,
         'ending_frame' : 17950,

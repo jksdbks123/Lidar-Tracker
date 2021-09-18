@@ -67,6 +67,3 @@ print(os.getcwd())
 input_path = '../RawLidarData/Veteran/OutputFile/OutputPcd'
 show_3d_sequence(input_path) 
     
-    
-    
-    

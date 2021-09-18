@@ -218,9 +218,6 @@ def state_update(A,H,state_,P_,R,mea):
     
     return state, P 
 
-def get_affinity_mat_NN(state):
-    # with _ predict, without _ is current state 
-    pass
 
 def get_affinity_mat(state,state_,P_,mea,R):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
@@ -255,12 +252,9 @@ def get_affinity_mat_NN(state_cur_,mea_next):
         v_ = s_.copy()
         for j,m in enumerate(mea_next):
             u = m.copy()
-            d = np.sqrt(np.sum((v_[:2] - u[:2])**2)) #Distance match
-            
-            if d < 7 :
+            d = np.sum((v_[:2] - u[:2])**2) #Distance match
+            if d < 49 :
                 State_affinity_0[i][j] = d
-            else:
-                State_affinity_0[i][j] = 1e3
             
     return State_affinity_0
 
@@ -284,21 +278,6 @@ def get_summary_file_split(post_seq,mea_seq):
     summary = pd.concat([df,df_],axis = 1)
     return summary
 
-def get_summary_file_split_NN(post_seq,mea_seq):
-    temp = np.array(post_seq)
-    temp = temp.reshape(temp.shape[0],temp.shape[1])[:,[0,1,2,3,4,5,6,10,11]]
-    df_ = pd.DataFrame(temp,columns= col_names_)
-    temp = mea_seq
-    emp = []
-    for i,vec in enumerate(temp):
-        if type(vec) == int:
-            emp.append(-np.ones(len(col_names)).astype(np.int8))
-        else:
-            emp.append(vec.flatten())
-    emp = np.array(emp)
-    df = pd.DataFrame(emp,columns = col_names)
-    summary = pd.concat([df,df_],axis = 1)
-    return summary
 
 col_info =['ObjectID','FrameIndex']
 col_est = ['Object_Length_est','Object_Width_est','Object_Height_est','Coord_X_est','Coord_Y_est','Coord_Lon_est','Coord_Lat_est','Coord_Evel_est','Coord_Dis_est','Speed_x','Speed_y','Speed_est']
