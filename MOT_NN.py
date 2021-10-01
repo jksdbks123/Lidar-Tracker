@@ -342,7 +342,7 @@ if __name__ == "__main__":
         'missing_thred':7,
         'ending_frame' : 17950,
         'background_update_frame':2000,
-        'save_pcd' : True,
+        'save_pcd' : 'Filtered',
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'
     }

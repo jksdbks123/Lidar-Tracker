@@ -322,7 +322,7 @@ if __name__ == "__main__":
         'missing_thred':7,
         'ending_frame' : 17950,
         'background_update_frame':2000,
-        'save_pcd' : None,
+        'save_pcd' : 'Filtered',
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'
         
@@ -342,9 +342,6 @@ if __name__ == "__main__":
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
     ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
     ref_LLH[:,2] = ref_LLH[:,2]/3.2808
-
-    with open(config_path) as f:
-        params = json.load(f)
 
     mot = MOT(pcap_path,output_file_path,**params)
     mot.initialization()
