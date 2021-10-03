@@ -7,6 +7,9 @@ from scipy.spatial import distance
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 import torch
+from sklearn.cluster import DBSCAN
+
+db_merge = DBSCAN(eps=3.4,min_samples=2)
 
 # Kalman Filter Params
 
@@ -91,15 +94,56 @@ def convert_point_cloud(Td_map, Labeling_map, Thred_map):
     XYZ = np.concatenate([Xs.reshape(-1,1),Ys.reshape(-1,1),Zs.reshape(-1,1)],axis = 1)
     return XYZ, Labels
 
-def get_params_from_detection_points(Td_map,Labeling_map,Label,Thred_map):
+def get_params_from_detection_points(point):
     
-    XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
     pcd = op3.geometry.PointCloud()
-    pcd.points = op3.utility.Vector3dVector(XYZ[Labels == Label])
+    pcd.points = op3.utility.Vector3dVector(point)
     bbox = pcd.get_axis_aligned_bounding_box()
     # x,y,length,width,height 
     xylwh = np.concatenate([bbox.get_center()[:2],bbox.get_max_bound() - bbox.get_min_bound()])
     return xylwh
+
+def extract_xylwh_merging_by_frame(Labeling_map,Td_map,Thred_map):
+    
+    XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
+    uni_labels = np.unique(Labels)
+    if -1 in uni_labels:
+        uni_labels = uni_labels[1:]
+    Point_sets = []
+    Center_points = []
+    for l in uni_labels:
+        points = XYZ[Labels == uni_labels[l]][:,:2]
+        center_point = np.mean(points,axis = 0)
+        Center_points.append(center_point)
+        Point_sets.append(points)
+    Center_points = np.array(Center_points)
+    Merge_labels = db_merge.fit_predict(Center_points)
+    uni_mer_labels = np.unique(Merge_labels)
+    if -1 in uni_mer_labels:
+        uni_mer_labels = uni_mer_labels[1:]
+    Merge_cobs = []
+    for l in uni_mer_labels:
+        Merge_cobs.append(uni_labels[Merge_labels == l])
+    for cob in Merge_cobs:
+        for i in range(1,len(cob)):
+            Labeling_map[Labeling_map == cob[i]] = cob[0]
+            uni_labels[uni_labels == cob[i]] = cob[0]
+            Labels[Labels == cob[i]] =cob[0]
+            
+    new_uni_labels = np.unique(uni_labels)
+    # new_uni_labels_ = np.arange(len(new_uni_labels))
+    # XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
+    # for i,n_l in enumerate(new_uni_labels_):
+    #     Labeling_map[Labeling_map == new_uni_labels[i]] = n_l
+        
+    xylwh_set = []  
+    for l in new_uni_labels:
+        point = XYZ[Labels == l]
+        xylwh = get_params_from_detection_points(point)
+        xylwh_set.append(xylwh)
+
+    return np.array(xylwh_set),new_uni_labels,Labeling_map
+
 
 def extract_xylwh_by_frame(Labeling_map,Td_map,Thred_map):
     
@@ -219,25 +263,25 @@ def state_update(A,H,state_,P_,R,mea):
     return state, P 
 
 
-def get_affinity_mat(state,state_,P_,mea,R):
+def get_affinity_mat(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
         v_ = s_.copy().flatten()
         v = state[i].copy().flatten()
-        VI_spatial = P_[i][:2,:2].copy()
-        VI_embed = P_[i][2:5,2:5].copy()
-        v_sptial = v[:2]
-        v_embed = v[2:5]
+        # VI = P_[i][:2,:2].copy()
+        v_all = v_[:2]
+
         
         for j,m in enumerate(mea):
             u = m.copy().flatten()
             d = np.sqrt(np.sum((v[:2] - u[:2])**2))
-            if d < 7 :
-                simi_spatial = distance.mahalanobis(u[:2],v_sptial,VI_spatial)
-                simi_embed = distance.mahalanobis(u[2:],v_embed,VI_embed)
-                State_affinity[i][j] = 0.8*simi_spatial + 0.2*simi_embed
+            if d > 5:
+                simi = 1e4
             else:
-                State_affinity[i][j] = 1e3
+                simi = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
+            # simi_embed = distance.mahalanobis(u[2:],v_embed,VI_embed)
+            State_affinity[i][j] = simi
+
             
     return State_affinity
 

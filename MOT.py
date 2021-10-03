@@ -89,7 +89,7 @@ class MOT():
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            xylwh_init,unique_label_init = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map)
+            xylwh_init,unique_label_init,Labeling_map = extract_xylwh_merging_by_frame(Labeling_map,Td_map,self.thred_map)
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             Frame_ind_init += 1
@@ -132,16 +132,16 @@ class MOT():
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
+            xylwh_next,unique_lebel_next,Labeling_map = extract_xylwh_merging_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
             if len(glb_ids) >0:
                 if len(unique_lebel_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                     mea_next = extract_mea_state_vec(xylwh_next)
-                    State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next,R)
+                    State_affinity = get_affinity_mat(state_cur,state_cur_,P_cur_,mea_next)
                     associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
                     associated_ind_glb_,associated_ind_label_ = [],[]
                     for i,ass_id in enumerate(associated_ind_glb):
-                        if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
+                        if State_affinity[ass_id,associated_ind_label[i]] < 10:
                             associated_ind_glb_.append(ass_id)
                             associated_ind_label_.append(associated_ind_label[i])
                     associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
@@ -295,7 +295,7 @@ class MOT():
             np.save(os.path.join(self.Azimuth_Laser_info_path,'%06.0f.npy'%f),LA_info)
             
         Labels = np.concatenate(Labels).astype('int')
-        Colors = np.zeros((len(Labels),3))
+        Colors = np.full((len(Labels),3),np.array([[153,153,153]])/256)
         for key in Tracking_pool:
             label_cur_frame = Tracking_pool[key].label_seq[-1]
             if label_cur_frame != -1:
@@ -317,9 +317,9 @@ if __name__ == "__main__":
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,11),
-        'eps': 1.8,
+        'eps': 1.7,
         'min_samples':15,
-        'missing_thred':7,
+        'missing_thred':10,
         'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',
