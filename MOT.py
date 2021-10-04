@@ -71,7 +71,7 @@ class MOT():
         self.data_collector.aggregated_map = aggregated_maps
         self.data_collector.gen_thredmap(self.d,self.thred_s,self.N,self.delta_thred,self.step)
         self.thred_map = self.data_collector.thred_map
-        
+        from MOT import MOT
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps, 
                                 min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)     
         
@@ -141,7 +141,7 @@ class MOT():
                     associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
                     associated_ind_glb_,associated_ind_label_ = [],[]
                     for i,ass_id in enumerate(associated_ind_glb):
-                        if State_affinity[ass_id,associated_ind_label[i]] < 10:
+                        if State_affinity[ass_id,associated_ind_label[i]] < 8:
                             associated_ind_glb_.append(ass_id)
                             associated_ind_label_.append(associated_ind_label[i])
                     associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
@@ -316,9 +316,9 @@ if __name__ == "__main__":
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,11),
-        'eps': 1.7,
-        'min_samples':15,
+        'win_size':(5,13),
+        'eps': 1.8,
+        'min_samples':17,
         'missing_thred':10,
         'ending_frame' : 17950,
         'background_update_frame':2000,

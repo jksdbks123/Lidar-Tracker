@@ -6,14 +6,14 @@ from scipy.optimize.optimize import main
 from scipy.spatial import distance
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
-import torch
+# import torch
 from sklearn.cluster import DBSCAN
 
-db_merge = DBSCAN(eps=3.4,min_samples=2)
+db_merge = DBSCAN(eps=3.7,min_samples=2)
 
 # Kalman Filter Params
 
-A = np.array( # x,y,l,w,h,,x',y',l',w',h',x'',y''
+A = np.array( # x,y,l,w,h,x',y',l',w',h',x'',y''
     [[1,0,0,0,0,1,0,0,0,0,.5, 0],
      [0,1,0,0,0,0,1,0,0,0, 0,.5],
      [0,0,1,0,0,0,0,1,0,0, 0, 0],
@@ -263,6 +263,37 @@ def state_update(A,H,state_,P_,R,mea):
     return state, P 
 
 
+def get_affinity_mat_cos(state,state_,P_,mea):
+    State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
+    for i,s_ in enumerate(state_):
+        v_ = s_.copy().flatten()
+        v = state[i].copy().flatten()
+        # VI = P_[i][:2,:2].copy()
+        v_all = v_[:2]
+        
+        for j,m in enumerate(mea):
+            u = m.copy().flatten()
+            d_cur_mea = np.sqrt(np.sum((v[:2] - u[:2])**2))
+            if d_cur_mea > 5:
+                simi = 1e4
+            else:
+                d_pred_mea = np.sqrt(np.sum((v_all - u[:2])**2))
+                v_cur = np.sqrt(np.sum(v[5:7]**2))
+                pred_vec = v_[5:7]
+                mea_vec = u[:2] - v[:2]
+                norm_pred_vec,norm_mea_vec = np.sqrt(np.sum(pred_vec**2)),np.sqrt(np.sum(mea_vec**2))
+                if (norm_mea_vec == 0) | (norm_pred_vec == 0):
+                    cos_mea_pred = 0
+                else:
+                    cos_mea_pred = (mea_vec * pred_vec).sum()/(norm_pred_vec*norm_mea_vec)
+                simi = d_pred_mea/((-np.e**(-v_cur)+2) * (cos_mea_pred + 1))
+            # simi_embed = distance.mahalanobis(u[2:],v_embed,VI_embed)
+            State_affinity[i][j] = simi
+
+            
+    return State_affinity
+
+
 def get_affinity_mat(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
@@ -274,11 +305,8 @@ def get_affinity_mat(state,state_,P_,mea):
         
         for j,m in enumerate(mea):
             u = m.copy().flatten()
-            d = np.sqrt(np.sum((v[:2] - u[:2])**2))
-            if d > 5:
-                simi = 1e4
-            else:
-                simi = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
+            # d = np.sqrt(np.sum((v[:2] - u[:2])**2))
+            simi = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
             # simi_embed = distance.mahalanobis(u[2:],v_embed,VI_embed)
             State_affinity[i][j] = simi
 
