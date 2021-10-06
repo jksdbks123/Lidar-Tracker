@@ -9,7 +9,7 @@ from scipy.optimize import linear_sum_assignment
 # import torch
 from sklearn.cluster import DBSCAN
 
-db_merge = DBSCAN(eps=3.7,min_samples=2)
+db_merge = DBSCAN(eps=3,min_samples=2)
 
 # Kalman Filter Params
 

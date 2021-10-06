@@ -319,7 +319,7 @@ if __name__ == "__main__":
         'win_size':(5,13),
         'eps': 1.8,
         'min_samples':17,
-        'missing_thred':10,
+        'missing_thred':30,
         'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',

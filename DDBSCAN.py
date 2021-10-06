@@ -66,7 +66,7 @@ class Raster_DBSCAN():
         Sub_tdmap = sliding_window_view(Td_map_offset,self.window_size).reshape(-1,self.window_size[0],self.window_size[1])
         Sub_foremap = sliding_window_view(Foreground_map_offset,self.window_size).reshape(-1,self.window_size[0],self.window_size[1])
         # Window inds that are valid as Foregound, and only 
-        valid_windows = Sub_foremap[:,self.Height_fringe,self.Width_fringe] 
+        valid_windows = Sub_foremap[:,self.Height_fringe ,self.Width_fringe] 
         Sub_indmap,Sub_foremap,Sub_tdmap = Sub_indmap[valid_windows],Sub_foremap[valid_windows],Sub_tdmap[valid_windows]
         
         # ***key step
@@ -80,6 +80,6 @@ class Raster_DBSCAN():
 
         Labeling_map = -1*np.ones_like(Foreground_map)
         Labeling_map[rows,cols] = Labels
-        self.Labeling_map = Labeling_map
+        # self.Labeling_map = Labeling_map
         
         return Labeling_map
