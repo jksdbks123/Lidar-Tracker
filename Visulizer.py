@@ -53,8 +53,6 @@ def show_3d_sequence(PCD_folder):
         vis.poll_events()
         vis.update_renderer()
         vis.clear_geometries()
-        
-    vis.destroy_window()  
 
 # if __name__ == "__main__":
     

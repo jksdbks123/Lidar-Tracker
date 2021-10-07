@@ -103,7 +103,86 @@ def get_params_from_detection_points(point):
     xylwh = np.concatenate([bbox.get_center()[:2],bbox.get_max_bound() - bbox.get_min_bound()])
     return xylwh
 
-def extract_xylwh_merging_by_frame(Labeling_map,Td_map,Thred_map):
+def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Background_map):
+    
+    XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
+    unique_label = np.unique(Labels)
+    if -1 in unique_label:
+        unique_label = unique_label[1:]
+
+    boundary_cols = []
+    boundary_rows = []
+    for l in unique_label:
+        rows,cols = np.where(Labeling_map == l)
+        sorted_cols_ind = np.argsort(cols)
+        sorted_cols = cols[sorted_cols_ind]
+        sorted_rows = rows[sorted_cols_ind]
+        left_col,right_col = sorted_cols[0],sorted_cols[-1]
+        
+        if (right_col - left_col) >  900:
+            left_col += 1800 
+        boundary_cols.append([left_col,right_col])
+        boundary_rows.append([rows[sorted_cols_ind[0]],rows[sorted_cols_ind[-1]]])
+    boundary_cols,boundary_rows = np.array(boundary_cols),np.array(boundary_rows)
+
+    sorted_label = np.argsort(boundary_cols[:,0])
+
+    adjacent_label_pairs = []
+    for sl in range(len(sorted_label) - 1):
+        if boundary_cols[sorted_label[sl],1] < boundary_cols[sorted_label[sl+1],0]:
+            adjacent_label_pairs.append([sorted_label[sl],sorted_label[sl+1]])
+            
+    if boundary_cols[sorted_label[-1],1] > 1800:
+        if (boundary_cols[sorted_label[-1],1] - 1800) < boundary_cols[sorted_label[0],0]:
+            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
+    else:
+        if boundary_cols[sorted_label[-1],1] < boundary_cols[sorted_label[0],0]:
+            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
+    Merge_cobs = []
+    for adjacent in adjacent_label_pairs:
+        pair_a,pair_b = adjacent[0],adjacent[1]
+        interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
+        interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
+    #     print(interval_left_col,interval_right_col)
+        if (interval_right_col - interval_left_col) > 30:
+            continue
+        high = interval_left_row
+        low = interval_right_row
+        if high < low: 
+            high,low = low,high
+        
+        interval_map = Td_map[low:high+1,interval_left_col:interval_right_col+1][Background_map[low:high+1,interval_left_col:interval_right_col+1]]
+        if len(interval_map) == 0 :
+            continue
+        min_dis_int = interval_map.min()
+        min_dis_a = Td_map[Labeling_map == pair_a].min()
+        min_dis_b = Td_map[Labeling_map == pair_b].min()
+        if (min_dis_int + 1.2 < min_dis_a)&(min_dis_int + 1.2 <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.2):
+            Merge_cobs.append([pair_a,pair_b])
+    
+
+    for cob in Merge_cobs:
+        for i in range(1,len(cob)):
+            Labeling_map[Labeling_map == cob[i]] = cob[0]
+            unique_label[unique_label == cob[i]] = cob[0]
+            Labels[Labels == cob[i]] =cob[0]
+            
+    new_uni_labels = np.unique(unique_label)
+    # new_uni_labels_ = np.arange(len(new_uni_labels))
+    # XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
+    # for i,n_l in enumerate(new_uni_labels_):
+    #     Labeling_map[Labeling_map == new_uni_labels[i]] = n_l
+        
+    xylwh_set = []  
+    for l in new_uni_labels:
+        point = XYZ[Labels == l]
+        xylwh = get_params_from_detection_points(point)
+        xylwh_set.append(xylwh)
+
+    return np.array(xylwh_set),new_uni_labels,Labeling_map
+
+
+def extract_xylwh_merging_by_frame_db(Labeling_map,Td_map,Thred_map):
     
     XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
     uni_labels = np.unique(Labels)
@@ -307,6 +386,7 @@ def get_affinity_mat(state,state_,P_,mea):
             u = m.copy().flatten()
             # d = np.sqrt(np.sum((v[:2] - u[:2])**2))
             simi = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
+            # simi_ np.sqrt(np.sum((v_all[:2] - u[:2])**2))
             # simi_embed = distance.mahalanobis(u[2:],v_embed,VI_embed)
             State_affinity[i][j] = simi
 
