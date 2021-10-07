@@ -89,7 +89,8 @@ class MOT():
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            xylwh_init,unique_label_init,Labeling_map = extract_xylwh_merging_by_frame(Labeling_map,Td_map,self.thred_map)
+            Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
+            xylwh_init,unique_label_init,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map)
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             Frame_ind_init += 1
@@ -132,7 +133,8 @@ class MOT():
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            xylwh_next,unique_lebel_next,Labeling_map = extract_xylwh_merging_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame 
+            Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
+            xylwh_next,unique_lebel_next,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map) # read observation at next frame 
             if len(glb_ids) >0:
                 if len(unique_lebel_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
@@ -311,13 +313,13 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        'd':1.2,
+        'd':1.1,
         'thred_s':0.3,
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,13),
-        'eps': 1.8,
+        'win_size':(5,15),
+        'eps': 1.5,
         'min_samples':17,
         'missing_thred':30,
         'ending_frame' : 17950,
