@@ -143,7 +143,7 @@ class MOT():
                     associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
                     associated_ind_glb_,associated_ind_label_ = [],[]
                     for i,ass_id in enumerate(associated_ind_glb):
-                        if State_affinity[ass_id,associated_ind_label[i]] < 8:
+                        if State_affinity[ass_id,associated_ind_label[i]] < 3:
                             associated_ind_glb_.append(ass_id)
                             associated_ind_label_.append(associated_ind_label[i])
                     associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
@@ -313,14 +313,14 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        'd':1.1,
+        'd':1.2,
         'thred_s':0.3,
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,15),
-        'eps': 1.5,
-        'min_samples':17,
+        'win_size':(5,11),
+        'eps': 1.75,
+        'min_samples':15,
         'missing_thred':30,
         'ending_frame' : 17950,
         'background_update_frame':2000,

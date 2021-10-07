@@ -157,7 +157,7 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
         min_dis_int = interval_map.min()
         min_dis_a = Td_map[Labeling_map == pair_a].min()
         min_dis_b = Td_map[Labeling_map == pair_b].min()
-        if (min_dis_int + 1.2 < min_dis_a)&(min_dis_int + 1.2 <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.2):
+        if (min_dis_int  < min_dis_a)&(min_dis_int  <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.5):
             Merge_cobs.append([pair_a,pair_b])
     
 
@@ -378,17 +378,18 @@ def get_affinity_mat(state,state_,P_,mea):
     for i,s_ in enumerate(state_):
         v_ = s_.copy().flatten()
         v = state[i].copy().flatten()
-        # VI = P_[i][:2,:2].copy()
         v_all = v_[:2]
 
         
         for j,m in enumerate(mea):
             u = m.copy().flatten()
-            # d = np.sqrt(np.sum((v[:2] - u[:2])**2))
-            simi = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
-            # simi_ np.sqrt(np.sum((v_all[:2] - u[:2])**2))
-            # simi_embed = distance.mahalanobis(u[2:],v_embed,VI_embed)
-            State_affinity[i][j] = simi
+            mea_vec = u[:2] - v[:2]
+            v_mea = np.sqrt(np.sum(mea_vec**2))
+            v_cur = np.sqrt(np.sum(v[5:7]**2))
+            
+            dis = np.sqrt(np.sum((v_all[:2] - u[:2])**2))/100 
+            
+            State_affinity[i][j] = dis + np.abs(v_mea - v_cur)/3.3
 
             
     return State_affinity
