@@ -59,7 +59,7 @@ theta_raw = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
 theta = np.sort(theta_raw)
 azimuths = np.arange(0,360,0.2)
 # color map 
-np.random.seed(150)
+np.random.seed(412)
 color_map = np.random.random((100,3))
 
 #xylwh xylwh, xy
@@ -144,7 +144,7 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
         interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
         interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
     #     print(interval_left_col,interval_right_col)
-        if (interval_right_col - interval_left_col) > 30:
+        if (interval_right_col - interval_left_col) > 100:
             continue
         high = interval_left_row
         low = interval_right_row
@@ -340,6 +340,30 @@ def state_update(A,H,state_,P_,R,mea):
     state = state_ + np.matmul(K,residual)
     
     return state, P 
+from scipy.stats import multivariate_normal
+
+def get_affinity_mat_jpd(state,state_,P_,mea):
+    State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
+    for i,s_ in enumerate(state_):
+        v_ = s_.copy().flatten()
+        a = [0,1,2,3,4]
+        v_all = v_[a]
+        cov = np.zeros((len(a),len(a)))
+        for i_emp,i_P in enumerate(a):
+            for j_emp,j_P in enumerate(a):
+                cov[i_emp,j_emp] = P_[i][i_P,j_P]
+
+        var = multivariate_normal(mean=v_all, cov=cov)
+        for j,m in enumerate(mea):
+            u = m.copy().flatten()
+            d_cur_mea = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
+            if d_cur_mea > 10:
+                State_affinity[i][j] = 0
+            else:
+                jp = var.pdf(u[a])
+                State_affinity[i][j] = jp
+
+    return State_affinity
 
 
 def get_affinity_mat_cos(state,state_,P_,mea):
@@ -373,7 +397,7 @@ def get_affinity_mat_cos(state,state_,P_,mea):
     return State_affinity
 
 
-def get_affinity_mat(state,state_,P_,mea):
+def get_affinity_mat_velocity(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
         v_ = s_.copy().flatten()
@@ -387,11 +411,29 @@ def get_affinity_mat(state,state_,P_,mea):
             v_mea = np.sqrt(np.sum(mea_vec**2))
             v_cur = np.sqrt(np.sum(v[5:7]**2))
             
-            dis = np.sqrt(np.sum((v_all[:2] - u[:2])**2))/100 
-            
-            State_affinity[i][j] = dis + np.abs(v_mea - v_cur)/3.3
+            dis = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
 
+            State_affinity[i][j] = dis*np.abs(v_mea - v_cur)/3.3
+    return State_affinity
+
+
+def get_affinity_mat_velocity(state,state_,P_,mea):
+    State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
+    for i,s_ in enumerate(state_):
+        v_ = s_.copy().flatten()
+        v = state[i].copy().flatten()
+        v_all = v_[:2]
+
+        
+        for j,m in enumerate(mea):
+            u = m.copy().flatten()
+            mea_vec = u[:2] - v[:2]
+            v_mea = np.sqrt(np.sum(mea_vec**2))
+            v_cur = np.sqrt(np.sum(v[5:7]**2))
             
+            dis = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
+
+            State_affinity[i][j] = dis*np.abs(v_mea - v_cur)/3.3
     return State_affinity
 
 def get_affinity_mat_NN(state_cur_,mea_next):
