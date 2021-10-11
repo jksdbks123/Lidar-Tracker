@@ -27,14 +27,14 @@ A = np.array( # x,y,l,w,h,x',y',l',w',h',x'',y''
      [0,0,0,0,0,0,0,0,0,0, 1, 0],
      [0,0,0,0,0,0,0,0,0,0, 0, 1]]
       )
-Q = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*0.01
+Q = np.diag([1,1,1,1,1,0.1,0.1,1,1,1,0.01,0.01])*0.1
 H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
             [0,1,0,0,0,0,0,0,0,0,0,0],
             [0,0,1,0,0,0,0,0,0,0,0,0],
             [0,0,0,1,0,0,0,0,0,0,0,0],
             [0,0,0,0,1,0,0,0,0,0,0,0]])
-R = np.diag([10,10,0.1,0.1,0.1])
-P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])
+R = np.diag([100,100,1,1,1])
+P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*100
 
 class detected_obj():
     def __init__(self):
@@ -144,7 +144,7 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
         interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
         interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
     #     print(interval_left_col,interval_right_col)
-        if (interval_right_col - interval_left_col) > 100:
+        if (interval_right_col - interval_left_col) > 70:
             continue
         high = interval_left_row
         low = interval_right_row
@@ -157,7 +157,7 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
         min_dis_int = interval_map.min()
         min_dis_a = Td_map[Labeling_map == pair_a].min()
         min_dis_b = Td_map[Labeling_map == pair_b].min()
-        if (min_dis_int  < min_dis_a)&(min_dis_int  <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.5):
+        if (min_dis_int  < min_dis_a)&(min_dis_int  <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.2):
             Merge_cobs.append([pair_a,pair_b])
     
 
@@ -346,7 +346,7 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
         v_ = s_.copy().flatten()
-        a = [0,1,2,3,4]
+        a = [0,1]
         v_all = v_[a]
         cov = np.zeros((len(a),len(a)))
         for i_emp,i_P in enumerate(a):
@@ -357,7 +357,7 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
         for j,m in enumerate(mea):
             u = m.copy().flatten()
             d_cur_mea = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
-            if d_cur_mea > 10:
+            if d_cur_mea > 4:
                 State_affinity[i][j] = 0
             else:
                 jp = var.pdf(u[a])

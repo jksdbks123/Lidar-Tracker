@@ -71,7 +71,6 @@ class MOT():
         self.data_collector.aggregated_map = aggregated_maps
         self.data_collector.gen_thredmap(self.d,self.thred_s,self.N,self.delta_thred,self.step)
         self.thred_map = self.data_collector.thred_map
-        from MOT import MOT
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps, 
                                 min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)     
         
@@ -319,12 +318,12 @@ if __name__ == "__main__":
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,11),
-        'eps': 1.8,
-        'min_samples':15,
-        'missing_thred':40,
+        'eps': 2,
+        'min_samples':25,
+        'missing_thred':60,
         'ending_frame' : 17950,
-        'background_update_frame':2000,
-        'save_pcd' : 'Filtered',
+        'background_update_frame':3000,
+        'save_pcd' : 'Unfiltered',
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'
         
