@@ -139,12 +139,8 @@ class MOT():
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                     mea_next = extract_mea_state_vec(xylwh_next)
                     State_affinity = get_affinity_mat_jpd(state_cur,state_cur_,P_cur_,mea_next)
-                    associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity,maximize=True)
-                    associated_ind_glb_,associated_ind_label_ = [],[]
-                    for i,ass_id in enumerate(associated_ind_glb):
-                        if State_affinity[ass_id,associated_ind_label[i]] > 0:
-                            associated_ind_glb_.append(ass_id)
-                            associated_ind_label_.append(associated_ind_label[i])
+                    
+                    associated_ind_glb_,associated_ind_label_ = linear_assignment_modified(State_affinity)
                     associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
                     
                     """
@@ -318,11 +314,11 @@ if __name__ == "__main__":
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,11),
-        'eps': 2,
+        'eps': 1.7,
         'min_samples':25,
         'missing_thred':60,
         'ending_frame' : 17950,
-        'background_update_frame':3000,
+        'background_update_frame':2000,
         'save_pcd' : 'Unfiltered',
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'

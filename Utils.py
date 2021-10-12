@@ -181,6 +181,24 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
 
     return np.array(xylwh_set),new_uni_labels,Labeling_map
 
+def linear_assignment_modified(State_affinity):
+    State_affinity_temp = State_affinity.copy()
+    associated_ind_glb,associated_ind_label = [],[]
+    for i,p in enumerate(State_affinity):
+        if (p != 0).sum() == 1:
+            associated_ind_glb.append(i)
+            label_ind = np.where(p != 0)[0][0]
+            associated_ind_label.append(label_ind)
+            State_affinity_temp[i,label_ind] = 0
+    
+    associated_ind_glb_extend_,associated_ind_labels_extend_= linear_sum_assignment(State_affinity_temp,maximize=True)
+    
+    for i in range(len(associated_ind_glb_extend_)):
+        if State_affinity_temp[associated_ind_glb_extend_[i],associated_ind_labels_extend_[i]] != 0:
+            associated_ind_glb.append(associated_ind_glb_extend_[i])
+            associated_ind_label.append(associated_ind_labels_extend_[i])
+
+    return associated_ind_glb,associated_ind_label
 
 def extract_xylwh_merging_by_frame_db(Labeling_map,Td_map,Thred_map):
     
@@ -357,7 +375,7 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
         for j,m in enumerate(mea):
             u = m.copy().flatten()
             d_cur_mea = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
-            if d_cur_mea > 4:
+            if d_cur_mea > 5:
                 State_affinity[i][j] = 0
             else:
                 jp = var.pdf(u[a])
