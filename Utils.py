@@ -168,11 +168,7 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
             Labels[Labels == cob[i]] =cob[0]
             
     new_uni_labels = np.unique(unique_label)
-    # new_uni_labels_ = np.arange(len(new_uni_labels))
-    # XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
-    # for i,n_l in enumerate(new_uni_labels_):
-    #     Labeling_map[Labeling_map == new_uni_labels[i]] = n_l
-        
+
     xylwh_set = []  
     for l in new_uni_labels:
         point = XYZ[Labels == l]
