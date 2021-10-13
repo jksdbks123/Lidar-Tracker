@@ -140,8 +140,8 @@ class MOT():
                     mea_next = extract_mea_state_vec(xylwh_next)
                     State_affinity = get_affinity_mat_jpd(state_cur,state_cur_,P_cur_,mea_next)
                     
-                    associated_ind_glb_,associated_ind_label_ = linear_assignment_modified(State_affinity)
-                    associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
+                    associated_ind_glb,associated_ind_label = linear_assignment_modified(State_affinity)
+                    # associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
                     
                     """
                     Failed tracking and new detections
@@ -313,8 +313,8 @@ if __name__ == "__main__":
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,11),
-        'eps': 1.7,
+        'win_size':(5,13),
+        'eps': 1.75,
         'min_samples':25,
         'missing_thred':60,
         'ending_frame' : 17950,

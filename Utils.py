@@ -27,13 +27,13 @@ A = np.array( # x,y,l,w,h,x',y',l',w',h',x'',y''
      [0,0,0,0,0,0,0,0,0,0, 1, 0],
      [0,0,0,0,0,0,0,0,0,0, 0, 1]]
       )
-Q = np.diag([1,1,1,1,1,0.1,0.1,1,1,1,0.01,0.01])*0.1
+Q = np.diag([1,1,1,1,1,0.1,0.1,1,1,1,0.01,0.01])*0.01
 H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
             [0,1,0,0,0,0,0,0,0,0,0,0],
             [0,0,1,0,0,0,0,0,0,0,0,0],
             [0,0,0,1,0,0,0,0,0,0,0,0],
             [0,0,0,0,1,0,0,0,0,0,0,0]])
-R = np.diag([100,100,1,1,1])
+R = np.diag([1,1,1,1,1])*200
 P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*100
 
 class detected_obj():
@@ -144,7 +144,7 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
         interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
         interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
     #     print(interval_left_col,interval_right_col)
-        if (interval_right_col - interval_left_col) > 70:
+        if (interval_right_col - interval_left_col) > 80:
             continue
         high = interval_left_row
         low = interval_right_row
@@ -197,7 +197,11 @@ def linear_assignment_modified(State_affinity):
         if State_affinity_temp[associated_ind_glb_extend_[i],associated_ind_labels_extend_[i]] != 0:
             associated_ind_glb.append(associated_ind_glb_extend_[i])
             associated_ind_label.append(associated_ind_labels_extend_[i])
-
+    associated_ind_glb,associated_ind_label = np.array(associated_ind_glb),np.array(associated_ind_label)
+    ind = np.argsort(associated_ind_glb)
+    associated_ind_glb = associated_ind_glb[ind]
+    associated_ind_label = associated_ind_label[ind]
+    
     return associated_ind_glb,associated_ind_label
 
 def extract_xylwh_merging_by_frame_db(Labeling_map,Td_map,Thred_map):
@@ -364,6 +368,7 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
         v_ = s_.copy().flatten()
+        v_cur = state[i].flatten()
         a = [0,1]
         v_all = v_[a]
         cov = np.zeros((len(a),len(a)))
@@ -374,8 +379,9 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
         var = multivariate_normal(mean=v_all, cov=cov)
         for j,m in enumerate(mea):
             u = m.copy().flatten()
-            d_cur_mea = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
-            if d_cur_mea > 5:
+            v_next = np.sqrt(np.sum((v_cur[:2] - u[:2])**2))
+            # v_previous = np.sqrt(np.sum(v_cur[5:7]**2))
+            if (v_next > 5):
                 State_affinity[i][j] = 0
             else:
                 jp = var.pdf(u[a])
