@@ -89,6 +89,7 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
+            
             xylwh_init,unique_label_init,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map)
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
@@ -139,9 +140,9 @@ class MOT():
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                     mea_next = extract_mea_state_vec(xylwh_next)
                     State_affinity = get_affinity_mat_jpd(state_cur,state_cur_,P_cur_,mea_next)
-                    
                     associated_ind_glb,associated_ind_label = linear_assignment_modified(State_affinity)
-                    # associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
+                    # State_affinity = get_affinity_mat_nearest(state_cur,state_cur_,P_cur_,mea_next)
+                    # associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
                     
                     """
                     Failed tracking and new detections
@@ -314,7 +315,7 @@ if __name__ == "__main__":
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,13),
-        'eps': 1.75,
+        'eps': 1.9,
         'min_samples':25,
         'missing_thred':60,
         'ending_frame' : 17950,
@@ -325,7 +326,7 @@ if __name__ == "__main__":
         
     }
     
-    input_path = '../RawLidarData/Veteran'
+    input_path = '../RawLidarData/HW'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -333,7 +334,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = '../RawLidarData/Veteran'
+    output_file_path = '../RawLidarData/HW'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
