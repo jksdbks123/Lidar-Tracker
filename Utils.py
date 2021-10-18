@@ -107,9 +107,11 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
     
     XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
     unique_label = np.unique(Labels)
+    if len(unique_label) == 1:
+        return np.array([]),[],Labeling_map
     if -1 in unique_label:
         unique_label = unique_label[1:]
-
+    
     boundary_cols = []
     boundary_rows = []
     for l in unique_label:
@@ -123,8 +125,9 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
             left_col += 1800 
         boundary_cols.append([left_col,right_col])
         boundary_rows.append([rows[sorted_cols_ind[0]],rows[sorted_cols_ind[-1]]])
-    boundary_cols,boundary_rows = np.array(boundary_cols),np.array(boundary_rows)
 
+    boundary_cols,boundary_rows = np.array(boundary_cols),np.array(boundary_rows)
+    
     sorted_label = np.argsort(boundary_cols[:,0])
 
     adjacent_label_pairs = []
@@ -417,44 +420,6 @@ def get_affinity_mat_cos(state,state_,P_,mea):
     return State_affinity
 
 
-def get_affinity_mat_velocity(state,state_,P_,mea):
-    State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
-    for i,s_ in enumerate(state_):
-        v_ = s_.copy().flatten()
-        v = state[i].copy().flatten()
-        v_all = v_[:2]
-
-        
-        for j,m in enumerate(mea):
-            u = m.copy().flatten()
-            mea_vec = u[:2] - v[:2]
-            v_mea = np.sqrt(np.sum(mea_vec**2))
-            v_cur = np.sqrt(np.sum(v[5:7]**2))
-            
-            dis = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
-
-            State_affinity[i][j] = dis*np.abs(v_mea - v_cur)/3.3
-    return State_affinity
-
-
-def get_affinity_mat_velocity(state,state_,P_,mea):
-    State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
-    for i,s_ in enumerate(state_):
-        v_ = s_.copy().flatten()
-        v = state[i].copy().flatten()
-        v_all = v_[:2]
-
-        
-        for j,m in enumerate(mea):
-            u = m.copy().flatten()
-            mea_vec = u[:2] - v[:2]
-            v_mea = np.sqrt(np.sum(mea_vec**2))
-            v_cur = np.sqrt(np.sum(v[5:7]**2))
-            
-            dis = np.sqrt(np.sum((v_all[:2] - u[:2])**2))
-
-            State_affinity[i][j] = dis*np.abs(v_mea - v_cur)/3.3
-    return State_affinity
 
 def get_affinity_mat_NN(state_cur_,mea_next):
     
