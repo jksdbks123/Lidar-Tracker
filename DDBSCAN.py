@@ -11,7 +11,7 @@ class Raster_DBSCAN():
         utilize the core CPP API from the sklearn. 
 
         *** 
-        Step.1 -> Chunking output Subchunks including Td_map, Index_map, Foreground_map
+        Step.1 -> Seperate output chunks including Td_map, Index_map, Foreground_map
         Step.2 -> Neigborhoods calculation
         Step.3 -> dbscan_inner()
 

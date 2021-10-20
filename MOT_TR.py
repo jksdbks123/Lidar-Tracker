@@ -89,15 +89,17 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            xylwh_init,unique_label_init,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map)
+            xy_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,self.thred_map,Background_map)
+            
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             Frame_ind_init += 1
             if len(unique_label_init)>0:
                 break
 
-        mea_init = extract_mea_state_vec(xylwh_init)
-        # m: n x 5 x 1
+        # mea_init = extract_mea_state_vec(xylwh_init)
+        mea_init = xy_init 
+        # m: n x 2 x 2 (n objects , 2 )
         state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],A.shape[0] - H.shape[0])).reshape(mea_init.shape[0],A.shape[0] - H.shape[0],-1)],axis = 1)
         P_init = np.full((xylwh_init.shape[0],A.shape[0],A.shape[0]),P_em)
 
