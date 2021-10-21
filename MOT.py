@@ -134,9 +134,9 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            xylwh_next,unique_lebel_next,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map) # read observation at next frame 
+            xylwh_next,unique_label_next,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map) # read observation at next frame 
             if len(glb_ids) >0:
-                if len(unique_lebel_next) > 0:
+                if len(unique_label_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                     mea_next = extract_mea_state_vec(xylwh_next)
                     State_affinity = get_affinity_mat_jpd(state_cur,state_cur_,P_cur_,mea_next)
@@ -155,12 +155,12 @@ class MOT():
                             process_fails(self.Tracking_pool,self.Off_tracking_pool,
                                         glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
 
-                    new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
+                    new_detection_ind = np.setdiff1d(np.arange(len(unique_label_next)),associated_ind_label)
                     if len(new_detection_ind) > 0:
                         for n_id in new_detection_ind:
                             state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
                             create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                                                unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
                     
                         
@@ -168,7 +168,7 @@ class MOT():
                         state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
                         glb_ids = glb_ids[associated_ind_glb]
                         mea_next = mea_next[associated_ind_label]
-                        unique_lebel_next = unique_lebel_next[associated_ind_label]
+                        unique_label_next = unique_label_next[associated_ind_label]
                         
                         """
                         Associate detections 
@@ -176,7 +176,7 @@ class MOT():
                         for i,glb_id in enumerate(glb_ids):
 
                             associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
-                                                unique_lebel_next[i],
+                                                unique_label_next[i],
                                                 mea_next[i])
                 else:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
@@ -184,12 +184,12 @@ class MOT():
                         process_fails(self.Tracking_pool,self.Off_tracking_pool,
                                     glb_id,state_cur_[i],P_cur_[i],missing_thred)
             else:    
-                if len(unique_lebel_next) > 0:
+                if len(unique_label_next) > 0:
                     mea_next = extract_mea_state_vec(xylwh_next)
                     for n_id in range(len(mea_next)):
                         state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
                         create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                                                unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
            
             if self.save_pcd is not None:

@@ -2,6 +2,8 @@ from BfTableGenerator import *
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
 import json
+# from Utils import P
+P = np.diag([1,1,1,1,1,1])*100
 
 class MOT():
     def __init__(self,pcap_path,output_file_path,background_update_frame,ending_frame,d ,thred_s ,N ,
@@ -89,26 +91,28 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            xy_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,self.thred_map,Background_map)
+            mea_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
             
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             Frame_ind_init += 1
             if len(unique_label_init)>0:
                 break
-
-        # mea_init = extract_mea_state_vec(xylwh_init)
-        mea_init = xy_init 
-        # m: n x 2 x 2 (n objects , 2 )
-        state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],A.shape[0] - H.shape[0])).reshape(mea_init.shape[0],A.shape[0] - H.shape[0],-1)],axis = 1)
-        P_init = np.full((xylwh_init.shape[0],A.shape[0],A.shape[0]),P_em)
-
+        # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
+        n_observed = mea_init.shape[0]
+        n_repr = mea_init.shape[1]
+        n_offset_dim = A.shape[0] - mea_init.shape[2]
+        state_init = np.concatenate([mea_init,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
+        # s: n x 2 x 6 x 1
+        P_init = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
+        # P: n x 2 x 6 x 6 s
+                
         for i,label in enumerate(unique_label_init):
             create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
-            
-            
-        state_cur,P_cur,glb_id_cur = state_init,P_init,unique_label_init 
+                        
+        state_cur,P_cur = state_init,P_init 
+        
         pbar = tqdm(range(Frame_ind_init,self.ending_frame))
         
         for Frame_ind in pbar:
@@ -128,22 +132,23 @@ class MOT():
                 P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
             glb_ids,P_cur,state_cur = np.array(glb_ids),np.array(P_cur),np.array(state_cur)
-             
+            # P_cur: n x 2 x 6 x 6 
+            # state_cur: n x 2 x 6 x 1
+            
             # read next data 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            xylwh_next,unique_lebel_next,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map) # read observation at next frame 
+            mea_next,unique_label_next,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
+             # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
+             # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
-                if len(unique_lebel_next) > 0:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
-                    mea_next = extract_mea_state_vec(xylwh_next)
-                    State_affinity = get_affinity_mat_jpd(state_cur,state_cur_,P_cur_,mea_next)
-                    
+                if len(unique_label_next) > 0:
+                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state                    
+                    State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
                     associated_ind_glb,associated_ind_label = linear_assignment_modified(State_affinity)
-                    # associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
                     
                     """
                     Failed tracking and new detections
@@ -156,12 +161,16 @@ class MOT():
                             process_fails(self.Tracking_pool,self.Off_tracking_pool,
                                         glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
 
-                    new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
+                    new_detection_ind = np.setdiff1d(np.arange(len(unique_label_next)),associated_ind_label)
                     if len(new_detection_ind) > 0:
                         for n_id in new_detection_ind:
-                            state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
-                            create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                            n_repr = mea_init.shape[1]
+                            n_offset_dim = A.shape[0] - mea_init.shape[2]
+                            state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
+                            
+
+                            create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
+                                                unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
                     
                         
@@ -169,7 +178,7 @@ class MOT():
                         state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
                         glb_ids = glb_ids[associated_ind_glb]
                         mea_next = mea_next[associated_ind_label]
-                        unique_lebel_next = unique_lebel_next[associated_ind_label]
+                        unique_label_next = unique_label_next[associated_ind_label]
                         
                         """
                         Associate detections 
@@ -177,7 +186,7 @@ class MOT():
                         for i,glb_id in enumerate(glb_ids):
 
                             associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
-                                                unique_lebel_next[i],
+                                                unique_label_next[i],
                                                 mea_next[i])
                 else:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
@@ -185,12 +194,14 @@ class MOT():
                         process_fails(self.Tracking_pool,self.Off_tracking_pool,
                                     glb_id,state_cur_[i],P_cur_[i],missing_thred)
             else:    
-                if len(unique_lebel_next) > 0:
-                    mea_next = extract_mea_state_vec(xylwh_next)
+                if len(unique_label_next) > 0:
                     for n_id in range(len(mea_next)):
-                        state_init = np.concatenate([mea_next[n_id], np.zeros((A.shape[0] - H.shape[0],1))])
-                        create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
-                                                unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                        
+                        n_repr = mea_init.shape[1]
+                        n_offset_dim = A.shape[0] - mea_init.shape[2]
+                        state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
+                        create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
+                                                unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
            
             if self.save_pcd is not None:

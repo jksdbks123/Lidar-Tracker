@@ -119,6 +119,100 @@ def get_params_from_detection_points(point):
     # x,y,length,width,height 
     xylwh = np.concatenate([bbox.get_center()[:2],bbox.get_max_bound() - bbox.get_min_bound()])
     return xylwh
+def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
+        
+    unique_label = np.unique(Labeling_map)
+    if len(unique_label) == 1:
+        return np.array([]),[],Labeling_map
+    if -1 in unique_label:
+        unique_label = unique_label[1:]
+    
+    boundary_cols = []
+    boundary_rows = []
+    for l in unique_label:
+        rows,cols = np.where(Labeling_map == l)
+        sorted_cols_ind = np.argsort(cols)
+        sorted_cols = cols[sorted_cols_ind]
+        sorted_rows = rows[sorted_cols_ind]
+        left_col,right_col = sorted_cols[0],sorted_cols[-1]
+        
+        if (right_col - left_col) >  900:
+            left_col += 1800 
+        boundary_cols.append([left_col,right_col])
+        boundary_rows.append([rows[sorted_cols_ind[0]],rows[sorted_cols_ind[-1]]])
+
+    boundary_cols,boundary_rows = np.array(boundary_cols),np.array(boundary_rows)
+    
+    sorted_label = np.argsort(boundary_cols[:,0])
+
+    adjacent_label_pairs = []
+    for sl in range(len(sorted_label) - 1):
+        if boundary_cols[sorted_label[sl],1] < boundary_cols[sorted_label[sl+1],0]:
+            adjacent_label_pairs.append([sorted_label[sl],sorted_label[sl+1]])
+            
+    if boundary_cols[sorted_label[-1],1] > 1800:
+        if (boundary_cols[sorted_label[-1],1] - 1800) < boundary_cols[sorted_label[0],0]:
+            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
+    else:
+        if boundary_cols[sorted_label[-1],1] < boundary_cols[sorted_label[0],0]:
+            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
+    Merge_cobs = []
+    for adjacent in adjacent_label_pairs:
+        pair_a,pair_b = adjacent[0],adjacent[1]
+        interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
+        interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
+    #     print(interval_left_col,interval_right_col)
+        if (interval_right_col - interval_left_col) > 80:
+            continue
+        high = interval_left_row
+        low = interval_right_row
+        if high < low: 
+            high,low = low,high
+        
+        interval_map = Td_map[low:high+1,interval_left_col:interval_right_col+1][Background_map[low:high+1,interval_left_col:interval_right_col+1]]
+        if len(interval_map) == 0 :
+            continue
+        min_dis_int = interval_map.min()
+        min_dis_a = Td_map[Labeling_map == pair_a].min()
+        min_dis_b = Td_map[Labeling_map == pair_b].min()
+        if (min_dis_int  < min_dis_a)&(min_dis_int  <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.2):
+            Merge_cobs.append([pair_a,pair_b])
+    
+
+    for cob in Merge_cobs:
+        for i in range(1,len(cob)):
+            Labeling_map[Labeling_map == cob[i]] = cob[0]
+            unique_label[unique_label == cob[i]] = cob[0]
+            # Labels[Labels == cob[i]] =cob[0]
+            
+    new_uni_labels = np.unique(unique_label)
+    xy_set = []
+    for label in new_uni_labels:
+        rows,cols = np.where(Labeling_map == label)
+        sort_ind = np.argsort(cols)
+        refer_cols = cols[sort_ind[[0,-1]]]
+        # this is being said, the first place is for less azimuth id 
+        refer_rows = rows[sort_ind[[0,-1]]]
+        if np.abs(refer_cols[0] - refer_cols[1]) > 900:
+            cols[cols < 900] += 1800
+            sort_ind = np.argsort(cols)
+            refer_cols = cols[sort_ind[[-1,0]]]
+            refer_cols[refer_cols > 1800] -= 1800
+            refer_rows = rows[sort_ind[[-1,0]]]
+        xy_set.append(get_representative_point(refer_rows,refer_cols,Td_map))
+    
+    return np.array(xy_set),new_uni_labels,Labeling_map
+
+def get_representative_point(rows,cols,Td_map): 
+    td_freq_map = Td_map
+    longitudes = theta[rows]*np.pi / 180
+    latitudes = azimuths[cols] * np.pi / 180 
+    hypotenuses = td_freq_map[rows,cols] * np.cos(longitudes)
+    X = hypotenuses * np.sin(latitudes)
+    Y = hypotenuses * np.cos(latitudes)
+    Z = td_freq_map[rows,cols] * np.sin(longitudes)
+    
+    return np.array([X,Y]).reshape(-1,2,1) # n_repr x xy_dim x 1 
 
 def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Background_map):
     
@@ -395,6 +489,7 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
         var = multivariate_normal(mean=v_all, cov=cov)
         for j,m in enumerate(mea):
             u = m.copy().flatten()
+            
             v_next = np.sqrt(np.sum((v_cur[:2] - u[:2])**2))
             # v_previous = np.sqrt(np.sum(v_cur[5:7]**2))
             if (v_next > 5):
@@ -404,6 +499,27 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
                 State_affinity[i][j] = jp
 
     return State_affinity
+
+def get_affinity_mat_jpd_TR(state,state_,P_,mea):
+    State_affinity = np.zeros((state_.shape[1],state_.shape[0],mea.shape[0]))
+    for i,s_ in enumerate(state_):
+         # includes the pred states for two reprs 
+         # s_: 2 x 6 x 1
+        state_cur = state[i].copy().reshape(2,-1)[:,:2]
+        state_pred = s_.copy().reshape(2,-1)[:,:2]
+        
+         # cov_tr : 2 x 6 x 6 
+        cov_tr = P_[i][:,:2,:2]
+        var_tr = [multivariate_normal(mean=state_pred[k], cov=cov_tr[k]) for k in range(state_cur.shape[0])]
+        for j,m in enumerate(mea):
+            mea_next = m.copy().reshape(2,-1)
+            for k in range(s_.shape[0]):
+                dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
+                if dis_error < 5:
+                    jp = var_tr[k].pdf(mea_next[k])
+                    State_affinity[k,i,j] = jp
+    
+    return np.max(State_affinity,axis = 0)
 
 
 def get_affinity_mat_cos(state,state_,P_,mea):
