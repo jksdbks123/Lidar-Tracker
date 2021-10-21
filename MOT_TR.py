@@ -85,6 +85,7 @@ class MOT():
         aggregated_maps = []
         Frame_ind_init = 0
         
+
         while True: #Iterate Until a frame with one or more targets are detected 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
@@ -106,7 +107,7 @@ class MOT():
         # s: n x 2 x 6 x 1
         P_init = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
         # P: n x 2 x 6 x 6 s
-                
+        P_em = np.full((2,P_em.shape[0],P_em.shape[1]),P_em)
         for i,label in enumerate(unique_label_init):
             create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
@@ -149,7 +150,6 @@ class MOT():
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state                    
                     State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
                     associated_ind_glb,associated_ind_label = linear_assignment_modified(State_affinity)
-                    
                     """
                     Failed tracking and new detections
                     """
@@ -166,10 +166,10 @@ class MOT():
                         for n_id in new_detection_ind:
                             n_repr = mea_init.shape[1]
                             n_offset_dim = A.shape[0] - mea_init.shape[2]
-                            state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
                             
+                            state_new = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
 
-                            create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
+                            create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_new,
                                                 unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
                     
@@ -200,7 +200,7 @@ class MOT():
                         n_repr = mea_init.shape[1]
                         n_offset_dim = A.shape[0] - mea_init.shape[2]
                         state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
-                        create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
+                        create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
                                                 unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
            
