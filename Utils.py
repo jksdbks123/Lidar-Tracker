@@ -13,20 +13,20 @@ db_merge = DBSCAN(eps=3,min_samples=2)
 
 # Kalman Filter Params
 
-# A = np.array( # x,y,l,w,h,x',y',l',w',h',x'',y''
-#     [[1,0,0,0,0,1,0,0,0,0,.5, 0],
-#      [0,1,0,0,0,0,1,0,0,0, 0,.5],
-#      [0,0,1,0,0,0,0,1,0,0, 0, 0],
-#      [0,0,0,1,0,0,0,0,1,0, 0, 0],
-#      [0,0,0,0,1,0,0,0,0,1, 0, 0],
-#      [0,0,0,0,0,1,0,0,0,0, 1, 0],
-#      [0,0,0,0,0,0,1,0,0,0, 0, 1],
-#      [0,0,0,0,0,0,0,1,0,0, 0, 0],
-#      [0,0,0,0,0,0,0,0,1,0, 0, 0],
-#      [0,0,0,0,0,0,0,0,0,1, 0, 0],
-#      [0,0,0,0,0,0,0,0,0,0, 1, 0],
-#      [0,0,0,0,0,0,0,0,0,0, 0, 1]]
-#       )
+A = np.array( # x,y,l,w,h,x',y',l',w',h',x'',y''
+    [[1,0,0,0,0,1,0,0,0,0,.5, 0],
+     [0,1,0,0,0,0,1,0,0,0, 0,.5],
+     [0,0,1,0,0,0,0,1,0,0, 0, 0],
+     [0,0,0,1,0,0,0,0,1,0, 0, 0],
+     [0,0,0,0,1,0,0,0,0,1, 0, 0],
+     [0,0,0,0,0,1,0,0,0,0, 1, 0],
+     [0,0,0,0,0,0,1,0,0,0, 0, 1],
+     [0,0,0,0,0,0,0,1,0,0, 0, 0],
+     [0,0,0,0,0,0,0,0,1,0, 0, 0],
+     [0,0,0,0,0,0,0,0,0,1, 0, 0],
+     [0,0,0,0,0,0,0,0,0,0, 1, 0],
+     [0,0,0,0,0,0,0,0,0,0, 0, 1]]
+      )
 A = np.array([ # x,y,x',y',x'',y''
     [1,0,1,0,.5,0],
     [0,1,0,1,0,.5],
@@ -35,22 +35,22 @@ A = np.array([ # x,y,x',y',x'',y''
     [0,0,0,0,1,0],
     [0,0,0,0,0,1]
 ])
-# Q = np.diag([1,1,1,1,1,0.1,0.1,1,1,1,0.01,0.01])*0.01
+Q = np.diag([1,1,1,1,1,0.1,0.1,1,1,1,0.01,0.01])*0.01
 Q = np.diag([1,1,1,1,1,1])*0.01
 
-# H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
-#             [0,1,0,0,0,0,0,0,0,0,0,0],
-#             [0,0,1,0,0,0,0,0,0,0,0,0],
-#             [0,0,0,1,0,0,0,0,0,0,0,0],
-#             [0,0,0,0,1,0,0,0,0,0,0,0]])
+H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
+            [0,1,0,0,0,0,0,0,0,0,0,0],
+            [0,0,1,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,0,0,0]])
 H = np.array([
     [1,0,0,0,0,0],
     [0,1,0,0,0,0]
 ])
 
-# R = np.diag([1,1,1,1,1])*200
+R = np.diag([1,1,1,1,1])*200
 R = np.diag([1,1])*200
-# P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*100
+P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*100
 P = np.diag([1,1,1,1,1,1])*100
 
 class detected_obj():
@@ -314,6 +314,29 @@ def linear_assignment_modified(State_affinity):
     
     return associated_ind_glb,associated_ind_label
 
+def linear_assignment_modified_NN(State_affinity,thred):
+    State_affinity_temp = State_affinity.copy()
+    associated_ind_glb,associated_ind_label = [],[]
+    for i,d in enumerate(State_affinity):
+        if (d < thred).sum() == 1:
+            associated_ind_glb.append(i)
+            label_ind = np.where(d < thred)[0][0]
+            associated_ind_label.append(label_ind)
+            State_affinity_temp[i,label_ind] = 1e3
+    
+    associated_ind_glb_extend_,associated_ind_labels_extend_= linear_sum_assignment(State_affinity_temp,maximize=False)
+    
+    for i in range(len(associated_ind_glb_extend_)):
+        if State_affinity_temp[associated_ind_glb_extend_[i],associated_ind_labels_extend_[i]] < 1e3:
+            associated_ind_glb.append(associated_ind_glb_extend_[i])
+            associated_ind_label.append(associated_ind_labels_extend_[i])
+    associated_ind_glb,associated_ind_label = np.array(associated_ind_glb),np.array(associated_ind_label)
+    ind = np.argsort(associated_ind_glb)
+    associated_ind_glb = associated_ind_glb[ind]
+    associated_ind_label = associated_ind_label[ind]
+    
+    return associated_ind_glb,associated_ind_label
+
 def extract_xylwh_merging_by_frame_db(Labeling_map,Td_map,Thred_map):
     
     XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
@@ -568,7 +591,9 @@ def get_affinity_mat_NN(state_cur_,mea_next):
             d = np.sum((v_[:2] - u[:2])**2) #Distance match
             if d < 49 :
                 State_affinity_0[i][j] = d
-            
+            else:
+                State_affinity_0[i][j] = 1e3
+                
     return State_affinity_0
 
 #sum file
