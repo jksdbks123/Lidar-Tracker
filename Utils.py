@@ -632,6 +632,7 @@ def convert_LLH(xyz,T):
     LLH = np.concatenate([lon.reshape(-1,1),lat.reshape(-1,1),evel.reshape(-1,1)],axis = 1)
     return LLH
 <<<<<<< HEAD
+<<<<<<< HEAD
 def get_summary_file_TR(post_seq,mea_seq,key,start_frame,T):
     
     temp = np.array(post_seq)
@@ -670,6 +671,8 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,T):
     summary = np.concatenate([objid,timestp,mea,est],axis = 1)
     summary = pd.DataFrame(summary,columns=col_info+col_mea+col_est)
     return summary
+=======
+>>>>>>> 26455bc23677e063a228088c0fe56fabc0fd071d
 =======
 >>>>>>> 26455bc23677e063a228088c0fe56fabc0fd071d
 
