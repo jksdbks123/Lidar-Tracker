@@ -85,7 +85,6 @@ class MOT():
         aggregated_maps = []
         Frame_ind_init = 0
         
-
         while True: #Iterate Until a frame with one or more targets are detected 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
@@ -107,7 +106,7 @@ class MOT():
         # s: n x 2 x 6 x 1
         P_init = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
         # P: n x 2 x 6 x 6 s
-        P_em = np.full((2,P_em.shape[0],P_em.shape[1]),P_em)
+                
         for i,label in enumerate(unique_label_init):
             create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
@@ -147,10 +146,10 @@ class MOT():
              # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
-
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state       
+                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state                    
                     State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
-                    associated_ind_glb,associated_ind_label = linear_assignment_modified_jpd(State_affinity)
+                    associated_ind_glb,associated_ind_label = linear_assignment_modified(State_affinity)
+                    
                     """
                     Failed tracking and new detections
                     """
@@ -167,10 +166,10 @@ class MOT():
                         for n_id in new_detection_ind:
                             n_repr = mea_init.shape[1]
                             n_offset_dim = A.shape[0] - mea_init.shape[2]
+                            state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
                             
-                            state_new = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
 
-                            create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_new,
+                            create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
                                                 unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
                     
@@ -201,7 +200,7 @@ class MOT():
                         n_repr = mea_init.shape[1]
                         n_offset_dim = A.shape[0] - mea_init.shape[2]
                         state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
-                        create_new_detection(self.Tracking_pool,self.Global_id,P_em,state_init,
+                        create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
                                                 unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
            
@@ -249,7 +248,7 @@ class MOT():
             for key in tqdm(self.Off_tracking_pool):  
 
                 sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
-                                            key,self.Off_tracking_pool[key].start_frame,T) 
+                                            key,self.Off_tracking_pool[key].start_frame,self.missing_thred,T) 
                 sums.append(sum_file)
                 keys.append(key)
                 start_frame.append(self.Off_tracking_pool[key].start_frame)   
@@ -321,16 +320,15 @@ class MOT():
 
 
 if __name__ == "__main__":
-    
     params = {
         'd':1.2,
         'thred_s':0.3,
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,15),
-        'eps': 1.7,
-        'min_samples':24,
+        'win_size':(5,13),
+        'eps': 1.75,
+        'min_samples':25,
         'missing_thred':60,
         'ending_frame' : 17950,
         'background_update_frame':2000,

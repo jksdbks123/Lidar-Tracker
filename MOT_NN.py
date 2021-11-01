@@ -100,8 +100,8 @@ class MOT_NN():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            
             xylwh_init,unique_label_init,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map)
+
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             Frame_ind_init += 1
@@ -109,10 +109,11 @@ class MOT_NN():
                 break
 
         mea_init = extract_mea_state_vec(xylwh_init)
-        # m: n x 5 x 1
-        state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],A.shape[0] - H.shape[0])).reshape(mea_init.shape[0],A.shape[0] - H.shape[0],-1)],axis = 1)
+        
+        state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],2))],axis = 1) #  n x 7 xylwhx'y'
 
         for i,label in enumerate(unique_label_init):
+            # Tracking_pool,Global_id,state_init,label_init,mea_init,start_frame
             create_new_detection_NN(self.Tracking_pool,self.Global_id,state_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
         
@@ -134,31 +135,25 @@ class MOT_NN():
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
                 state_cur.append(self.Tracking_pool[glb_id].state)
-            glb_ids,state_cur = np.array(glb_ids),np.array(state_cur) # n x 9 
+            glb_ids,state_cur = np.array(glb_ids),np.array(state_cur) # n x 7 
              
             # read next data 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            xylwh_next,unique_lebel_next = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map) # read observation at next frame
+            Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
+            xylwh_next,unique_label_next,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map) # read observation at next frame 
              
             if len(glb_ids) >0:
-                if len(unique_lebel_next) > 0:
+                if len(unique_label_next) > 0:
                     state_cur_ = state_predict_NN(state_cur,self.tracking_nn) # predict next state
-                    
-                    mea_next = extract_mea_state_vec(xylwh_next).reshape(-1,5) 
+                    mea_next = extract_mea_state_vec(xylwh_next)
+                    # mea_next = extract_mea_state_svec(xylwh_next).reshape(-1,5) 
                     
                     State_affinity = get_affinity_mat_NN(state_cur_,mea_next)
                     
-                    associated_ind_glb,associated_ind_label = linear_sum_assignment(State_affinity)
-                    associated_ind_glb_,associated_ind_label_ = [],[]
-                    for i,ass_id in enumerate(associated_ind_glb):
-                        if State_affinity[ass_id,associated_ind_label[i]] < 1e3:
-                            associated_ind_glb_.append(ass_id)
-                            associated_ind_label_.append(associated_ind_label[i])
-                            
-                    associated_ind_glb,associated_ind_label = np.array(associated_ind_glb_),np.array(associated_ind_label_)
+                    associated_ind_glb,associated_ind_label = linear_assignment_modified(State_affinity,49)
                     
                     """
                     Failed Tracked 
@@ -175,14 +170,14 @@ class MOT_NN():
                     New Detection
                     """
                             
-                    new_detection_ind = np.setdiff1d(np.arange(len(unique_lebel_next)),associated_ind_label)
+                    new_detection_ind = np.setdiff1d(np.arange(len(unique_label_next)),associated_ind_label)
                     if len(new_detection_ind) > 0:
                         for n_id in new_detection_ind:
                             # If new detected objects are detected within 30m, they shold not be created since they may be splited points
                             # if np.sqrt(np.sum(mea_next[n_id][:2]**2)) > 30:
                             state_init = np.concatenate([mea_next[n_id],np.zeros(2)]) # n x 1 xylwhx'y'
                             create_new_detection_NN(self.Tracking_pool,self.Global_id,
-                                                    state_init,unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                                                    state_init,unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
                         
                     if len(associated_ind_glb) != 0:
@@ -191,14 +186,14 @@ class MOT_NN():
                         state= state_update_NN(state_cur_[associated_ind_glb],mea_next[associated_ind_label])
                         glb_ids = glb_ids[associated_ind_glb]
                         mea_next = mea_next[associated_ind_label]
-                        unique_lebel_next = unique_lebel_next[associated_ind_label]
+                        unique_label_next = unique_label_next[associated_ind_label]
                         
                         """
                         Associate detections 
                         """
                         for i,glb_id in enumerate(glb_ids):
                             associate_detections_NN(self.Tracking_pool,glb_id,state[i],
-                                                unique_lebel_next[i],
+                                                unique_label_next[i],
                                                 mea_next[i])
                 else:
                     state_cur_ = state_predict_NN(state_cur,self.tracking_nn) # predict next state
@@ -207,12 +202,12 @@ class MOT_NN():
                                     glb_id,state_cur_[i],missing_thred)
             else:    
                  
-                if len(unique_lebel_next) > 0:
-                    mea_next = extract_mea_state_vec(xylwh_next).reshape(-1,5)
+                if len(unique_label_next) > 0:
+                    mea_next = extract_mea_state_vec(xylwh_next)
                     for n_id in range(len(mea_next)):
                         state_init = np.concatenate([mea_next[n_id],np.zeros(2)]) # n x 7 xylwhx'y'
                         create_new_detection_NN(self.Tracking_pool,self.Global_id,
-                                                state_init,unique_lebel_next[n_id],mea_next[n_id],Frame_ind)
+                                                state_init,unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
 
            
