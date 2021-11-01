@@ -584,19 +584,14 @@ def get_affinity_mat_dis_TR(state,state_,P_,mea):
          # s_: 2 x 6 x 1
         state_cur = state[i].copy().reshape(2,-1)[:,:2]
         state_pred = s_.copy().reshape(2,-1)[:,:2]
-        
-         # cov_tr : 2 x 6 x 6 
-        cov_tr = P_[i][:,:2,:2]
-        var_tr = [multivariate_normal(mean=state_pred[k], cov=cov_tr[k]) for k in range(state_cur.shape[0])]
         for j,m in enumerate(mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 5:
-                    jp = var_tr[k].pdf(mea_next[k])
-                    State_affinity[k,i,j] = jp
+                if dis_error < 2:
+                    State_affinity[k,i,j] = dis_error
 
-    return np.max(State_affinity,axis = 0)
+    return np.min(State_affinity,axis = 0)
 
 def get_affinity_mat_cos(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
