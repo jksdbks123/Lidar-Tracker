@@ -682,11 +682,10 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,T):
     
     temp = np.array(post_seq)
     # n x 2 x 6 x 1
-    temp = temp.reshape(temp.shape[0],2,temp.shape[1]) # exclude first and ending data point 
-    temp_xy = temp[:,[2,3,4,0,1]]
-    dis_est = np.sqrt(np.sum(temp_lwhxy[:,[3,4]]**2,axis = 1)).reshape(-1,1)
-    speed_xy = temp[:,[5,6]]*10  #m/s
-    speed = np.sqrt(np.sum(speed_xy**2,axis = 1)).reshape(-1,1)*3600/1000
+    temp = temp.reshape(temp.shape[0],2,temp.shape[2]) # exclude first and ending data point 
+    dis_est = np.sqrt(np.sum(temp[:,:,:2]**2,axis = 2)).reshape((-1,2,1))
+    speed_xy = temp[:,:,2:4]*10  #m/s
+    speed = np.sqrt(np.sum(speed_xy**2,axis = 2)).reshape(-1,2,1)*3600/1000
     #since we don't track the z value, literally use 0 to alternate the z
     xyz = np.concatenate([temp_lwhxy[:,[3,4]],np.zeros(temp_lwhxy.shape[0]).reshape(-1,1)],axis = 1) 
     LLH_est = convert_LLH(xyz,T)
