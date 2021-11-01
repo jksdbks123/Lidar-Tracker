@@ -2,8 +2,6 @@ from BfTableGenerator import *
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
 import json
-# from Utils import P
-P = np.diag([1,1,1,1,1,1])*100
 
 class MOT():
     def __init__(self,pcap_path,output_file_path,background_update_frame,ending_frame,d ,thred_s ,N ,
@@ -148,7 +146,7 @@ class MOT():
                 if len(unique_label_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state                    
                     State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
-                    associated_ind_glb,associated_ind_label = linear_assignment_modified(State_affinity)
+                    associated_ind_glb,associated_ind_label = linear_assignment_modified_jpd(State_affinity)
                     
                     """
                     Failed tracking and new detections
@@ -326,9 +324,9 @@ if __name__ == "__main__":
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,13),
-        'eps': 1.75,
-        'min_samples':25,
+        'win_size':(5,15),
+        'eps': 1.5,
+        'min_samples':20,
         'missing_thred':60,
         'ending_frame' : 17950,
         'background_update_frame':2000,
