@@ -36,7 +36,7 @@ A = np.array([ # x,y,x',y',x'',y''
     [0,0,0,0,0,1]
 ])
 # Q = np.diag([1,1,1,1,1,0.1,0.1,1,1,1,0.01,0.01])*0.01
-Q = np.diag([1,1,1,1,1,1])*0.01
+Q = np.diag([4,4,1,1,0.1,0.1])
 
 # H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
 #             [0,1,0,0,0,0,0,0,0,0,0,0],
@@ -49,9 +49,9 @@ H = np.array([
 ])
 
 # R = np.diag([1,1,1,1,1])*200
-R = np.diag([1,1])*200
+R = np.diag([100,100])
 # P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*100
-P = np.diag([1,1,1,1,1,1])*100
+P = np.diag([100,100,10,10,1,1])
 
 class detected_obj():
     def __init__(self):
@@ -162,7 +162,7 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
         interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
         interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
     #     print(interval_left_col,interval_right_col)
-        if (interval_right_col - interval_left_col) > 80:
+        if (interval_right_col - interval_left_col) > 90:
             continue
         high = interval_left_row
         low = interval_right_row
@@ -193,26 +193,28 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
         refer_cols = cols[sort_ind[[0,-1]]]
         # this is being said, the first place is for less azimuth id 
         refer_rows = rows[sort_ind[[0,-1]]]
-        if np.abs(refer_cols[0] - refer_cols[1]) > 900:
-            cols[cols < 900] += 1800
+        if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
+            cols[cols <= 900] += 1800
             sort_ind = np.argsort(cols)
-            refer_cols = cols[sort_ind[[-1,0]]]
-            refer_cols[refer_cols > 1800] -= 1800
-            refer_rows = rows[sort_ind[[-1,0]]]
+            refer_cols = cols[sort_ind[[0,-1]]]
+            refer_cols[refer_cols >= 1800] -= 1800
+            refer_rows = rows[sort_ind[[0,-1]]]
         xy_set.append(get_representative_point(refer_rows,refer_cols,Td_map))
     
     return np.array(xy_set),new_uni_labels,Labeling_map
 
-def get_representative_point(rows,cols,Td_map): 
+def get_representative_point(ref_rows,ref_cols,Td_map): 
     td_freq_map = Td_map
-    longitudes = theta[rows]*np.pi / 180
-    latitudes = azimuths[cols] * np.pi / 180 
-    hypotenuses = td_freq_map[rows,cols] * np.cos(longitudes)
+    longitudes = theta[ref_rows]*np.pi / 180
+    latitudes = azimuths[ref_cols] * np.pi / 180 
+    hypotenuses = td_freq_map[ref_rows,ref_cols] * np.cos(longitudes)
     X = hypotenuses * np.sin(latitudes)
     Y = hypotenuses * np.cos(latitudes)
-    Z = td_freq_map[rows,cols] * np.sin(longitudes)
-    
-    return np.array([X,Y]).reshape(-1,2,1) # n_repr x xy_dim x 1 
+    Z = td_freq_map[ref_rows,ref_cols] * np.sin(longitudes)
+    return np.array([
+        [X[0],Y[0]],
+        [X[1],Y[1]]
+    ]).reshape(2,2,1)
 
 def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Background_map):
     
@@ -291,7 +293,7 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
 
     return np.array(xylwh_set),new_uni_labels,Labeling_map
 
-def linear_assignment_modified(State_affinity):
+def linear_assignment_modified_jpd(State_affinity):
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
     for i,p in enumerate(State_affinity):
@@ -315,6 +317,29 @@ def linear_assignment_modified(State_affinity):
     
     return associated_ind_glb,associated_ind_label
 
+def linear_assignment_modified_dis(State_affinity):
+    State_affinity_temp = State_affinity.copy()
+    associated_ind_glb,associated_ind_label = [],[]
+    for i,dis in enumerate(State_affinity):
+        if (dis < 4).sum() == 1:
+            associated_ind_glb.append(i)
+            label_ind = np.where(dis < 2)[0][0]
+            associated_ind_label.append(label_ind)
+            State_affinity_temp[i,label_ind] = 1e3
+    
+    associated_ind_glb_extend_,associated_ind_labels_extend_= linear_sum_assignment(State_affinity_temp,maximize = False)
+    
+    for i in range(len(associated_ind_glb_extend_)):
+        if State_affinity_temp[associated_ind_glb_extend_[i],associated_ind_labels_extend_[i]] < 4:
+            associated_ind_glb.append(associated_ind_glb_extend_[i])
+            associated_ind_label.append(associated_ind_labels_extend_[i])
+            
+    associated_ind_glb,associated_ind_label = np.array(associated_ind_glb),np.array(associated_ind_label)
+    ind = np.argsort(associated_ind_glb)
+    associated_ind_glb = associated_ind_glb[ind]
+    associated_ind_label = associated_ind_label[ind]
+    
+    return associated_ind_glb,associated_ind_label
 # def linear_assignment_modified(State_affinity):
 #     State_affinity_temp = State_affinity.copy()
 #     associated_ind_glb,associated_ind_label = [],[]
@@ -410,20 +435,24 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
     Tracking_pool[Global_id] = new_detection
 
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,start_frame):
-    
-    new_detection = detected_obj()
-    new_detection.glb_id = Global_id
-    new_detection.P = P_init
-    new_detection.state = state_init
-    new_detection.label_seq.append(label_init)
-    new_detection.start_frame = start_frame
-    new_detection.mea_seq.append(mea_init)
-    new_detection.post_seq.append(state_init)
-    Tracking_pool[Global_id] = new_detection
+
+    if np.sqrt(np.sum(state_init[0][:2]**2)) > 30:
+        new_detection = detected_obj()
+        new_detection.glb_id = Global_id
+        new_detection.P = P_init
+        new_detection.state = state_init
+        new_detection.label_seq.append(label_init)
+        new_detection.start_frame = start_frame
+        new_detection.mea_seq.append(mea_init)
+        new_detection.post_seq.append(state_init)
+        Tracking_pool[Global_id] = new_detection
     
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
-    if Tracking_pool[glb_id].missing_count > missing_thred:
+    fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
+    fail_condition2 = np.sqrt(np.sum(state_cur_[0][:2]**2)) > 75
+    if fail_condition1|fail_condition2:
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+    
     else:
         Tracking_pool[glb_id].missing_count += 1
         Tracking_pool[glb_id].state = state_cur_
@@ -535,19 +564,35 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
         
          # cov_tr : 2 x 6 x 6 
         cov_tr = P_[i][:,:2,:2]
-        # var_tr = [multivariate_normal(mean=state_pred[k], cov=cov_tr[k]) for k in range(state_cur.shape[0])]
+        var_tr = [multivariate_normal(mean=state_pred[k], cov=cov_tr[k]) for k in range(state_cur.shape[0])]
         for j,m in enumerate(mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 5:
-                    # jp = var_tr[k].pdf(mea_next[k])
-                    State_affinity[k,i,j] = dis_error
+                if dis_error < 3:
+                    jp = var_tr[k].pdf(mea_next[k])
+                    State_affinity[k,i,j] = jp
                 else: 
-                    State_affinity[k,i,j] = 1e3
+                    State_affinity[k,i,j] = 0
     
-    return np.min(State_affinity,axis = 0)
+    return np.max(State_affinity,axis = 0)
 
+def get_affinity_mat_dis_TR(state,state_,P_,mea):
+    State_affinity = 1000*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
+    for i,s_ in enumerate(state_):
+         # includes the pred states for two reprs 
+         # s_: 2 x 6 x 1
+        # state_cur = state[i].copy().reshape(2,-1)[:,:2]
+        state_pred = s_.copy().reshape(2,-1)[:,:2]
+        
+        for j,m in enumerate(mea):
+            mea_next = m.copy().reshape(2,-1)
+            for k in range(s_.shape[0]):
+                dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
+                if dis_error < 2:
+                    State_affinity[k,i,j] = dis_error
+
+    return np.min(State_affinity,axis = 0)
 
 def get_affinity_mat_cos(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))

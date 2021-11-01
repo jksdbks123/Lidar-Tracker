@@ -99,18 +99,20 @@ class MOT_NN():
             aggregated_maps.append(Td_map)
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            xylwh_init,unique_label_init = extract_xylwh_by_frame(Labeling_map,Td_map,self.thred_map)
+            Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
+            
+            xylwh_init,unique_label_init,Labeling_map = extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,self.thred_map,Background_map)
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             Frame_ind_init += 1
             if len(unique_label_init)>0:
                 break
 
-        mea_init = extract_mea_state_vec(xylwh_init).reshape(-1,5) # m: n x 5
-        state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],2))],axis = 1) #  n x 7 xylwhx'y'
+        mea_init = extract_mea_state_vec(xylwh_init)
+        # m: n x 5 x 1
+        state_init = np.concatenate([mea_init,np.zeros((mea_init.shape[0],A.shape[0] - H.shape[0])).reshape(mea_init.shape[0],A.shape[0] - H.shape[0],-1)],axis = 1)
 
         for i,label in enumerate(unique_label_init):
-            # Tracking_pool,Global_id,state_init,label_init,mea_init,start_frame
             create_new_detection_NN(self.Tracking_pool,self.Global_id,state_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
         
@@ -132,7 +134,7 @@ class MOT_NN():
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
                 state_cur.append(self.Tracking_pool[glb_id].state)
-            glb_ids,state_cur = np.array(glb_ids),np.array(state_cur) # n x 7 
+            glb_ids,state_cur = np.array(glb_ids),np.array(state_cur) # n x 9 
              
             # read next data 
             Td_map = next(frame_gen)
