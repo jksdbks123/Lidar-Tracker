@@ -678,6 +678,45 @@ def convert_LLH(xyz,T):
     lat = lat*180/np.pi
     LLH = np.concatenate([lon.reshape(-1,1),lat.reshape(-1,1),evel.reshape(-1,1)],axis = 1)
     return LLH
+def get_summary_file_TR(post_seq,mea_seq,key,start_frame,T):
+    
+    temp = np.array(post_seq)
+    # n x 2 x 6 x 1
+    temp = temp.reshape(temp.shape[0],2,temp.shape[1]) # exclude first and ending data point 
+    temp_xy = temp[:,[2,3,4,0,1]]
+    dis_est = np.sqrt(np.sum(temp_lwhxy[:,[3,4]]**2,axis = 1)).reshape(-1,1)
+    speed_xy = temp[:,[5,6]]*10  #m/s
+    speed = np.sqrt(np.sum(speed_xy**2,axis = 1)).reshape(-1,1)*3600/1000
+    #since we don't track the z value, literally use 0 to alternate the z
+    xyz = np.concatenate([temp_lwhxy[:,[3,4]],np.zeros(temp_lwhxy.shape[0]).reshape(-1,1)],axis = 1) 
+    LLH_est = convert_LLH(xyz,T)
+    est = np.concatenate([temp_lwhxy,LLH_est,dis_est,speed_xy,speed],axis = 1)
+    temp = mea_seq
+    emp = []
+    for i,vec in enumerate(temp):
+        if type(vec) == int:
+            emp_row = np.empty(5)
+            emp_row[:] = np.nan
+            emp.append(emp_row)
+        else:
+            emp.append(vec.flatten())
+    emp = np.array(emp)
+    emp = emp[1:-missing_thred,[2,3,4,0,1]]
+    dis_mea = np.sqrt(np.sum(emp[:,[3,4]]**2,axis = 1)).reshape(-1,1)
+    #since we don't track the z value, literally use 0 to alternate
+    xyz = np.concatenate([emp[:,[3,4]],np.zeros(emp.shape[0]).reshape(-1,1)],axis = 1) 
+    LLH_mea = convert_LLH(xyz,T)
+    mea = np.concatenate([emp,LLH_mea,dis_mea],axis = 1)
+
+    timestp = []
+    for i in range(len(mea)):
+        f = i + start_frame + 1
+        timestp.append('%06.0f'%f)
+    timestp = np.array(timestp).reshape(-1,1)
+    objid = (np.ones(len(mea)) * key).astype(int).reshape(-1,1)
+    summary = np.concatenate([objid,timestp,mea,est],axis = 1)
+    summary = pd.DataFrame(summary,columns=col_info+col_mea+col_est)
+    return summary
 
 def get_summary_file(post_seq,mea_seq,key,start_frame,missing_thred,T):
     

@@ -249,7 +249,7 @@ class MOT():
             for key in tqdm(self.Off_tracking_pool):  
 
                 sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
-                                            key,self.Off_tracking_pool[key].start_frame,self.missing_thred,T) 
+                                            key,self.Off_tracking_pool[key].start_frame,T) 
                 sums.append(sum_file)
                 keys.append(key)
                 start_frame.append(self.Off_tracking_pool[key].start_frame)   
