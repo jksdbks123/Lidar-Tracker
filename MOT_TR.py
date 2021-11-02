@@ -239,20 +239,24 @@ class MOT():
                 'Len':lengths
             }).to_csv(self.data_collector.output_path+'/Summary.csv')
         else:
-            sums = []
+            sums_0 = []
+            sums_1 = []
             keys = []
             start_frame = []
             lengths = []
             for key in tqdm(self.Off_tracking_pool):  
 
-                sum_file = get_summary_file(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
+                sum_file_0,sum_file_1 = get_summary_file_TR(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
                                             key,self.Off_tracking_pool[key].start_frame,self.missing_thred,T) 
-                sums.append(sum_file)
+                sums_0.append(sum_file_0)
+                sums_1.append(sum_file_1)
                 keys.append(key)
                 start_frame.append(self.Off_tracking_pool[key].start_frame)   
-                lengths.append(len(sum_file))    
-            sums = pd.concat(sums)
-            sums.to_csv(self.traj_path + '/Trajctories.csv',index = False)
+                lengths.append(len(sum_file_0))    
+            sums_0 = pd.concat(sums_0)
+            sums_1 = pd.concat(sums_1)
+            sums_0.to_csv(self.traj_path + '/Trajctories_0.csv',index = False)
+            sums_1.to_csv(self.traj_path + '/Trajctories_0.csv',index = False)
             pd.DataFrame({
                 'Glb_ID':keys,
                 'Start_Frame':start_frame,
