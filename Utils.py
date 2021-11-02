@@ -45,7 +45,7 @@ A = np.array([ # x,y,x',y',x'',y''
 ])
 Q = np.diag([1,1,0.1,0.1,0.001,0.001])
 R = np.diag([0.01,0.01])
-P_em = np.diag([0.1,0.1,0.3,0.3,0.01,0.01])
+P = np.diag([0.1,0.1,0.3,0.3,0.01,0.01])
 
 H = np.array([
     [1,0,0,0,0,0],
@@ -440,7 +440,7 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
 
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,start_frame):
     
-    if np.sqrt(np.sum(state_init[0][:2]**2)) > 30:
+    if np.sqrt(np.sum(state_init[0][:2]**2)) > 20:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init
@@ -680,7 +680,7 @@ def convert_LLH(xyz,T):
     lat = lat*180/np.pi
     LLH = np.concatenate([lon.reshape(-1,1),lat.reshape(-1,1),evel.reshape(-1,1)],axis = 1)
     return LLH
-    
+
 def get_summary_file_TR(post_seq,mea_seq,key,start_frame,missing_thred,T):
     temp = np.array(post_seq)
     temp = temp.reshape((temp.shape[0],temp.shape[1],temp.shape[2]))
@@ -728,10 +728,9 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,missing_thred,T):
     objid = (np.ones(len(temp)) * key).astype(int).reshape(-1,1)
     summary_0 = np.concatenate([objid,timestp,mea_0,est_0],axis = 1)
     summary_1 = np.concatenate([objid,timestp,mea_1,est_1],axis = 1)
-    column_names = ['ObjectID','FrameIndex','Coord_X_Mea','Coord_Y_Mea','Coord_Z_Mea','Distance_Mea','Longitude_Mea','Latitude_Mea',
-                    'Elevation_Mea','Coord_X_Est','Coord_Y_Est','Coord_Z_Est','Distance_Est','Speed_X','Speed_Y','Speed(m/s)','Acc_X','Acc_Y','Longitude_Est','Latitude_Est','Elevation_Est']
-    summary_0 = pd.DataFrame(summary_0,columns=column_names)
-    summary_1 = pd.DataFrame(summary_1,columns=column_names)
+    
+    summary_0 = pd.DataFrame(summary_0,columns=column_names_TR)
+    summary_1 = pd.DataFrame(summary_1,columns=column_names_TR)
     return summary_0,summary_1
 
 def get_summary_file(post_seq,mea_seq,key,start_frame,missing_thred,T):
