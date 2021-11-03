@@ -340,7 +340,7 @@ if __name__ == "__main__":
         
     }
     
-    input_path = '../RawLidarData/Veteran/'
+    input_path = '../RawLidarData/McCarranEvans_Train/'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -348,7 +348,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = '../RawLidarData/Veteran/'
+    output_file_path = '../RawLidarData/McCarranEvans_Train/'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))

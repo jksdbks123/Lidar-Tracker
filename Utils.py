@@ -152,6 +152,9 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
     #Only Background contains 
     if -1 in unique_label:
         unique_label = unique_label[1:]
+        
+    if len(unique_label) < 1:
+        return np.array([]),unique_label,Labeling_map
     occlusion_indicator = -np.ones((len(azimuths))).astype('int')
     rowses = []
     colses = []
