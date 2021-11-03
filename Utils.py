@@ -122,28 +122,51 @@ def get_params_from_detection_points(point):
     xylwh = np.concatenate([bbox.get_center()[:2],bbox.get_max_bound() - bbox.get_min_bound()])
     return xylwh
 
+def count(TSAv):
+    temp_count = 0
+    apear_ind = []
+    counts = []
+    for i in range(len(TSAv)):
+        if (TSAv[i] == True):
+            temp_count += 1
+        else:
+            if (i > 0) & (TSAv[i - 1] == True):
+                apear_ind.append(i - temp_count)
+                counts.append(temp_count)
+                temp_count = 0
+                counts.append(0)
+            else:
+                counts.append(0)
+        if (i == len(TSAv) - 1) & (temp_count != 0):
+            apear_ind.append(i - temp_count + 1)
+            counts.append(temp_count)
+    counts = np.array(counts)
+    counts = counts[counts > 0]
+    return np.array(counts), np.array(apear_ind)
+
 def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
         
     unique_label = np.unique(Labeling_map)
-    if len(unique_label) == 1:
+    #Only Background contains 
+    if (len(unique_label) == 1)&(unique_label[0] == -1): 
         return np.array([]),[],Labeling_map
     if -1 in unique_label:
         unique_label = unique_label[1:]
-    
-    boundary_cols = []
-    boundary_rows = []
+    occlusion_indicator = -np.ones((len(azimuths)))
+    rowses = []
+    colses = []
     for l in unique_label:
         rows,cols = np.where(Labeling_map == l)
-        sorted_cols_ind = np.argsort(cols)
-        sorted_cols = cols[sorted_cols_ind]
-        sorted_rows = rows[sorted_cols_ind]
-        left_col,right_col = sorted_cols[0],sorted_cols[-1]
+        occlusion_indicator[cols] = l
+        rowses.append(rows)
+        colses.append(cols)
+    TSAv = occlusion_indicator != 1
+    counts,appears = count(TSAv)
+    for i,c in enumerate(counts):
+        a = appears[i]
         
-        if (right_col - left_col) > 900:
-            left_col += 1800 
-        boundary_cols.append([left_col,right_col])
-        boundary_rows.append([rows[sorted_cols_ind[0]],rows[sorted_cols_ind[-1]]])
-
+    #[boundary for 1, for 2, for 3...]
+    
     boundary_cols,boundary_rows = np.array(boundary_cols),np.array(boundary_rows)
     
     sorted_label = np.argsort(boundary_cols[:,0])
@@ -151,14 +174,11 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
     adjacent_label_pairs = []
     for sl in range(len(sorted_label) - 1):
         if boundary_cols[sorted_label[sl],1] < boundary_cols[sorted_label[sl+1],0]:
+            # if two adjacent objects have interval 
             adjacent_label_pairs.append([sorted_label[sl],sorted_label[sl+1]])
-            
-    if boundary_cols[sorted_label[-1],1] > 1800:
-        if (boundary_cols[sorted_label[-1],1] - 1800) < boundary_cols[sorted_label[0],0]:
-            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
-    else:
-        if boundary_cols[sorted_label[-1],1] < boundary_cols[sorted_label[0],0]:
-            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
+    
+    adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
+
     Merge_cobs = []
     for adjacent in adjacent_label_pairs:
         pair_a,pair_b = adjacent[0],adjacent[1]
@@ -229,13 +249,15 @@ def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Backgr
     if -1 in unique_label:
         unique_label = unique_label[1:]
     
+    # Find boundaries 
     boundary_cols = []
     boundary_rows = []
     for l in unique_label:
         rows,cols = np.where(Labeling_map == l)
         sorted_cols_ind = np.argsort(cols)
         sorted_cols = cols[sorted_cols_ind]
-        sorted_rows = rows[sorted_cols_ind]
+        # sorted_rows = rows[sorted_cols_ind]
+
         left_col,right_col = sorted_cols[0],sorted_cols[-1]
         
         if (right_col - left_col) >  900:
