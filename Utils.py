@@ -144,6 +144,7 @@ def count(TSAv):
     counts = counts[counts > 0]
     return np.array(counts), np.array(apear_ind)
 
+
 def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
         
     unique_label = np.unique(Labeling_map)
@@ -160,53 +161,38 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
         occlusion_indicator[cols] = l
         rowses.append(rows)
         colses.append(cols)
-    TSAv = occlusion_indicator != 1
+    TSAv = occlusion_indicator != -1
     counts,appears = count(TSAv)
-    for i,c in enumerate(counts):
-        a = appears[i]
-        
-    #[boundary for 1, for 2, for 3...]
-    
-    boundary_cols,boundary_rows = np.array(boundary_cols),np.array(boundary_rows)
-    
-    sorted_label = np.argsort(boundary_cols[:,0])
-
-    adjacent_label_pairs = []
-    for sl in range(len(sorted_label) - 1):
-        if boundary_cols[sorted_label[sl],1] < boundary_cols[sorted_label[sl+1],0]:
-            # if two adjacent objects have interval 
-            adjacent_label_pairs.append([sorted_label[sl],sorted_label[sl+1]])
-    
-    adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
-
     Merge_cobs = []
-    for adjacent in adjacent_label_pairs:
-        pair_a,pair_b = adjacent[0],adjacent[1]
-        interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
-        interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
-    #     print(interval_left_col,interval_right_col)
-        if (interval_right_col - interval_left_col) > 80:
-            continue
-        high = interval_left_row
-        low = interval_right_row
-        if high < low: 
-            high,low = low,high
-        
-        interval_map = Td_map[low:high+1,interval_left_col:interval_right_col+1][Background_map[low:high+1,interval_left_col:interval_right_col+1]]
+    ind_pairs = [(i,i+1) for i in range(len(counts) - 1)]
+    ind_pairs += [(-1,0)]
+    for pair in ind_pairs:
+        col_right = appears[pair[0]] + counts[pair[0]] - 1
+        col_left = appears[pair[1]]
+        if col_left < col_right:
+            
+        bounder_right_label = occlusion_indicator[col_right]
+        bounder_left_label = occlusion_indicator[col_left]
+        # right-bound on left ---- left-boundon right
+        label_ind_right= np.where(unique_label == bounder_right_label)[0][0]
+        rows_right = rowses[label_ind_right][colses[label_ind_right] == col_right]
+        label_ind_left = np.where(unique_label == bounder_left_label)[0][0]
+        rows_left = rowses[label_ind_left][colses[label_ind_left] == col_left]
+        rows_2bounds = np.concatenate([rows_left,rows_right])
+        high,low = rows_2bounds.max(),rows_2bounds.min()
+        interval_map = Td_map[low:high+1,col_left:col_right+1][Background_map[low:high+1,col_left:col_right+1]]
         if len(interval_map) == 0 :
             continue
         min_dis_int = interval_map.min()
-        min_dis_a = Td_map[Labeling_map == pair_a].min()
-        min_dis_b = Td_map[Labeling_map == pair_b].min()
-        if (min_dis_int  < min_dis_a)&(min_dis_int  <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.2):
-            Merge_cobs.append([pair_a,pair_b])
-    
+        min_dis_right = Td_map[rows_right,col_right].min()
+        min_dis_left = Td_map[rows_left,col_left].min()
+        if (min_dis_int  < min_dis_right)&(min_dis_int < min_dis_left)&(np.abs(min_dis_right - min_dis_left) < 1.2):
+            Merge_cobs.append([label_ind_right,label_ind_left])
 
     for cob in Merge_cobs:
         for i in range(1,len(cob)):
             Labeling_map[Labeling_map == cob[i]] = cob[0]
             unique_label[unique_label == cob[i]] = cob[0]
-            # Labels[Labels == cob[i]] =cob[0]
             
     new_uni_labels = np.unique(unique_label)
     xy_set = []
@@ -226,6 +212,7 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
     
     return np.array(xy_set),new_uni_labels,Labeling_map
 
+
 def get_representative_point(ref_rows,ref_cols,Td_map): 
     td_freq_map = Td_map
     longitudes = theta[ref_rows]*np.pi / 180
@@ -239,85 +226,6 @@ def get_representative_point(ref_rows,ref_cols,Td_map):
         [X[0],Y[0]],
         [X[1],Y[1]]
     ]).reshape(2,2,1) # n_repr x xy_dim x 1 
-
-def extract_xylwh_merging_by_frame_interval(Labeling_map,Td_map,Thred_map,Background_map):
-    
-    XYZ,Labels = convert_point_cloud(Td_map,Labeling_map,Thred_map)
-    unique_label = np.unique(Labels)
-    if len(unique_label) == 1:
-        return np.array([]),[],Labeling_map
-    if -1 in unique_label:
-        unique_label = unique_label[1:]
-    
-    # Find boundaries 
-    boundary_cols = []
-    boundary_rows = []
-    for l in unique_label:
-        rows,cols = np.where(Labeling_map == l)
-        sorted_cols_ind = np.argsort(cols)
-        sorted_cols = cols[sorted_cols_ind]
-        # sorted_rows = rows[sorted_cols_ind]
-
-        left_col,right_col = sorted_cols[0],sorted_cols[-1]
-        
-        if (right_col - left_col) >  900:
-            left_col += 1800 
-        boundary_cols.append([left_col,right_col])
-        boundary_rows.append([rows[sorted_cols_ind[0]],rows[sorted_cols_ind[-1]]])
-
-    boundary_cols,boundary_rows = np.array(boundary_cols),np.array(boundary_rows)
-    
-    sorted_label = np.argsort(boundary_cols[:,0])
-
-    adjacent_label_pairs = []
-    for sl in range(len(sorted_label) - 1):
-        if boundary_cols[sorted_label[sl],1] < boundary_cols[sorted_label[sl+1],0]:
-            adjacent_label_pairs.append([sorted_label[sl],sorted_label[sl+1]])
-            
-    if boundary_cols[sorted_label[-1],1] > 1800:
-        if (boundary_cols[sorted_label[-1],1] - 1800) < boundary_cols[sorted_label[0],0]:
-            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
-    else:
-        if boundary_cols[sorted_label[-1],1] < boundary_cols[sorted_label[0],0]:
-            adjacent_label_pairs.append([sorted_label[-1],sorted_label[0]])
-    Merge_cobs = []
-    for adjacent in adjacent_label_pairs:
-        pair_a,pair_b = adjacent[0],adjacent[1]
-        interval_left_col,interval_right_col = boundary_cols[pair_a][1],boundary_cols[pair_b][0]
-        interval_left_row,interval_right_row = boundary_rows[pair_a][1],boundary_rows[pair_b][0]
-    #     print(interval_left_col,interval_right_col)
-        if (interval_right_col - interval_left_col) > 80:
-            continue
-        high = interval_left_row
-        low = interval_right_row
-        if high < low: 
-            high,low = low,high
-        
-        interval_map = Td_map[low:high+1,interval_left_col:interval_right_col+1][Background_map[low:high+1,interval_left_col:interval_right_col+1]]
-        if len(interval_map) == 0 :
-            continue
-        min_dis_int = interval_map.min()
-        min_dis_a = Td_map[Labeling_map == pair_a].min()
-        min_dis_b = Td_map[Labeling_map == pair_b].min()
-        if (min_dis_int  < min_dis_a)&(min_dis_int  <min_dis_b)&(np.abs(min_dis_a - min_dis_b) < 1.2):
-            Merge_cobs.append([pair_a,pair_b])
-    
-
-    for cob in Merge_cobs:
-        for i in range(1,len(cob)):
-            Labeling_map[Labeling_map == cob[i]] = cob[0]
-            unique_label[unique_label == cob[i]] = cob[0]
-            Labels[Labels == cob[i]] =cob[0]
-            
-    new_uni_labels = np.unique(unique_label)
-
-    xylwh_set = []  
-    for l in new_uni_labels:
-        point = XYZ[Labels == l]
-        xylwh = get_params_from_detection_points(point)
-        xylwh_set.append(xylwh)
-
-    return np.array(xylwh_set),new_uni_labels,Labeling_map
 
 def linear_assignment_modified(State_affinity):
     State_affinity_temp = State_affinity.copy()
