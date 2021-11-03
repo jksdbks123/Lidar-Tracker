@@ -145,15 +145,14 @@ def count(TSAv):
     return np.array(counts), np.array(apear_ind)
 
 
-def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
+def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 80):
         
+    
     unique_label = np.unique(Labeling_map)
     #Only Background contains 
-    if (len(unique_label) == 1)&(unique_label[0] == -1): 
-        return np.array([]),[],Labeling_map
     if -1 in unique_label:
         unique_label = unique_label[1:]
-    occlusion_indicator = -np.ones((len(azimuths)))
+    occlusion_indicator = -np.ones((len(azimuths))).astype('int')
     rowses = []
     colses = []
     for l in unique_label:
@@ -169,8 +168,9 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
     for pair in ind_pairs:
         col_right = appears[pair[0]] + counts[pair[0]] - 1
         col_left = appears[pair[1]]
-        if col_left < col_right:
-            
+        is_normal = col_left >= col_right
+        if is_normal&((col_left - col_right) > thred_merge):
+            continue
         bounder_right_label = occlusion_indicator[col_right]
         bounder_left_label = occlusion_indicator[col_left]
         # right-bound on left ---- left-boundon right
@@ -180,9 +180,18 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
         rows_left = rowses[label_ind_left][colses[label_ind_left] == col_left]
         rows_2bounds = np.concatenate([rows_left,rows_right])
         high,low = rows_2bounds.max(),rows_2bounds.min()
-        interval_map = Td_map[low:high+1,col_left:col_right+1][Background_map[low:high+1,col_left:col_right+1]]
+        if is_normal:
+            interval_map = Td_map[low:high+1,col_right:col_left+1][Background_map[low:high+1,col_right:col_left+1]]
+        else:
+            if (len(azimuths) - col_right) + col_left > thred_merge:
+                continue
+            else: 
+                interval_map_right = Td_map[low:high+1,col_right:len(azimuths)][Background_map[low:high+1,col_right:len(azimuths)]]
+                interval_map_left = Td_map[low:high+1,:col_left + 1][Background_map[low:high+1,col_left + 1]]
+                interval_map = np.concatenate([interval_map_left,interval_map_right])
         if len(interval_map) == 0 :
             continue
+            
         min_dis_int = interval_map.min()
         min_dis_right = Td_map[rows_right,col_right].min()
         min_dis_left = Td_map[rows_left,col_left].min()
@@ -193,7 +202,7 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map):
         for i in range(1,len(cob)):
             Labeling_map[Labeling_map == cob[i]] = cob[0]
             unique_label[unique_label == cob[i]] = cob[0]
-            
+
     new_uni_labels = np.unique(unique_label)
     xy_set = []
     for label in new_uni_labels:
