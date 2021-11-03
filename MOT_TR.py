@@ -323,8 +323,8 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        'd':1.2,
-        'thred_s':0.3,
+        'd':1,
+        'thred_s':0.2,
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,

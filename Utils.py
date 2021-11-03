@@ -187,11 +187,11 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
                 continue
             else: 
                 interval_map_right = Td_map[low:high+1,col_right:len(azimuths)][Background_map[low:high+1,col_right:len(azimuths)]]
-                interval_map_left = Td_map[low:high+1,:col_left + 1][Background_map[low:high+1,col_left + 1]]
+                interval_map_left = Td_map[low:high+1,:col_left + 1][Background_map[low:high+1,:col_left + 1]]
                 interval_map = np.concatenate([interval_map_left,interval_map_right])
+
         if len(interval_map) == 0 :
             continue
-            
         min_dis_int = interval_map.min()
         min_dis_right = Td_map[rows_right,col_right].min()
         min_dis_left = Td_map[rows_left,col_left].min()
