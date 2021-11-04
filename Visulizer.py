@@ -44,7 +44,7 @@ def show_3d_sequence(PCD_folder):
     vis.add_geometry(initial_pcd)
     
     for i in range(0,len(lisdir)):
-        # time.sleep(0.1)
+        time.sleep(0.1)
         pcd_name = os.path.join(PCD_folder,lisdir[i])
         pcd = op3.io.read_point_cloud(pcd_name)
         vis.add_geometry(pcd)

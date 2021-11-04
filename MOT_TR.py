@@ -145,8 +145,8 @@ class MOT():
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state                    
-                    State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
-                    associated_ind_glb,associated_ind_label = linear_assignment_modified_jpd(State_affinity)
+                    State_affinity = get_affinity_mat_mal_TR(state_cur,state_cur_,P_cur_,mea_next)
+                    associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)
                     
                     """
                     Failed tracking and new detections
@@ -325,11 +325,11 @@ if __name__ == "__main__":
     params = {
         'd':1,
         'thred_s':0.2,
-        'N':20,
+        'N':15,
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,15),
-        'eps': 1.5,
+        'eps': 1.16,
         'min_samples':20,
         'missing_thred':60,
         'ending_frame' : 17950,
@@ -337,7 +337,6 @@ if __name__ == "__main__":
         'save_pcd' : 'Unfiltered',
         'save_Azimuth_Laser_info' : False,
         'result_type':'merged'
-        
     }
     
     input_path = '../RawLidarData/McCarranEvans_Train/'

@@ -145,7 +145,7 @@ def count(TSAv):
     return np.array(counts), np.array(apear_ind)
 
 
-def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 80):
+def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 25):
         
     
     unique_label = np.unique(Labeling_map)
@@ -198,7 +198,7 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
         min_dis_int = interval_map.min()
         min_dis_right = Td_map[rows_right,col_right].min()
         min_dis_left = Td_map[rows_left,col_left].min()
-        if (min_dis_int  < min_dis_right)&(min_dis_int < min_dis_left)&(np.abs(min_dis_right - min_dis_left) < 1.2):
+        if (min_dis_int  < min_dis_right)&(min_dis_int < min_dis_left)&(np.abs(min_dis_right - min_dis_left) < 2.5):
             Merge_cobs.append([label_ind_right,label_ind_left])
 
     for cob in Merge_cobs:
@@ -263,7 +263,7 @@ def linear_assignment_modified(State_affinity):
     
     return associated_ind_glb,associated_ind_label
 
-def linear_assignment_modified_dis(State_affinity,thred):
+def linear_assignment_modified_dis(State_affinity,thred = 10):
 
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
@@ -382,7 +382,7 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
 
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,start_frame):
     
-    if np.sqrt(np.sum(state_init[0][:2]**2)) > 20:
+    if np.sqrt(np.sum(state_init[0][:2]**2)) > 30:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init
@@ -514,11 +514,28 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 5:
+                if dis_error < 7:
                     jp = var_tr[k].pdf(mea_next[k])
                     State_affinity[k,i,j] = jp
 
     return np.max(State_affinity,axis = 0)
+
+def get_affinity_mat_mal_TR(state,state_,P_,mea):
+    State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
+    for i,s_ in enumerate(state_):
+         # includes the pred states for two reprs 
+         # s_: 2 x 6 x 1
+        # state_cur = state[i].copy().reshape(2,-1)[:,:2]
+        state_pred = s_.copy().reshape(2,-1)[:,:2]
+         # cov_tr : 2 x 6 x 6 
+        cov_tr = P_[i][:,:2,:2]
+        for j,m in enumerate(mea):
+            mea_next = m.copy().reshape(2,-1)
+            for k in range(s_.shape[0]):
+                mal_dis = distance.mahalanobis(mea_next[k],state_pred[k],np.linalg.inv(cov_tr[k]))
+                if mal_dis < 5:
+                    State_affinity[k,i,j] = mal_dis
+    return np.min(State_affinity,axis = 0)
 
 def get_affinity_mat_dis_TR(state,state_,P_,mea):
     State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
