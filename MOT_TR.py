@@ -256,7 +256,7 @@ class MOT():
             sums_0 = pd.concat(sums_0)
             sums_1 = pd.concat(sums_1)
             sums_0.to_csv(self.traj_path + '/Trajctories_0.csv',index = False)
-            sums_1.to_csv(self.traj_path + '/Trajctories_0.csv',index = False)
+            sums_1.to_csv(self.traj_path + '/Trajctories_1.csv',index = False)
             pd.DataFrame({
                 'Glb_ID':keys,
                 'Start_Frame':start_frame,
@@ -354,9 +354,8 @@ if __name__ == "__main__":
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
     ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
     ref_LLH[:,2] = ref_LLH[:,2]/3.2808
-
     mot = MOT(pcap_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking(A,P,H,Q,R)
     mot.save_result(ref_LLH,ref_xyz)
-    
+
