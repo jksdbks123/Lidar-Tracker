@@ -124,11 +124,14 @@ class MOT():
             """
             Extract Matrix P and State of each tracklet in Current Tracking Pool
             """
-            glb_ids,P_cur,state_cur = [],[],[]
+            glb_ids,P_cur,state_cur,heading_vec = [],[],[],[]
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
                 P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
+                
+                heading_vec.append()
+
             glb_ids,P_cur,state_cur = np.array(glb_ids),np.array(P_cur),np.array(state_cur)
             # P_cur: n x 2 x 6 x 6 
             # state_cur: n x 2 x 6 x 1
@@ -144,8 +147,9 @@ class MOT():
              # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state                    
-                    State_affinity = get_affinity_mat_mal_TR(state_cur,state_cur_,P_cur_,mea_next)
+                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state  
+
+                    State_affinity = get_affinity_mat_mal_heading_TR(state_cur,state_cur_,P_cur_,mea_next)
                     associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)
                     
                     """

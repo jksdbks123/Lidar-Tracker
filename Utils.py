@@ -520,6 +520,32 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
 
     return np.max(State_affinity,axis = 0)
 
+def cal_heading_vec(Tracking_pool,glb_id):
+    post_seq = Tracking_pool[glb_id].post_seq
+    post_seq = np.array(post_seq)
+    if len(post_seq) >= 5:
+        heading_vec = np.sum(post_seq[-5:,:,2:4],axis = 0)
+    else:
+        heading_vec = np.sum(post_seq[:,:,2:4],axis = 0)
+    return heading_vec # 2 x 2 x 1 
+
+def get_affinity_mat_mal_heading_TR(his_state,state_,P_,mea,heading_step = 5):
+    State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
+    for i,s_ in enumerate(state_):
+         # includes the pred states for two reprs 
+         # s_: 2 x 6 x 1
+        # state_cur = state[i].copy().reshape(2,-1)[:,:2]
+        state_pred = s_.copy().reshape(2,-1)[:,:2]
+         # cov_tr : 2 x 6 x 6 
+        cov_tr = P_[i][:,:2,:2]
+        for j,m in enumerate(mea):
+            mea_next = m.copy().reshape(2,-1)
+            for k in range(s_.shape[0]):
+                mal_dis = distance.mahalanobis(mea_next[k],state_pred[k],np.linalg.inv(cov_tr[k]))
+                if mal_dis < 3:
+                    State_affinity[k,i,j] = mal_dis
+    return np.min(State_affinity,axis = 0)
+
 def get_affinity_mat_mal_TR(state,state_,P_,mea):
     State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
