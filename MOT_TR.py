@@ -329,9 +329,9 @@ if __name__ == "__main__":
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,15),
-        'eps': 1.16,
+        'eps': 1.7,
         'min_samples':20,
-        'missing_thred':60,
+        'missing_thred':20,
         'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : 'Unfiltered',
@@ -339,7 +339,7 @@ if __name__ == "__main__":
         'result_type':'merged'
     }
     
-    input_path = '../RawLidarData/McCarranEvans_Train/'
+    input_path = '../RawLidarData/McCarranEvans_Train_0/'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -347,7 +347,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = '../RawLidarData/McCarranEvans_Train/'
+    output_file_path = '../RawLidarData/McCarranEvans_Train_0/'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))

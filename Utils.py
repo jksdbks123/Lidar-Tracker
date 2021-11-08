@@ -263,7 +263,7 @@ def linear_assignment_modified(State_affinity):
     
     return associated_ind_glb,associated_ind_label
 
-def linear_assignment_modified_dis(State_affinity,thred = 10):
+def linear_assignment_modified_dis(State_affinity,thred = 3):
 
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
@@ -533,7 +533,7 @@ def get_affinity_mat_mal_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 mal_dis = distance.mahalanobis(mea_next[k],state_pred[k],np.linalg.inv(cov_tr[k]))
-                if mal_dis < 5:
+                if mal_dis < 3:
                     State_affinity[k,i,j] = mal_dis
     return np.min(State_affinity,axis = 0)
 

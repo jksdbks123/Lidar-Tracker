@@ -32,11 +32,11 @@ class TrackingNet(nn.Module):
         return x
         
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-test_tensor = torch.tensor([[-11.7860887466129,-24.1342180758378,-1,-1]])
-model = TrackingNet()
-model.load_state_dict(torch.load('./PosteriorModel/saved_model.pth', map_location=device))
-model.eval()
-print(model(test_tensor))
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# test_tensor = torch.tensor([[-11.7860887466129,-24.1342180758378,-1,-1]])
+# model = TrackingNet()
+# model.load_state_dict(torch.load('./PosteriorModel/saved_model.pth', map_location=device))
+# model.eval()
+# print(model(test_tensor))
 
 
