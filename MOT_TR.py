@@ -123,19 +123,20 @@ class MOT():
                 aggregated_maps = []
             """
             Extract Matrix P and State of each tracklet in Current Tracking Pool
+            
             """
-            glb_ids,P_cur,state_cur,heading_vec = [],[],[],[]
+            glb_ids,P_cur,state_cur,heading_vecs = [],[],[],[]
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
                 P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
-                
-                heading_vec.append()
+                heading_vec = cal_heading_vec(self.Tracking_pool[glb_id].post_seq)
+                heading_vecs.append(heading_vec) # 2 x 2 x 1
 
-            glb_ids,P_cur,state_cur = np.array(glb_ids),np.array(P_cur),np.array(state_cur)
+            glb_ids,P_cur,state_cur,heading_vecs = np.array(glb_ids),np.array(P_cur),np.array(state_cur),np.array(heading_vecs)
             # P_cur: n x 2 x 6 x 6 
             # state_cur: n x 2 x 6 x 1
-            
+            # heading_vecs: n x 2 x 2 x 1
             # read next data 
             Td_map = next(frame_gen)
             aggregated_maps.append(Td_map)
@@ -148,8 +149,7 @@ class MOT():
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state  
-
-                    State_affinity = get_affinity_mat_mal_heading_TR(state_cur,state_cur_,P_cur_,mea_next)
+                    State_affinity = get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_cur_,P_cur_,mea_next)
                     associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)
                     
                     """
@@ -335,7 +335,7 @@ if __name__ == "__main__":
         'win_size':(5,15),
         'eps': 1.7,
         'min_samples':20,
-        'missing_thred':20,
+        'missing_thred':60,
         'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : 'Unfiltered',
@@ -343,7 +343,7 @@ if __name__ == "__main__":
         'result_type':'merged'
     }
     
-    input_path = '../RawLidarData/McCarranEvans_Train_0/'
+    input_path = '../RawLidarData/McCarranEvans_Test/'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -351,7 +351,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = '../RawLidarData/McCarranEvans_Train_0/'
+    output_file_path = '../RawLidarData/McCarranEvans_Test/'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))

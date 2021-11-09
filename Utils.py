@@ -262,8 +262,9 @@ def linear_assignment_modified(State_affinity):
     associated_ind_label = associated_ind_label[ind]
     
     return associated_ind_glb,associated_ind_label
+    
 
-def linear_assignment_modified_dis(State_affinity,thred = 3):
+def linear_assignment_modified_dis(State_affinity,thred = 7):
 
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
@@ -382,7 +383,7 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
 
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,start_frame):
     
-    if np.sqrt(np.sum(state_init[0][:2]**2)) > 30:
+    if np.sqrt(np.sum(state_init[0][:2]**2)) > 20:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init
@@ -520,8 +521,8 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
 
     return np.max(State_affinity,axis = 0)
 
-def cal_heading_vec(Tracking_pool,glb_id):
-    post_seq = Tracking_pool[glb_id].post_seq
+def cal_heading_vec(post_seq):
+
     post_seq = np.array(post_seq)
     if len(post_seq) >= 5:
         heading_vec = np.sum(post_seq[-5:,:,2:4],axis = 0)
@@ -529,21 +530,56 @@ def cal_heading_vec(Tracking_pool,glb_id):
         heading_vec = np.sum(post_seq[:,:,2:4],axis = 0)
     return heading_vec # 2 x 2 x 1 
 
-def get_affinity_mat_mal_heading_TR(his_state,state_,P_,mea,heading_step = 5):
+def get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_,P_,mea,heading_step = 5):
     State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
+    temp_state = state_cur.copy()
     for i,s_ in enumerate(state_):
          # includes the pred states for two reprs 
          # s_: 2 x 6 x 1
-        # state_cur = state[i].copy().reshape(2,-1)[:,:2]
-        state_pred = s_.copy().reshape(2,-1)[:,:2]
          # cov_tr : 2 x 6 x 6 
+        
+        speed_cur = temp_state[i].copy().reshape(2,-1)[:,2:4]
+        # 2 x 2
+        state_cur = temp_state[i].copy().reshape(2,-1)[:,:2]
+        # 2 x 2
+        
+        speed_cur = np.sqrt(np.sum(speed_cur**2,axis = 1))
+        # 1 x 2
+        heading_vec = heading_vecs[i].copy().reshape(2,-1)
+        # 2 x 2
+        state_pred = s_.copy().reshape(2,-1)[:,:2]
+        # 2 x 2
         cov_tr = P_[i][:,:2,:2]
+        
         for j,m in enumerate(mea):
             mea_next = m.copy().reshape(2,-1)
+            # 2 x 2
             for k in range(s_.shape[0]):
                 mal_dis = distance.mahalanobis(mea_next[k],state_pred[k],np.linalg.inv(cov_tr[k]))
-                if mal_dis < 3:
-                    State_affinity[k,i,j] = mal_dis
+                vec_mea = mea_next[k] - state_cur[k] # vec between mea and cur est
+                # 1 x 2
+                vector_1 = heading_vec[k]
+                if (vector_1 == 0).all():
+                    cos_angle = 0
+                else:
+                # 1 x 2
+                    vector_2 = vec_mea
+                    unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
+                    unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
+                    cos_angle = np.dot(unit_vector_2 , unit_vector_1)
+                    # cos of angle: 1 x 2 
+
+                # cos of the angle between mea_vec and heading 
+                # ranged from -1 ~ 1 
+                if (mal_dis < 3):
+                    speed_next = np.sqrt(np.sum((mea_next[k] - state_cur[k])**2))
+                    speed_diff = np.abs(speed_next - speed_cur[k]) 
+                    if cos_angle<0.7:
+                        cos_angle = 0
+                    if speed_diff > 0.1:
+                        speed_diff = 3
+                    State_affinity[k,i,j] = mal_dis + 3*(1-cos_angle) + speed_diff                      
+
     return np.min(State_affinity,axis = 0)
 
 def get_affinity_mat_mal_TR(state,state_,P_,mea):
