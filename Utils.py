@@ -264,7 +264,7 @@ def linear_assignment_modified(State_affinity):
     return associated_ind_glb,associated_ind_label
     
 
-def linear_assignment_modified_dis(State_affinity,thred = 7):
+def linear_assignment_modified_dis(State_affinity,thred = 9):
 
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
