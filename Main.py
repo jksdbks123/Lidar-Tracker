@@ -1,9 +1,12 @@
 import argparse
-from MOT import MOT
+from MOT_TR import MOT
 from Utils import *
 import pandas as pd
 import json
 import os
+
+
+
 
 parser = argparse.ArgumentParser(description='This is a program generating trajectories from .pcap files')
 parser.add_argument('-i','--input', help='path that contains .pcap file', required=True)

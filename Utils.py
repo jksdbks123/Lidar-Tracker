@@ -145,7 +145,7 @@ def count(TSAv):
     return np.array(counts), np.array(apear_ind)
 
 
-def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 50):
+def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 30):
         
     
     unique_label = np.unique(Labeling_map)
@@ -579,7 +579,7 @@ def get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_,P_,mea):
                     if speed_cur[k] < 0.13:
                         cos_angle = 1
 
-                    State_affinity[k,i,j] = (2-cos_angle) + mal_dis           
+                    State_affinity[k,i,j] = 0.5*(2-cos_angle) + mal_dis           
 
     return np.min(State_affinity,axis = 0)
 
