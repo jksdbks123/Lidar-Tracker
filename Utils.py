@@ -145,7 +145,7 @@ def count(TSAv):
     return np.array(counts), np.array(apear_ind)
 
 
-def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 25):
+def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 50):
         
     
     unique_label = np.unique(Labeling_map)
@@ -521,16 +521,16 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
 
     return np.max(State_affinity,axis = 0)
 
-def cal_heading_vec(post_seq):
+def cal_heading_vec(post_seq,heading_step = 4):
 
     post_seq = np.array(post_seq)
-    if len(post_seq) >= 5:
-        heading_vec = np.sum(post_seq[-5:,:,2:4],axis = 0)
+    if len(post_seq) >= heading_step:
+        heading_vec = np.sum(post_seq[-heading_step:,:,2:4],axis = 0)
     else:
         heading_vec = np.sum(post_seq[:,:,2:4],axis = 0)
     return heading_vec # 2 x 2 x 1 
 
-def get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_,P_,mea,heading_step = 5):
+def get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_,P_,mea):
     State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
     temp_state = state_cur.copy()
     for i,s_ in enumerate(state_):
@@ -571,14 +571,15 @@ def get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_,P_,mea,heading
 
                 # cos of the angle between mea_vec and heading 
                 # ranged from -1 ~ 1 
+                cos_angle += 1
+                # 0 - 2
+                speed_next = np.sqrt(np.sum((mea_next[k] - state_cur[k])**2))
                 if (mal_dis < 3):
-                    speed_next = np.sqrt(np.sum((mea_next[k] - state_cur[k])**2))
-                    speed_diff = np.abs(speed_next - speed_cur[k]) 
-                    if cos_angle<0.7:
-                        cos_angle = 0
-                    if speed_diff > 0.1:
-                        speed_diff = 3
-                    State_affinity[k,i,j] = mal_dis + 3*(1-cos_angle) + speed_diff                      
+                    # speed_diff = np.abs(speed_next - speed_cur[k]) 
+                    if speed_cur[k] < 0.13:
+                        cos_angle = 1
+
+                    State_affinity[k,i,j] = (2-cos_angle) + mal_dis           
 
     return np.min(State_affinity,axis = 0)
 
