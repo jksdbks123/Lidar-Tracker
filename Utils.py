@@ -264,7 +264,7 @@ def linear_assignment_modified(State_affinity):
     return associated_ind_glb,associated_ind_label
     
 
-def linear_assignment_modified_dis(State_affinity,thred = 9):
+def linear_assignment_modified_dis(State_affinity,thred = 5):
 
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
@@ -383,7 +383,7 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
 
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,start_frame):
     
-    if np.sqrt(np.sum(state_init[0][:2]**2)) > 20:
+    if np.sqrt(np.sum(state_init[0][:2]**2)) > 30:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init
@@ -520,8 +520,38 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
                     State_affinity[k,i,j] = jp
 
     return np.max(State_affinity,axis = 0)
+#state_cur,heading_vecs,state_cur_,P_cur_,mea_next
+def get_affinity_mat_jpd_heading_TR(state_cur,heading_vecs,state_,P_,mea):
+    State_affinity = np.zeros((state_.shape[1],state_.shape[0],mea.shape[0]))
+    temp_state = state_cur.copy()
+    for i,s_ in enumerate(state_):
+         # includes the pred states for two reprs 
+         # s_: 2 x 6 x 1
+        speed_cur = temp_state[i].copy().reshape(2,-1)[:,2:4]
+        state_cur = temp_state[i].copy().reshape(2,-1)[:,:2]
+        state_pred = s_.copy().reshape(2,-1)[:,:2]
+         # cov_tr : 2 x 6 x 6 
+        cov_tr = P_[i][:,:2,:2]
+        var_tr = [multivariate_normal(mean=state_pred[k], cov=cov_tr[k]) for k in range(state_cur.shape[0])]
+        speed_cur = np.sqrt(np.sum(speed_cur**2,axis = 1))
+        # 1 x 2
+        for j,m in enumerate(mea):
+            mea_next = m.copy().reshape(2,-1)
+            for k in range(s_.shape[0]):
 
-def cal_heading_vec(post_seq,heading_step = 4):
+                # cos of the angle between mea_vec and heading 
+                # ranged from -1 ~ 1 
+                # 0 - 2
+                # speed_next = np.sqrt(np.sum((mea_next[k] - state_cur[k])**2))
+                dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
+
+                if (dis_error < 7) :
+                    jp = var_tr[k].pdf(mea_next[k])
+                    State_affinity[k,i,j] = jp
+
+    return np.max(State_affinity,axis = 0)
+
+def cal_heading_vec(post_seq,heading_step = 5):
 
     post_seq = np.array(post_seq)
     if len(post_seq) >= heading_step:
@@ -573,17 +603,17 @@ def get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_,P_,mea):
                 # ranged from -1 ~ 1 
                 cos_angle += 1
                 # 0 - 2
-                speed_next = np.sqrt(np.sum((mea_next[k] - state_cur[k])**2))
-                if (mal_dis < 3):
+                # speed_next = np.sqrt(np.sum((mea_next[k] - state_cur[k])**2))
+                if (mal_dis < 5):
                     # speed_diff = np.abs(speed_next - speed_cur[k]) 
-                    if speed_cur[k] < 0.13:
+                    if speed_cur[k] < 0.2:
                         cos_angle = 1
 
-                    State_affinity[k,i,j] = 0.5*(2-cos_angle) + mal_dis           
+                    State_affinity[k,i,j] = 0*(2-cos_angle) + mal_dis           
 
     return np.min(State_affinity,axis = 0)
 
-def get_affinity_mat_mal_TR(state,state_,P_,mea):
+def get_affinity_mat_mal_TR(state,state_,P_,mea,thred = 3):
     State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea.shape[0]))
     for i,s_ in enumerate(state_):
          # includes the pred states for two reprs 
@@ -596,7 +626,7 @@ def get_affinity_mat_mal_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 mal_dis = distance.mahalanobis(mea_next[k],state_pred[k],np.linalg.inv(cov_tr[k]))
-                if mal_dis < 3:
+                if mal_dis < thred:
                     State_affinity[k,i,j] = mal_dis
     return np.min(State_affinity,axis = 0)
 
@@ -611,7 +641,7 @@ def get_affinity_mat_dis_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 2:
+                if dis_error < 5:
                     State_affinity[k,i,j] = dis_error
 
     return np.min(State_affinity,axis = 0)

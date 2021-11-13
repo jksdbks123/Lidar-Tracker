@@ -130,8 +130,8 @@ class MOT():
                 glb_ids.append(glb_id)
                 P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
-                heading_vec = cal_heading_vec(self.Tracking_pool[glb_id].post_seq)
-                heading_vecs.append(heading_vec) # 2 x 2 x 1
+                # heading_vec = cal_heading_vec(self.Tracking_pool[glb_id].post_seq)
+                # heading_vecs.append(heading_vec) # 2 x 2 x 1
 
             glb_ids,P_cur,state_cur,heading_vecs = np.array(glb_ids),np.array(P_cur),np.array(state_cur),np.array(heading_vecs)
             # P_cur: n x 2 x 6 x 6 
@@ -149,8 +149,11 @@ class MOT():
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state  
-                    State_affinity = get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_cur_,P_cur_,mea_next)
-                    associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)
+                    # State_affinity = get_affinity_mat_mal_TR(state_cur,state_cur_,P_cur_,mea_next,thred=5)
+                    # State_affinity = get_affinity_mat_mal_heading_TR(state_cur,heading_vecs,state_cur_,P_cur_,mea_next)
+                    State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
+                    # associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity,thred=5)
+                    associated_ind_glb,associated_ind_label = linear_assignment_modified_jpd(State_affinity)
                     
                     """
                     Failed tracking and new detections
@@ -332,9 +335,9 @@ if __name__ == "__main__":
         'N':15,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,17),
-        'eps': 2,
-        'min_samples':25,
+        'win_size':(5,13),
+        'eps': 1.7,
+        'min_samples':20,
         'missing_thred':20,
         'ending_frame' : 17950,
         'background_update_frame':2000,
