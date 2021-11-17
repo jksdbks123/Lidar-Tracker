@@ -330,23 +330,23 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        'd':1,
-        'thred_s':0.2,
-        'N':15,
+        'd':1.2,
+        'thred_s':0.3,
+        'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,13),
-        'eps': 1.7,
-        'min_samples':20,
+        'win_size':(5,11),
+        'eps': 1.8,
+        'min_samples':15,
         'missing_thred':20,
         'ending_frame' : 17950,
         'background_update_frame':2000,
-        'save_pcd' : 'Unfiltered',
-        'save_Azimuth_Laser_info' : False,
+        'save_pcd' : 'Filtered',
+        'save_Azimuth_Laser_info' : True,
         'result_type':'merged'
     }
     
-    input_path = '../RawLidarData/McCarranEvans_Test/'
+    input_path = '../RawLidarData/Veteran/'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -354,7 +354,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = '../RawLidarData/McCarranEvans_Test/'
+    output_file_path = '../RawLidarData/Veteran/'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
