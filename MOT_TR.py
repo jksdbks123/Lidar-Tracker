@@ -6,13 +6,15 @@ import json
 class MOT():
     def __init__(self,pcap_path,output_file_path,background_update_frame,ending_frame,d ,thred_s ,N ,
                  delta_thred ,step, win_size, eps, min_samples, missing_thred,
-                 save_pcd = None, save_Azimuth_Laser_info = False, result_type = 'split'):
+                 save_pcd = None, save_Azimuth_Laser_info = False,save_TD_Map = False,save_Labeling_map = False, result_type = 'split'):
         """
         pcap_path : pcap file path 
         background_update_frame : background update freq
         """
         self.save_pcd = save_pcd
         self.save_Azimuth_Laser_info = save_Azimuth_Laser_info
+        self.save_TDMap = save_TD_Map
+        self.save_LabelingMap = save_Labeling_map
         self.pcap_path = pcap_path
         self.ending_frame = ending_frame
         self.traj_path = None
@@ -50,14 +52,19 @@ class MOT():
         self.pcd_path = os.path.join(self.data_collector.output_path,'OutputPcd')
         self.traj_path = os.path.join(self.data_collector.output_path,'OutputTrajs')
         self.Azimuth_Laser_info_path = os.path.join(self.data_collector.output_path,'OutputAzimuthLaserInfo')
-        
+        self.Labeling_map_path =  os.path.join(self.data_collector.output_path,'LabelingMaps')
+        self.Td_map_path =  os.path.join(self.data_collector.output_path,'TDMaps')
+
         if 'OutputPcd' not in os.listdir(self.data_collector.output_path ):
             os.mkdir(self.pcd_path)
         if 'OutputTrajs' not in os.listdir(self.data_collector.output_path):
             os.mkdir(self.traj_path)
         if 'OutputAzimuthLaserInfo' not in os.listdir(self.data_collector.output_path):
             os.mkdir(self.Azimuth_Laser_info_path)
-            
+        if 'LabelingMaps' not in os.listdir(self.data_collector.output_path):
+            os.mkdir(self.Labeling_map_path)
+        if 'TDMaps' not in os.listdir(self.data_collector.output_path):
+            os.mkdir(self.Td_map_path)   
         lidar_reader = TDmapLoader(self.pcap_path)
         frame_gen = lidar_reader.frame_gen()
         
@@ -93,6 +100,10 @@ class MOT():
             
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
+            if self.save_LabelingMap:
+                self.save_Labeling_map(Labeling_map,Frame_ind_init)
+            if self.save_TDMap:
+                self.save_TD_map(Td_map,Frame_ind_init)
             Frame_ind_init += 1
             if len(unique_label_init)>0:
                 break
@@ -208,9 +219,13 @@ class MOT():
                         create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
                                                 unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
-           
+            
             if self.save_pcd is not None:
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
+            if self.save_LabelingMap:
+                self.save_Labeling_map(Labeling_map,Frame_ind)
+            if self.save_TDMap:
+                self.save_TD_map(Td_map,Frame_ind)
                 
         """
         Release all tracking obj into off tracking pool
@@ -219,7 +234,11 @@ class MOT():
         for r_id in release_ids:
             self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)
                     
- 
+    def save_TD_map(self,Td_map,f):
+        np.save(os.path.join(self.Td_map_path,'%06.0f.npy'%f),Td_map)
+    def save_Labeling_map(self,Labeling_map,f):
+        np.save(os.path.join(self.Labeling_map_path,'%06.0f.npy'%f),Labeling_map)
+
     def save_result(self,ref_LLF,ref_xyz):
         
         if 'OutputTrajs' not in os.listdir(self.data_collector.output_path ):
@@ -311,7 +330,6 @@ class MOT():
             Laser_ids = np.concatenate(Laser_ids)
             Distances = np.concatenate(Distances)
             LA_info = np.concatenate([Laser_ids.reshape(-1,1),Azimuth_channels.reshape(-1,1),Distances.reshape(-1,1)],axis = 1)
-            np.save(os.path.join(self.Azimuth_Laser_info_path,'%06.0f.npy'%f),LA_info)
             
         Labels = np.concatenate(Labels).astype('int')
         Colors = np.full((len(Labels),3),np.array([[153,153,153]])/256)
@@ -335,17 +353,18 @@ if __name__ == "__main__":
         'N':20,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,11),
-        'eps': 1.8,
+        'win_size':(5,13),
+        'eps': 1.7,
         'min_samples':15,
         'missing_thred':20,
         'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',
         'save_Azimuth_Laser_info' : True,
-        'result_type':'merged'
+        'result_type':'merged',
+        'save_TD_Map':True,
+        'save_Labeling_map':True
     }
-    
     input_path = '../RawLidarData/Veteran/'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
