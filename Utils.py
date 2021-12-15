@@ -743,7 +743,7 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,missing_thred,T):
     # n x 2 
     speed_xy = temp[:,:,2:4] * 10 
     # n x 2 x 2
-    speed = np.sqrt((speed_xy[:,:,0]**2 + speed_xy[:,:,1]**2))*3600/1000
+    speed = np.sqrt((speed_xy[:,:,0]**2 + speed_xy[:,:,1]**2))
     # n x 2
     acc_xy = temp[:,:,4:6]
     # n x 2
