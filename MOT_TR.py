@@ -98,7 +98,7 @@ class MOT():
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
             mea_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
             
-            if self.save_pcd is not None:
+            if self.save_pcd != 'nosave':
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
             if self.save_LabelingMap:
                 self.save_Labeling_map(Labeling_map,Frame_ind_init)
@@ -220,7 +220,7 @@ class MOT():
                                                 unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
             
-            if self.save_pcd is not None:
+            if self.save_pcd != 'nosave':
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
             if self.save_LabelingMap:
                 self.save_Labeling_map(Labeling_map,Frame_ind)
