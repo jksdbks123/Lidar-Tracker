@@ -57,10 +57,30 @@ class RansacCollector():
         for i in range(32):
             for j in range(1800):
                 t_s = aggregated_maps_temp[:,i,j].copy()
-                threshold_value = self.get_thred(t_s,d,thred_s,N,delta_thred,step)
+                threshold_value = self.get_thred_modified(t_s,d,thred_s,N,delta_thred,step)
                 threshold_map[i,j] = threshold_value
         self.thred_map = threshold_map
+
+    def get_thred_modified(self,ts,d ,thred_s ,N ,delta_thred ,step):# Ransac Para
+        ts_temp = ts.copy()
+        ts_temp[ts_temp == 0] = 1000
+        valid_dises = []
+        for i in range(N):
+            sample = np.random.choice(ts_temp,replace=False)
+            if len(ts_temp[(ts_temp > sample - d)&(ts_temp < sample + d)])/len(ts_temp) > thred_s:
+                valid_dises.append(sample)
+        if len(valid_dises) == 0:
+            return 1000
+            
+        cur_thred = np.min(valid_dises)
         
+        while True:
+            next_thred = cur_thred - step
+            if (len(ts[ts > next_thred])/len(ts) - len(ts[ts > cur_thred])/len(ts)) < delta_thred:
+                break
+            cur_thred = next_thred
+            
+        return next_thred
     def get_thred(self,ts,d ,thred_s ,N ,delta_thred ,step ):# Ransac Para
         
         emp_ratio = len(ts[ts==0])/len(ts)

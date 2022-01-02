@@ -349,8 +349,8 @@ class MOT():
 if __name__ == "__main__":
     params = {
         'd':1.2,
-        'thred_s':0.3,
-        'N':20,
+        'thred_s':0.2,
+        'N':10,
         'delta_thred' : 1e-3,
         'step':0.1,
         'win_size':(5,13),
@@ -365,7 +365,7 @@ if __name__ == "__main__":
         'save_TD_Map':True,
         'save_Labeling_map':True
     }
-    input_path = '../RawLidarData/Veteran/'
+    input_path = 'D:\LiDAR_Data'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -373,7 +373,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = '../RawLidarData/Veteran/'
+    output_file_path = 'D:\LiDAR_Data'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
