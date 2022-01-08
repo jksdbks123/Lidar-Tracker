@@ -274,6 +274,8 @@ class MOT():
 
                 sum_file_0,sum_file_1 = get_summary_file_TR(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
                                             key,self.Off_tracking_pool[key].start_frame,self.missing_thred,T) 
+                sum_file_0 = sum_file_0.iloc[:-self.missing_thred]
+                sum_file_1 = sum_file_1.iloc[:-self.missing_thred]
                 sums_0.append(sum_file_0)
                 sums_1.append(sum_file_1)
                 keys.append(key)
