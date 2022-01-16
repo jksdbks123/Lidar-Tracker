@@ -515,7 +515,7 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 7:
+                if dis_error < 3:
                     jp = var_tr[k].pdf(mea_next[k])
                     State_affinity[k,i,j] = jp
 

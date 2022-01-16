@@ -63,6 +63,6 @@ def show_3d_sequence(PCD_folder):
     # show_3d_sequence(args.input) 
     
 print(os.getcwd())
-input_path = 'D:/PCAP_File/2021-12-9-17-0-0/OutputFile/OutputPcd'
+input_path = 'D:\LiDAR_Data\TexasMedian\OutputFile\OutputPcd'
 show_3d_sequence(input_path) 
 ##ss
