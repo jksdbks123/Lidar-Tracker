@@ -96,7 +96,8 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            mea_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
+            #mea_init : n x 2 x 2 x 1
+            mea_init,app_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
             
             if self.save_pcd != 'nosave':
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
@@ -110,6 +111,7 @@ class MOT():
         # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
         n_observed = mea_init.shape[0]
         n_repr = mea_init.shape[1]
+        # mea_init.shape[2]
         n_offset_dim = A.shape[0] - mea_init.shape[2]
         state_init = np.concatenate([mea_init,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
         # s: n x 2 x 6 x 1
@@ -117,7 +119,7 @@ class MOT():
         # P: n x 2 x 6 x 6 s
                 
         for i,label in enumerate(unique_label_init):
-            create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],label,mea_init[i],Frame_ind_init)
+            create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],app_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
                         
         state_cur,P_cur = state_init,P_init 
@@ -154,8 +156,9 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            mea_next,unique_label_next,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
+            mea_next,app_next,unique_label_next,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
              # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
+             # app: n x 1 x 8 x 1
              # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
@@ -184,9 +187,8 @@ class MOT():
                             n_offset_dim = A.shape[0] - mea_init.shape[2]
                             state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
                             
-
                             create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
-                                                unique_label_next[n_id],mea_next[n_id],Frame_ind)
+                                                app_next[n_id],unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
                     
                         
@@ -201,12 +203,13 @@ class MOT():
                         """
                         for i,glb_id in enumerate(glb_ids):
 
-                            associate_detections(self.Tracking_pool,glb_id,state[i],P[i],
+                            associate_detections(self.Tracking_pool,glb_id,state[i],app_next[i],P[i],
                                                 unique_label_next[i],
                                                 mea_next[i])
                 else:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                     for i,glb_id in enumerate(glb_ids):
+
                         process_fails(self.Tracking_pool,self.Off_tracking_pool,
                                     glb_id,state_cur_[i],P_cur_[i],missing_thred)
             else:    
@@ -217,7 +220,7 @@ class MOT():
                         n_offset_dim = A.shape[0] - mea_init.shape[2]
                         state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
                         create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
-                                                unique_label_next[n_id],mea_next[n_id],Frame_ind)
+                                                app_next[n_id],unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
             
             if self.save_pcd != 'nosave':
@@ -350,15 +353,15 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        'd':1.2,
-        'thred_s':0.2,
+        'd':1,
+        'thred_s':0.1,
         'N':10,
         'delta_thred' : 1e-3,
         'step':0.1,
-        'win_size':(5,13),
+        'win_size':(5,17),
         'eps': 1.7,
-        'min_samples':15,
-        'missing_thred':20,
+        'min_samples':10,
+        'missing_thred':10,
         'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',

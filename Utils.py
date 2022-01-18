@@ -8,32 +8,11 @@ import pandas as pd
 from scipy.optimize import linear_sum_assignment
 # import torch
 from sklearn.cluster import DBSCAN
+import cv2
 
 db_merge = DBSCAN(eps=3,min_samples=2)
 
-# # Kalman Filter Params
-
-# # A = np.array( # x,y,l,w,h,x',y',l',w',h',x'',y''
-# #     [[1,0,0,0,0,1,0,0,0,0,.5, 0],
-# #      [0,1,0,0,0,0,1,0,0,0, 0,.5],
-# #      [0,0,1,0,0,0,0,1,0,0, 0, 0],
-# #      [0,0,0,1,0,0,0,0,1,0, 0, 0],
-# #      [0,0,0,0,1,0,0,0,0,1, 0, 0],
-# #      [0,0,0,0,0,1,0,0,0,0, 1, 0],
-# #      [0,0,0,0,0,0,1,0,0,0, 0, 1],
-# #      [0,0,0,0,0,0,0,1,0,0, 0, 0],
-# #      [0,0,0,0,0,0,0,0,1,0, 0, 0],
-# #      [0,0,0,0,0,0,0,0,0,1, 0, 0],
-# #      [0,0,0,0,0,0,0,0,0,0, 1, 0],
-# #      [0,0,0,0,0,0,0,0,0,0, 0, 1]]
-# #       )
-# # Q = np.diag([1,1,1,1,1,0.1,0.1,1,1,1,0.01,0.01])*0.01
-# # H = np.array([[1,0,0,0,0,0,0,0,0,0,0,0],
-# #             [0,1,0,0,0,0,0,0,0,0,0,0],
-# #             [0,0,1,0,0,0,0,0,0,0,0,0],
-# #             [0,0,0,1,0,0,0,0,0,0,0,0],
-# #             [0,0,0,0,1,0,0,0,0,0,0,0]])
-# # P = np.diag([1,1,1,1,1,1,1,1,1,1,1,1])*100
+# Kalman Filter Params
 
 A = np.array([ # x,y,x',y',x'',y''
     [1,0,1,0,.5,0],
@@ -62,9 +41,12 @@ class detected_obj():
         self.missing_count = 0 # frame count of out of detection
         self.P = None
         self.state = None 
+        self.apperance = None 
         self.label_seq = [] # represented labels at each frame 
         self.mea_seq = []
         self.post_seq = []
+        self.app_seq = []
+
 #calibration 
 theta_raw = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
                             [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
@@ -207,7 +189,8 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
             unique_label[unique_label == cob[i]] = cob[0]
 
     new_uni_labels = np.unique(unique_label)
-    xy_set = []
+    xy_set = [] # xy position and apperance features
+    apperance_set = []
     for label in new_uni_labels:
         rows,cols = np.where(Labeling_map == label)
         sort_ind = np.argsort(cols)
@@ -220,10 +203,46 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
             refer_cols = cols[sort_ind[[0,-1]]]
             refer_cols[refer_cols >= 1800] -= 1800
             refer_rows = rows[sort_ind[[0,-1]]]
-        xy_set.append(get_representative_point(refer_rows,refer_cols,Td_map))
-    
-    return np.array(xy_set),new_uni_labels,Labeling_map
+        xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
+        xy_set.append(xy)
+        apperance = get_appearance_features(rows,cols,Td_map)
+        apperance_set.append(apperance)
+    # apperance is a 1 x 7 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
+    # x , y is 2 x 2 x 1
+    return np.array(xy_set),np.array(apperance_set),new_uni_labels,Labeling_map
 
+def get_appearance_features(rows,cols,Td_map): #obtain length height and width
+    
+    # 1.dis 2. point cnt 3.Dir(x)(y) 4.Height 5.Len 6.2Darea
+
+    td_freq_map = Td_map
+    longitudes = theta[rows]*np.pi / 180
+    latitudes = azimuths[cols] * np.pi / 180 
+    hypotenuses = td_freq_map[rows,cols] * np.cos(longitudes)
+    X = hypotenuses * np.sin(latitudes)
+    Y = hypotenuses * np.cos(latitudes)
+    Z = td_freq_map[rows,cols] * np.sin(longitudes)
+    points = np.array([X,Y]).T
+    points_num = len(points)
+    rect = cv2.minAreaRect(points.astype('float32'))
+    box = cv2.boxPoints(rect)
+    # box = cv2.boxPoints(rect)
+    b1 = np.sqrt(np.sum((box[1] - box[0])**2))
+    b2 = np.sqrt(np.sum((box[2] - box[1])**2))
+    length = b1
+    width = b2
+    dir_vec = box[1] - box[0]
+    if b1 < b2:
+        length = b2
+        width = b1
+        dir_vec = box[2] - box[1]
+    dir_vec = dir_vec/np.sqrt(np.sum(dir_vec**2))
+    height = Z.max() - Z.min()
+    dis = td_freq_map[rows,cols].mean()
+    area = length * width
+    vec = np.array([dis,points_num,dir_vec[0],dir_vec[1],height,length,width,area]).reshape(-1,1)
+    # vec = np.full((2,7,1),vec) # status vec for two representative points 
+    return vec #1 x 8 x 1  
 
 def get_representative_point(ref_rows,ref_cols,Td_map): 
     td_freq_map = Td_map
@@ -381,23 +400,24 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
     new_detection.post_seq.append(state_init)
     Tracking_pool[Global_id] = new_detection
 
-def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,start_frame):
+def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,app_init,start_frame):
     
-    if np.sqrt(np.sum(state_init[0][:2]**2)) > 30:
-        new_detection = detected_obj()
-        new_detection.glb_id = Global_id
-        new_detection.P = P_init
-        new_detection.state = state_init
-        new_detection.label_seq.append(label_init)
-        new_detection.start_frame = start_frame
-        new_detection.mea_seq.append(mea_init)
-        new_detection.post_seq.append(state_init)
-        Tracking_pool[Global_id] = new_detection
+
+    new_detection = detected_obj()
+    new_detection.glb_id = Global_id
+    new_detection.P = P_init
+    new_detection.state = state_init
+    new_detection.apperance = app_init
+    new_detection.label_seq.append(label_init)
+    new_detection.start_frame = start_frame
+    new_detection.mea_seq.append(mea_init)
+    new_detection.post_seq.append(state_init)
+    new_detection.app_seq.append(app_init)
+    Tracking_pool[Global_id] = new_detection
     
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
-    fail_condition2 = np.sqrt(np.sum(state_cur_[0][:2]**2)) > 75
-    if fail_condition1|fail_condition2:
+    if fail_condition1:
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
     else:
         Tracking_pool[glb_id].missing_count += 1
@@ -405,6 +425,7 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
         Tracking_pool[glb_id].P = P_cur_
         Tracking_pool[glb_id].label_seq.append(-1)
         Tracking_pool[glb_id].mea_seq.append(-1)
+        Tracking_pool[glb_id].app_seq.append(-1)
         Tracking_pool[glb_id].post_seq.append(state_cur_)
         
 def process_fails_NN(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,missing_thred):
@@ -425,13 +446,15 @@ def associate_detections_NN(Tracking_pool,glb_id,state,next_label,mea_next):
     Tracking_pool[glb_id].post_seq.append(state)
     Tracking_pool[glb_id].missing_count = 0
 
-def associate_detections(Tracking_pool,glb_id,state,P,next_label,mea_next):
+def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
     
     Tracking_pool[glb_id].state = state
+    Tracking_pool[glb_id].apperance = app
     Tracking_pool[glb_id].P = P
     Tracking_pool[glb_id].label_seq.append(next_label)
     Tracking_pool[glb_id].mea_seq.append(mea_next)
     Tracking_pool[glb_id].post_seq.append(state)
+    Tracking_pool[glb_id].app_seq.append(app)
     Tracking_pool[glb_id].missing_count = 0
 
 def state_predict_NN(state,tracking_nn):
