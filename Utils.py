@@ -214,7 +214,7 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
 
 def get_appearance_features(rows,cols,Td_map): #obtain length height and width
     
-    # 1.dis 2. point cnt 3.Dir(x)(y) 4.Height 5.Len 6.2Darea
+    # 1.dis 2. point cnt 3.Dir(x) 4.dir(y) 5.Height 6.Len 7.Width 8.2Darea
 
     td_freq_map = Td_map
     longitudes = theta[rows]*np.pi / 180
@@ -239,11 +239,10 @@ def get_appearance_features(rows,cols,Td_map): #obtain length height and width
         dir_vec = box[2] - box[1]
     dir_vec = dir_vec/np.sqrt(np.sum(dir_vec**2))
     height = Z.max() - Z.min()
-    dis = td_freq_map[rows,cols].mean()
     area = length * width
-    vec = np.array([dis,points_num,dir_vec[0],dir_vec[1],height,length,width,area]).reshape(-1,1)
+    vec = np.array([points_num,dir_vec[0],dir_vec[1],height,length,width,area]).reshape(-1,1)
     # vec = np.full((2,7,1),vec) # status vec for two representative points 
-    return vec #1 x 8 x 1  
+    return vec #1 x 7 x 1  
 
 def get_representative_point(ref_rows,ref_cols,Td_map): 
     td_freq_map = Td_map
@@ -252,7 +251,7 @@ def get_representative_point(ref_rows,ref_cols,Td_map):
     hypotenuses = td_freq_map[ref_rows,ref_cols] * np.cos(longitudes)
     X = hypotenuses * np.sin(latitudes)
     Y = hypotenuses * np.cos(latitudes)
-    Z = td_freq_map[ref_rows,ref_cols] * np.sin(longitudes)
+    # Z = td_freq_map[ref_rows,ref_cols] * np.sin(longitudes)
     
     return np.array([
         [X[0],Y[0]],
@@ -745,7 +744,7 @@ col_est = ['Object_Length_est','Object_Width_est','Object_Height_est','Coord_X_e
 col_mea = ['Object_Length_mea','Object_Width_mea','Object_Height_mea','Coord_X_mea','Coord_Y_mea','Coord_Lon_mea','Coord_Lat_mea','Coord_Evel_mea','Coord_dis_mea']
 column_names_TR = ['ObjectID','FrameIndex','Coord_X_Mea','Coord_Y_Mea','Coord_Z_Mea','Distance_Mea','Longitude_Mea','Latitude_Mea',
                 'Elevation_Mea','Coord_X_Est','Coord_Y_Est','Coord_Z_Est','Distance_Est','Speed_X','Speed_Y','Speed(m/s)','Acc_X','Acc_Y','Longitude_Est','Latitude_Est','Elevation_Est']
-
+app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area']
 def convert_LLH(xyz,T):
     xyz1 = np.concatenate([xyz,np.ones(len(xyz)).reshape(-1,1)],axis = 1)
     XYZ1 = xyz1.dot(T)
@@ -757,7 +756,7 @@ def convert_LLH(xyz,T):
     LLH = np.concatenate([lon.reshape(-1,1),lat.reshape(-1,1),evel.reshape(-1,1)],axis = 1)
     return LLH
 
-def get_summary_file_TR(post_seq,mea_seq,key,start_frame,missing_thred,T):
+def get_summary_file_TR(post_seq,mea_seq,key,start_frame,app_seq,missing_thred,T):
     temp = np.array(post_seq)
     temp = temp.reshape((temp.shape[0],temp.shape[1],temp.shape[2]))
     # n x 2 x 6
@@ -804,9 +803,22 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,missing_thred,T):
     objid = (np.ones(len(temp)) * key).astype(int).reshape(-1,1)
     summary_0 = np.concatenate([objid,timestp,mea_0,est_0],axis = 1)
     summary_1 = np.concatenate([objid,timestp,mea_1,est_1],axis = 1)
-    
+
     summary_0 = pd.DataFrame(summary_0,columns=column_names_TR)
     summary_1 = pd.DataFrame(summary_1,columns=column_names_TR)
+    emp = []
+    for app in app_seq:
+        if type(app) == int:
+            emp_row = np.empty(len(app_col_names))
+            emp_row[:] = np.nan
+            emp.append(emp_row)
+        else:
+            emp.append(app.flatten())
+    app_df = pd.DataFrame(emp,columns = app_col_names)
+    summary_0 = pd.concat([summary_0,app_df],axis = 1)
+    summary_1 = pd.concat([summary_1,app_df],axis = 1)
+    summary_0 = summary_0.iloc[:-missing_thred]
+    summary_1 = summary_1.iloc[:-missing_thred]
     return summary_0,summary_1
 
 def get_summary_file(post_seq,mea_seq,key,start_frame,missing_thred,T):

@@ -243,14 +243,14 @@ class MOT():
     def save_Labeling_map(self,Labeling_map,f):
         np.save(os.path.join(self.Labeling_map_path,'%06.0f.npy'%f),Labeling_map)
 
-    def save_result(self,ref_LLF,ref_xyz):
+    def save_result(self,ref_LLH,ref_xyz):
         
         if 'OutputTrajs' not in os.listdir(self.data_collector.output_path ):
             self.traj_path = os.path.join(self.data_collector.output_path,'OutputTrajs')
             os.mkdir(self.traj_path)
         
         print('Generating Traj Files...')
-        T = generate_T(ref_LLF,ref_xyz)
+        T = generate_T(ref_LLH,ref_xyz)
 
         if self.result_type == 'split':
             keys = []
@@ -277,7 +277,7 @@ class MOT():
             for key in tqdm(self.Off_tracking_pool):  
 
                 sum_file_0,sum_file_1 = get_summary_file_TR(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
-                                            key,self.Off_tracking_pool[key].start_frame,self.missing_thred,T) 
+                                            key,self.Off_tracking_pool[key].start_frame,self.Off_tracking_pool[key].app_seq,self.missing_thred,T) 
                 sum_file_0 = sum_file_0.iloc[:-self.missing_thred]
                 sum_file_1 = sum_file_1.iloc[:-self.missing_thred]
                 sums_0.append(sum_file_0)
@@ -363,7 +363,7 @@ if __name__ == "__main__":
         'eps': 1.7,
         'min_samples':10,
         'missing_thred':10,
-        'ending_frame' : 17950,
+        'ending_frame' : 2000,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',
         'save_Azimuth_Laser_info' : True,
