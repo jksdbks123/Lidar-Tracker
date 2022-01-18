@@ -193,6 +193,7 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
     apperance_set = []
     for label in new_uni_labels:
         rows,cols = np.where(Labeling_map == label)
+        rows_temp,cols_temp = rows.copy(),cols.copy()
         sort_ind = np.argsort(cols)
         refer_cols = cols[sort_ind[[0,-1]]]
         # this is being said, the first place is for less azimuth id 
@@ -205,9 +206,9 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
             refer_rows = rows[sort_ind[[0,-1]]]
         xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
         xy_set.append(xy)
-        apperance = get_appearance_features(rows,cols,Td_map)
+        apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
         apperance_set.append(apperance)
-    # apperance is a 1 x 7 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
+    # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
     # x , y is 2 x 2 x 1
     return np.array(xy_set),np.array(apperance_set),new_uni_labels,Labeling_map
 
@@ -400,7 +401,7 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
     new_detection.post_seq.append(state_init)
     Tracking_pool[Global_id] = new_detection
 
-def create_new_detection(Tracking_pool,Global_id,P_init,state_init,label_init,mea_init,app_init,start_frame):
+def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,label_init,mea_init,start_frame):
     
 
     new_detection = detected_obj()

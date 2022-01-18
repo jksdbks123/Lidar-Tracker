@@ -196,6 +196,7 @@ class MOT():
                         state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
                         glb_ids = glb_ids[associated_ind_glb]
                         mea_next = mea_next[associated_ind_label]
+                        app_next = app_next[associated_ind_label]
                         unique_label_next = unique_label_next[associated_ind_label]
                         
                         """
