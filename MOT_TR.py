@@ -1,7 +1,6 @@
 from BfTableGenerator import *
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
-import json
 
 class MOT():
     def __init__(self,pcap_path,output_file_path,background_update_frame,ending_frame,d ,thred_s ,N ,
@@ -287,6 +286,12 @@ class MOT():
                 lengths.append(len(sum_file_0))    
             sums_0 = pd.concat(sums_0)
             sums_1 = pd.concat(sums_1)
+            df_target_0 = process_traj_data(sums_0)
+            df_target_1 = process_traj_data(sums_1)
+
+            classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))
+            sums_0 = classify_trajs(sums_0,df_target_0,classifier=classifier)
+            sums_1 = classify_trajs(sums_1,df_target_1,classifier=classifier)
             sums_0.to_csv(self.traj_path + '/Trajctories_0.csv',index = False)
             sums_1.to_csv(self.traj_path + '/Trajctories_1.csv',index = False)
             pd.DataFrame({
@@ -366,12 +371,12 @@ if __name__ == "__main__":
         'ending_frame' : 2000,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',
-        'save_Azimuth_Laser_info' : True,
+        'save_Azimuth_Laser_info' : False,
         'result_type':'merged',
-        'save_TD_Map':True,
-        'save_Labeling_map':True
+        'save_TD_Map':False,
+        'save_Labeling_map':False
     }
-    input_path = 'D:\LiDAR_Data'
+    input_path = 'E:\Data\Veteran'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -379,7 +384,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = 'D:\LiDAR_Data'
+    output_file_path = 'E:\Data\Veteran'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))

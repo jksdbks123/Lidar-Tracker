@@ -9,7 +9,8 @@ from scipy.optimize import linear_sum_assignment
 # import torch
 from sklearn.cluster import DBSCAN
 import cv2
-
+import json
+import pickle
 db_merge = DBSCAN(eps=3,min_samples=2)
 
 # Kalman Filter Params
@@ -879,4 +880,18 @@ def generate_T(ref_LLF,ref_xyz):# generate nec T for coord transformation
     T = np.linalg.inv((A_.T).dot(A_)).dot(A_.T.dot(B))
     return T
 
+def process_traj_data(data): # alternate max length, return the data for classify
+    data_test = data.loc[:,['ObjectID','Distance_Mea','Point_Cnt','Dir_X_Bbox','Height','Length','Area']]
+    data_temp = []
+    for i,df in data_test.groupby('ObjectID'):
+        df.Length = df.Length.max()
+        data_temp.append(df)
+    data_temp = pd.concat(data_temp)
+    data_temp = data_temp.fillna(method = 'pad')
+    return data_temp
 
+def classify_trajs(df,df_target,classifier):
+    X_test = np.array(df_target.iloc[:,1:]) 
+    y_pred = classifier.predict(X_test)
+    df = pd.concat([df,pd.DataFrame(y_pred.reshape(-1,1),columns=['Class'])],axis = 1)
+    return df 
