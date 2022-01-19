@@ -885,9 +885,9 @@ def process_traj_data(data): # alternate max length, return the data for classif
     data_temp = []
     for i,df in data_test.groupby('ObjectID'):
         df.Length = df.Length.max()
+        df = df.fillna(method = 'pad')
         data_temp.append(df)
     data_temp = pd.concat(data_temp)
-    data_temp = data_temp.fillna(method = 'pad')
     return data_temp
 
 def classify_trajs(df,df_target,classifier):

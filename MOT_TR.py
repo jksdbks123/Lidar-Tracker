@@ -368,7 +368,7 @@ if __name__ == "__main__":
         'eps': 1.7,
         'min_samples':10,
         'missing_thred':10,
-        'ending_frame' : 2000,
+        'ending_frame' : 500,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',
         'save_Azimuth_Laser_info' : False,
@@ -376,7 +376,7 @@ if __name__ == "__main__":
         'save_TD_Map':False,
         'save_Labeling_map':False
     }
-    input_path = 'E:\Data\Veteran'
+    input_path = 'D:\LiDAR_Data\Veteran'
     dir_lis = os.listdir(input_path)
     pcap_path = 'None'
     for f in dir_lis:
@@ -384,7 +384,7 @@ if __name__ == "__main__":
             pcap_path = os.path.join(input_path,f)
     if pcap_path == 'None':
         print('Pcap file is not detected')
-    output_file_path = 'E:\Data\Veteran'
+    output_file_path = 'D:\LiDAR_Data\Veteran'
     config_path = os.path.join(input_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
