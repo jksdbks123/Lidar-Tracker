@@ -286,6 +286,8 @@ class MOT():
                 lengths.append(len(sum_file_0))    
             sums_0 = pd.concat(sums_0)
             sums_1 = pd.concat(sums_1)
+            sums_0 = sums_0.reset_index(drop=True).astype('float32')
+            sums_1 = sums_1.reset_index(drop=True).astype('float32')
             df_target_0 = process_traj_data(sums_0)
             df_target_1 = process_traj_data(sums_1)
 
@@ -368,7 +370,7 @@ if __name__ == "__main__":
         'eps': 1.7,
         'min_samples':10,
         'missing_thred':10,
-        'ending_frame' : 500,
+        'ending_frame' : 17950,
         'background_update_frame':2000,
         'save_pcd' : 'Filtered',
         'save_Azimuth_Laser_info' : False,

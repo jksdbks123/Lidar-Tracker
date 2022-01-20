@@ -238,7 +238,11 @@ def get_appearance_features(rows,cols,Td_map): #obtain length height and width
         length = b2
         width = b1
         dir_vec = box[2] - box[1]
-    dir_vec = dir_vec/np.sqrt(np.sum(dir_vec**2))
+    modility = np.sqrt(np.sum(dir_vec**2))
+    if modility == 0:
+        dir_vec = np.array([0,0])
+    else:
+        dir_vec = dir_vec/modility
     height = Z.max() - Z.min()
     area = length * width
     vec = np.array([points_num,dir_vec[0],dir_vec[1],height,length,width,area]).reshape(-1,1)
@@ -881,14 +885,17 @@ def generate_T(ref_LLF,ref_xyz):# generate nec T for coord transformation
     return T
 
 def process_traj_data(data): # alternate max length, return the data for classify
-    data_test = data.loc[:,['ObjectID','Distance_Mea','Point_Cnt','Dir_X_Bbox','Height','Length','Area']]
-    data_temp = []
+    data_test = data.loc[:,['ObjectID','Distance_Est','Point_Cnt','Dir_X_Bbox','Height','Length','Area']]
+    data_temp_set = []
     for i,df in data_test.groupby('ObjectID'):
-        df.Length = df.Length.max()
-        df = df.fillna(method = 'pad')
-        data_temp.append(df)
-    data_temp = pd.concat(data_temp)
-    return data_temp
+        df_temp = df.copy()
+        df_temp.Length = df_temp.Length.max()
+        df_temp = df_temp.fillna(0)
+        data_temp_set.append(df_temp)
+
+    data_temp_set = pd.concat(data_temp_set)
+    
+    return data_temp_set
 
 def classify_trajs(df,df_target,classifier):
     X_test = np.array(df_target.iloc[:,1:]) 
