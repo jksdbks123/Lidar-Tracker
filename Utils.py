@@ -137,7 +137,7 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
         unique_label = unique_label[1:]
         
     if len(unique_label) < 1:
-        return np.array([]),unique_label,Labeling_map
+        return np.array([]),np.array([]),unique_label,Labeling_map
     occlusion_indicator = -np.ones((len(azimuths))).astype('int')
     rowses = []
     colses = []
@@ -211,7 +211,9 @@ def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merg
         apperance_set.append(apperance)
     # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
     # x , y is 2 x 2 x 1
-    return np.array(xy_set),np.array(apperance_set),new_uni_labels,Labeling_map
+    xy_set = np.array(xy_set)
+    apperance_set = np.array(apperance_set)
+    return xy_set,apperance_set,new_uni_labels,Labeling_map
 
 def get_appearance_features(rows,cols,Td_map): #obtain length height and width
     
@@ -395,34 +397,39 @@ def extract_mea_state_vec(xylwh_set):
     return xylwh_set.reshape((-1,xylwh_set.shape[1],1))
 
 def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_init,start_frame):
-    
-    new_detection = detected_obj()
-    new_detection.glb_id = Global_id
-    new_detection.state = state_init
-    new_detection.label_seq.append(label_init)
-    new_detection.start_frame = start_frame
-    new_detection.mea_seq.append(mea_init)
-    new_detection.post_seq.append(state_init)
-    Tracking_pool[Global_id] = new_detection
+    dis = np.sqrt(np.sum(state_init[0][:2]**2))
+    if (dis > 7)&(dis < 60):
+        new_detection = detected_obj()
+        new_detection.glb_id = Global_id
+        new_detection.state = state_init
+        new_detection.label_seq.append(label_init)
+        new_detection.start_frame = start_frame
+        new_detection.mea_seq.append(mea_init)
+        new_detection.post_seq.append(state_init)
+        Tracking_pool[Global_id] = new_detection
 
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,label_init,mea_init,start_frame):
-    
 
-    new_detection = detected_obj()
-    new_detection.glb_id = Global_id
-    new_detection.P = P_init
-    new_detection.state = state_init
-    new_detection.apperance = app_init
-    new_detection.label_seq.append(label_init)
-    new_detection.start_frame = start_frame
-    new_detection.mea_seq.append(mea_init)
-    new_detection.post_seq.append(state_init)
-    new_detection.app_seq.append(app_init)
-    Tracking_pool[Global_id] = new_detection
+    dis = np.sqrt(np.sum(state_init[0][:2]**2))
+    if (dis > 7)&(dis < 60):
+
+        new_detection = detected_obj()
+        new_detection.glb_id = Global_id
+        new_detection.P = P_init
+        new_detection.state = state_init
+        new_detection.apperance = app_init
+        new_detection.label_seq.append(label_init)
+        new_detection.start_frame = start_frame
+        new_detection.mea_seq.append(mea_init)
+        new_detection.post_seq.append(state_init)
+        new_detection.app_seq.append(app_init)
+        Tracking_pool[Global_id] = new_detection
     
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
-    if fail_condition1:
+    dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
+    fail_condition2 = dis > 60
+    if fail_condition1 | fail_condition2:
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
     else:
         Tracking_pool[glb_id].missing_count += 1

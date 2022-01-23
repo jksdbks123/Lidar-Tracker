@@ -30,7 +30,7 @@ ref_LLH[:,2] = ref_LLH[:,2]/3.2808
 
 with open(config_path) as f:
     params = json.load(f)
-
+print(params)
 mot = MOT(pcap_path,output_file_path,**params)
 mot.initialization()
 mot.mot_tracking(A,P,H,Q,R)

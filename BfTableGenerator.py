@@ -57,7 +57,7 @@ class RansacCollector():
         for i in range(32):
             for j in range(1800):
                 t_s = aggregated_maps_temp[:,i,j].copy()
-                threshold_value = self.get_thred_modified(t_s,d,thred_s,N,delta_thred,step)
+                threshold_value = self.get_thred(t_s,d,thred_s,N,delta_thred,step)
                 threshold_map[i,j] = threshold_value
         self.thred_map = threshold_map
 
