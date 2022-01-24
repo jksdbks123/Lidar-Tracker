@@ -427,9 +427,8 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
     
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
-    dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
-    fail_condition2 = dis > 60
-    if fail_condition1 | fail_condition2:
+
+    if fail_condition1 :
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
     else:
         Tracking_pool[glb_id].missing_count += 1
@@ -527,7 +526,7 @@ def get_affinity_mat_jpd(state,state_,P_,mea):
             
             v_next = np.sqrt(np.sum((v_cur[:2] - u[:2])**2))
             # v_previous = np.sqrt(np.sum(v_cur[5:7]**2))
-            if (v_next > 5):
+            if (v_next > 5.5):
                 State_affinity[i][j] = 0
             else:
                 jp = var.pdf(u[a])
@@ -550,11 +549,12 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 3:
+                if dis_error < 5.5:
                     jp = var_tr[k].pdf(mea_next[k])
                     State_affinity[k,i,j] = jp
 
-    return np.max(State_affinity,axis = 0)
+    return np.mean(State_affinity,axis = 0)
+    
 #state_cur,heading_vecs,state_cur_,P_cur_,mea_next
 def get_affinity_mat_jpd_heading_TR(state_cur,heading_vecs,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[1],state_.shape[0],mea.shape[0]))
