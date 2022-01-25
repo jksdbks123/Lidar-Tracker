@@ -117,15 +117,17 @@ class MOT():
             Extract Matrix P and State of each tracklet in Current Tracking Pool
             
             """
-            glb_ids,P_cur,state_cur,heading_vecs = [],[],[],[]
+            glb_ids,P_cur,state_cur,heading_vecs,app_cur,mea_cur = [],[],[],[],[],[]
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
                 P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
+                app_cur.append(self.Tracking_pool[glb_id].apperance)
+                mea_cur.append(self.Tracking_pool[glb_id].mea_seq[-1])
                 # heading_vec = cal_heading_vec(self.Tracking_pool[glb_id].post_seq)
                 # heading_vecs.append(heading_vec) # 2 x 2 x 1
 
-            glb_ids,P_cur,state_cur,heading_vecs = np.array(glb_ids),np.array(P_cur),np.array(state_cur),np.array(heading_vecs)
+            glb_ids,P_cur,state_cur,heading_vecs,app_cur = np.array(glb_ids),np.array(P_cur),np.array(state_cur),np.array(heading_vecs),np.array(app_cur)
             # P_cur: n x 2 x 4 x 4
             # state_cur: n x 2 x 4 x 1
             # heading_vecs: n x 2 x 2 x 1
@@ -136,13 +138,15 @@ class MOT():
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
             mea_next,app_next,unique_label_next,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
              # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
-             # app: n x 1 x 8 x 1
+             # app: n x 1 x 7 x 1
              # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state  
-                    State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
-                    associated_ind_glb,associated_ind_label = linear_assignment_modified_jpd(State_affinity)
+                    # State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
+                    
+                    State_affinity = get_affinity_dis_box_TR(state_cur,state_cur_,mea_next,app_next,app_cur)
+                    associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)
                     
                     """
                     Failed tracking and new detections
