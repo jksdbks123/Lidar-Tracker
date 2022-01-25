@@ -11,6 +11,9 @@ from sklearn.cluster import DBSCAN
 import cv2
 import json
 import pickle
+from scipy import spatial
+
+from torch import cosine_similarity
 db_merge = DBSCAN(eps=3,min_samples=2)
 
 # Kalman Filter Params
@@ -304,7 +307,7 @@ def linear_assignment_modified(State_affinity):
     return associated_ind_glb,associated_ind_label
     
 
-def linear_assignment_modified_dis(State_affinity,thred = 5):
+def linear_assignment_modified_dis(State_affinity,thred = 4):
 
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
@@ -694,6 +697,31 @@ def get_affinity_mat_dis_TR(state,state_,P_,mea):
                     State_affinity[k,i,j] = dis_error
 
     return np.min(State_affinity,axis = 0)
+
+def get_affinity_dis_box_TR(state,state_,mea_next,app_next,app_cur):
+    State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea_next.shape[0]))
+    for i,s_ in enumerate(state_):
+         # includes the pred states for two reprs 
+         # s_: 2 x 6 x 1
+        state_pred = s_.copy().reshape(2,-1)[:,:2]
+        state_cur = state[i].reshape(2,-1)[:,:2]
+        for j,m in enumerate(mea_next):
+            
+            mea_ = m.copy().reshape(2,-1)
+            for k in range(s_.shape[0]):
+                # dis_error = np.sqrt(np.sum((state_pred[k] - mea_[k])**2))
+                dis_error = np.sqrt(np.sum((state_cur[k] - mea_[k])**2))
+                if dis_error < 1:
+                    State_affinity[k,i,j] = dis_error
+
+    cosine_similarity = 1e3*np.ones((state_.shape[0],mea_next.shape[0]))
+    for i,a_cur in enumerate(app_cur):
+        for j,a_next in enumerate(app_next):
+            cos_dis = spatial.distance.cosine(a_cur.reshape(-1,a_cur.shape[1]),a_next.reshape(-1,a_cur.shape[1]))
+            cosine_similarity[i,j] = cos_dis
+
+    return np.min(State_affinity,axis = 0) + cosine_similarity
+
 
 def get_affinity_mat_cos(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
