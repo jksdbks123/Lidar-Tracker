@@ -14,24 +14,38 @@ import pickle
 db_merge = DBSCAN(eps=3,min_samples=2)
 
 # Kalman Filter Params
+# 4-order
+# A = np.array([ # x,y,x',y',x'',y''
+#     [1,0,1,0,.5,0],
+#     [0,1,0,1,0,.5],
+#     [0,0,1,0,1,0],
+#     [0,0,0,1,0,1],
+#     [0,0,0,0,1,0],
+#     [0,0,0,0,0,1]
+# ])
+# Q = np.diag([10,10,0.1,0.1,0.001,0.001])
+# R = np.diag([0.01,0.01])
+# P = np.diag([0.1,0.1,0.3,0.3,0.01,0.01])
 
-A = np.array([ # x,y,x',y',x'',y''
-    [1,0,1,0,.5,0],
-    [0,1,0,1,0,.5],
-    [0,0,1,0,1,0],
-    [0,0,0,1,0,1],
-    [0,0,0,0,1,0],
-    [0,0,0,0,0,1]
+# H = np.array([
+#     [1,0,0,0,0,0],
+#     [0,1,0,0,0,0]
+# ])
+# 2-order 
+A = np.array([ # x,y,x',y'
+    [1,0,1,0],
+    [0,1,0,1],
+    [0,0,1,0],
+    [0,0,0,1],
 ])
-Q = np.diag([10,10,0.1,0.1,0.001,0.001])
+Q = np.diag([10,10,0.1,0.1])
 R = np.diag([0.01,0.01])
-P = np.diag([0.1,0.1,0.3,0.3,0.01,0.01])
+P = np.diag([0.1,0.1,0.3,0.3])
 
 H = np.array([
-    [1,0,0,0,0,0],
-    [0,1,0,0,0,0]
+    [1,0,0,0],
+    [0,1,0,0]
 ])
-
 
 
 
@@ -411,8 +425,8 @@ def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_in
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,label_init,mea_init,start_frame):
 
     dis = np.sqrt(np.sum(state_init[0][:2]**2))
-    if (dis > 7)&(dis < 60):
 
+    if dis > 7:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init
@@ -427,8 +441,8 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
     
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
-
-    if fail_condition1 :
+    # dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
+    if  fail_condition1:
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
     else:
         Tracking_pool[glb_id].missing_count += 1
@@ -549,11 +563,11 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 5.5:
+                if dis_error < 1.5:
                     jp = var_tr[k].pdf(mea_next[k])
                     State_affinity[k,i,j] = jp
 
-    return np.mean(State_affinity,axis = 0)
+    return np.max(State_affinity,axis = 0)
     
 #state_cur,heading_vecs,state_cur_,P_cur_,mea_next
 def get_affinity_mat_jpd_heading_TR(state_cur,heading_vecs,state_,P_,mea):
@@ -756,7 +770,10 @@ col_est = ['Object_Length_est','Object_Width_est','Object_Height_est','Coord_X_e
 col_mea = ['Object_Length_mea','Object_Width_mea','Object_Height_mea','Coord_X_mea','Coord_Y_mea','Coord_Lon_mea','Coord_Lat_mea','Coord_Evel_mea','Coord_dis_mea']
 column_names_TR = ['ObjectID','FrameIndex','Coord_X_Mea','Coord_Y_Mea','Coord_Z_Mea','Distance_Mea','Longitude_Mea','Latitude_Mea',
                 'Elevation_Mea','Coord_X_Est','Coord_Y_Est','Coord_Z_Est','Distance_Est','Speed_X','Speed_Y','Speed(m/s)','Acc_X','Acc_Y','Longitude_Est','Latitude_Est','Elevation_Est']
+column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X_Mea','Coord_Y_Mea','Coord_Z_Mea','Distance_Mea','Longitude_Mea','Latitude_Mea',
+                'Elevation_Mea','Coord_X_Est','Coord_Y_Est','Coord_Z_Est','Distance_Est','Speed_X','Speed_Y','Speed(m/s)','Longitude_Est','Latitude_Est','Elevation_Est']
 app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area']
+
 def convert_LLH(xyz,T):
     xyz1 = np.concatenate([xyz,np.ones(len(xyz)).reshape(-1,1)],axis = 1)
     XYZ1 = xyz1.dot(T)
@@ -816,8 +833,8 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,app_seq,missing_thred,T
     summary_0 = np.concatenate([objid,timestp,mea_0,est_0],axis = 1)
     summary_1 = np.concatenate([objid,timestp,mea_1,est_1],axis = 1)
 
-    summary_0 = pd.DataFrame(summary_0,columns=column_names_TR)
-    summary_1 = pd.DataFrame(summary_1,columns=column_names_TR)
+    summary_0 = pd.DataFrame(summary_0,columns=column_names_TR_2o)
+    summary_1 = pd.DataFrame(summary_1,columns=column_names_TR_2o)
     emp = []
     for app in app_seq:
         if type(app) == int:
@@ -892,12 +909,12 @@ def generate_T(ref_LLF,ref_xyz):# generate nec T for coord transformation
     return T
 
 def process_traj_data(data): # alternate max length, return the data for classify
-    data_test = data.loc[:,['ObjectID','Distance_Est','Point_Cnt','Dir_X_Bbox','Height','Length','Area']]
+    data_test = data.loc[:,['ObjectID','Point_Cnt','Height','Length','Area']]
     data_temp_set = []
     for i,df in data_test.groupby('ObjectID'):
         df_temp = df.copy()
         df_temp.Length = df_temp.Length.max()
-        df_temp = df_temp.fillna(0)
+        df_temp = df_temp.fillna(-1)
         data_temp_set.append(df_temp)
 
     data_temp_set = pd.concat(data_temp_set)
@@ -907,5 +924,6 @@ def process_traj_data(data): # alternate max length, return the data for classif
 def classify_trajs(df,df_target,classifier):
     X_test = np.array(df_target.iloc[:,1:]) 
     y_pred = classifier.predict(X_test)
+    df.Length = df_target.Length
     df = pd.concat([df,pd.DataFrame(y_pred.reshape(-1,1),columns=['Class'])],axis = 1)
     return df 
