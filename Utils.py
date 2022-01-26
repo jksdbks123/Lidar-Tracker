@@ -1,3 +1,4 @@
+from cProfile import label
 from os import stat
 import numpy as np
 from numpy.core.fromnumeric import shape
@@ -41,9 +42,9 @@ A = np.array([ # x,y,x',y'
     [0,0,1,0],
     [0,0,0,1],
 ])
-Q = np.diag([10,10,0.1,0.1])
+Q = np.diag([100,100,1,1])
 R = np.diag([0.01,0.01])
-P = np.diag([0.1,0.1,0.3,0.3])
+P = np.diag([1000,1000,1000,1000])
 
 H = np.array([
     [1,0,0,0],
@@ -143,6 +144,38 @@ def count(TSAv):
     counts = np.array(counts)
     counts = counts[counts > 0]
     return np.array(counts), np.array(apear_ind)
+
+def extract_xy(Labeling_map,Td_map):
+        
+
+    new_uni_labels = np.unique(Labeling_map)
+        #Only Background contains 
+    if -1 in new_uni_labels:
+        new_uni_labels = new_uni_labels[1:]
+    xy_set = [] # xy position and apperance features
+    apperance_set = []
+    for label in new_uni_labels:
+        rows,cols = np.where(Labeling_map == label)
+        rows_temp,cols_temp = rows.copy(),cols.copy()
+        sort_ind = np.argsort(cols)
+        refer_cols = cols[sort_ind[[0,-1]]]
+        # this is being said, the first place is for less azimuth id 
+        refer_rows = rows[sort_ind[[0,-1]]]
+        if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
+            cols[cols <= 900] += 1800
+            sort_ind = np.argsort(cols)
+            refer_cols = cols[sort_ind[[0,-1]]]
+            refer_cols[refer_cols >= 1800] -= 1800
+            refer_rows = rows[sort_ind[[0,-1]]]
+        xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
+        xy_set.append(xy)
+        apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
+        apperance_set.append(apperance)
+    # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
+    # x , y is 2 x 2 x 1
+    xy_set = np.array(xy_set)
+    apperance_set = np.array(apperance_set)
+    return xy_set,apperance_set,new_uni_labels,Labeling_map
 
 
 def extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map,thred_merge = 30):
@@ -329,6 +362,17 @@ def linear_assignment_modified_dis(State_affinity,thred = 4):
 
     return associated_ind_glb,associated_ind_label
 
+def linear_assignment_modified_dis(State_affinity,thred = 4):
+    State_affinity_temp = State_affinity.copy()
+    associated_ind_glb_temp,associated_ind_labels_temp= linear_sum_assignment(State_affinity_temp,maximize = False)
+    associated_ind_glb,associated_ind_label = [],[]
+    for i,glb in enumerate(associated_ind_glb_temp):
+        for j,label in enumerate(associated_ind_labels_temp):
+            if State_affinity_temp[glb,label] < thred:
+                associated_ind_glb.append(glb)
+                associated_ind_label.append(label)
+    return associated_ind_glb,associated_ind_label
+
 def linear_assignment_modified_jpd(State_affinity):
     State_affinity_temp = State_affinity.copy()
     associated_ind_glb,associated_ind_label = [],[]
@@ -441,14 +485,35 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
         new_detection.post_seq.append(state_init)
         new_detection.app_seq.append(app_init)
         Tracking_pool[Global_id] = new_detection
-    
+
+def create_new_detection_NEAREST(Tracking_pool,Global_id,state_init,app_init,label_init,mea_init,start_frame):
+
+    dis = np.sqrt(np.sum(state_init[0][:2]**2))
+
+    if dis > 7:
+        new_detection = detected_obj()
+        new_detection.glb_id = Global_id
+        new_detection.state = state_init
+        new_detection.apperance = app_init
+        new_detection.label_seq.append(label_init)
+        new_detection.start_frame = start_frame
+        new_detection.mea_seq.append(mea_init)
+        new_detection.post_seq.append(state_init)
+        new_detection.app_seq.append(app_init)
+        Tracking_pool[Global_id] = new_detection
+
+
+def process_fails_NEAREST(Tracking_pool,Off_tracking_pool,glb_id):
+    Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+
+
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
+    Tracking_pool[glb_id].missing_count += 1
     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
     # dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
     if  fail_condition1:
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
     else:
-        Tracking_pool[glb_id].missing_count += 1
         Tracking_pool[glb_id].state = state_cur_
         Tracking_pool[glb_id].P = P_cur_
         Tracking_pool[glb_id].label_seq.append(-1)
@@ -479,6 +544,15 @@ def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
     Tracking_pool[glb_id].state = state
     Tracking_pool[glb_id].apperance = app
     Tracking_pool[glb_id].P = P
+    Tracking_pool[glb_id].label_seq.append(next_label)
+    Tracking_pool[glb_id].mea_seq.append(mea_next)
+    Tracking_pool[glb_id].post_seq.append(state)
+    Tracking_pool[glb_id].app_seq.append(app)
+    Tracking_pool[glb_id].missing_count = 0
+
+def associate_detections_NEAREST(Tracking_pool,glb_id,state,app,next_label,mea_next):
+    Tracking_pool[glb_id].state = state
+    Tracking_pool[glb_id].apperance = app
     Tracking_pool[glb_id].label_seq.append(next_label)
     Tracking_pool[glb_id].mea_seq.append(mea_next)
     Tracking_pool[glb_id].post_seq.append(state)
@@ -566,7 +640,7 @@ def get_affinity_mat_jpd_TR(state,state_,P_,mea):
             mea_next = m.copy().reshape(2,-1)
             for k in range(s_.shape[0]):
                 dis_error = np.sqrt(np.sum((state_pred[k] - mea_next[k])**2))
-                if dis_error < 1.5:
+                if dis_error < 0.8:
                     jp = var_tr[k].pdf(mea_next[k])
                     State_affinity[k,i,j] = jp
 
@@ -697,6 +771,27 @@ def get_affinity_mat_dis_TR(state,state_,P_,mea):
                     State_affinity[k,i,j] = dis_error
 
     return np.min(State_affinity,axis = 0)
+def get_affinity_dis_box_TR_NEAREST(state,mea_next,app_next,app_cur):
+    State_affinity = 1e3*np.ones((state.shape[1],state.shape[0],mea_next.shape[0]))
+    for i,s in enumerate(state):
+         # includes the pred states for two reprs 
+         # s_: 2 x 4 x 1
+        state_cur_ = s[:,:2].copy().reshape(2,-1)
+        for j,m in enumerate(mea_next):
+            mea_ = m.copy().reshape(2,-1)
+            for k in range(s.shape[0]):
+                dis_error = np.sqrt(np.sum((state_cur_[k] - mea_[k])**2))
+                len_error = np.abs(app_cur[i].flatten()[4] - app_next[j].flatten()[4])
+                if (dis_error < 1.8) & (len_error < 0.5):
+                    State_affinity[k,i,j] = dis_error
+
+    # cosine_similarity = 1e3*np.ones((state.shape[0],mea_next.shape[0]))
+    # for i,a_cur in enumerate(app_cur):
+    #     for j,a_next in enumerate(app_next):
+    #         cos_dis = spatial.distance.cosine(a_cur.reshape(-1,a_cur.shape[1])[[0,3,4,5]],a_next.reshape(-1,a_cur.shape[1])[[0,3,4,5]])
+    #         cosine_similarity[i,j] = cos_dis
+
+    return np.min(State_affinity,axis = 0) 
 
 def get_affinity_dis_box_TR(state,state_,mea_next,app_next,app_cur):
     State_affinity = 1e3*np.ones((state_.shape[1],state_.shape[0],mea_next.shape[0]))
@@ -711,16 +806,16 @@ def get_affinity_dis_box_TR(state,state_,mea_next,app_next,app_cur):
             for k in range(s_.shape[0]):
                 # dis_error = np.sqrt(np.sum((state_pred[k] - mea_[k])**2))
                 dis_error = np.sqrt(np.sum((state_cur[k] - mea_[k])**2))
-                if dis_error < 1:
+                if dis_error < 1.3:
                     State_affinity[k,i,j] = dis_error
 
-    cosine_similarity = 1e3*np.ones((state_.shape[0],mea_next.shape[0]))
-    for i,a_cur in enumerate(app_cur):
-        for j,a_next in enumerate(app_next):
-            cos_dis = spatial.distance.cosine(a_cur.reshape(-1,a_cur.shape[1]),a_next.reshape(-1,a_cur.shape[1]))
-            cosine_similarity[i,j] = cos_dis
+    # cosine_similarity = 1e3*np.ones((state_.shape[0],mea_next.shape[0]))
+    # for i,a_cur in enumerate(app_cur):
+    #     for j,a_next in enumerate(app_next):
+    #         cos_dis = spatial.distance.cosine(a_cur.reshape(-1,a_cur.shape[1])[[0,3,4,5]],a_next.reshape(-1,a_cur.shape[1])[[0,3,4,5]])
+    #         cosine_similarity[i,j] = cos_dis
 
-    return np.min(State_affinity,axis = 0) + cosine_similarity
+    return np.min(State_affinity,axis = 0) 
 
 
 def get_affinity_mat_cos(state,state_,P_,mea):
@@ -871,12 +966,11 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,app_seq,missing_thred,T
             emp.append(emp_row)
         else:
             emp.append(app.flatten())
+
     app_df = pd.DataFrame(emp,columns = app_col_names)
-    summary_0 = pd.concat([summary_0,app_df],axis = 1)
-    summary_1 = pd.concat([summary_1,app_df],axis = 1)
-    summary_0 = summary_0.iloc[:-missing_thred]
-    summary_1 = summary_1.iloc[:-missing_thred]
-    return summary_0,summary_1
+    app_df.Length = app_df.Length.max()
+
+    return summary_0,summary_1,app_df
 
 def get_summary_file(post_seq,mea_seq,key,start_frame,missing_thred,T):
     
@@ -941,8 +1035,7 @@ def process_traj_data(data): # alternate max length, return the data for classif
     data_temp_set = []
     for i,df in data_test.groupby('ObjectID'):
         df_temp = df.copy()
-        df_temp.Length = df_temp.Length.max()
-        df_temp = df_temp.fillna(-1)
+        # df_temp.Length = df_temp.Length.max()
         data_temp_set.append(df_temp)
 
     data_temp_set = pd.concat(data_temp_set)
@@ -950,7 +1043,7 @@ def process_traj_data(data): # alternate max length, return the data for classif
     return data_temp_set
 
 def classify_trajs(df,df_target,classifier):
-    X_test = np.array(df_target.iloc[:,1:]) 
+    X_test = np.array(df_target.loc[:,['Point_Cnt','Height','Length','Area']]) 
     y_pred = classifier.predict(X_test)
     df.Length = df_target.Length
     df = pd.concat([df,pd.DataFrame(y_pred.reshape(-1,1),columns=['Class'])],axis = 1)

@@ -14,7 +14,6 @@ class Raster_DBSCAN():
         Step.1 -> Seperate output chunks including Td_map, Index_map, Foreground_map
         Step.2 -> Neigborhoods calculation
         Step.3 -> dbscan_inner()
-
         """
         self.window_size = window_size #(height,width)
         self.Td_map_size = Td_map_szie
@@ -23,11 +22,12 @@ class Raster_DBSCAN():
         self.Height_fringe = int(self.window_size[0]/2) 
         self.Width_fringe = int(self.window_size[1]/2) # azimuth
         self.Td_map = None #Two-Dimentional Map   
-        self.Labeling_map = None #
         self.Foreground_map = None # A mask  indicating those pixels are required to be clustered
+        self.Labeling_map_template = -1*np.ones(Td_map_szie,dtype = np.int64)
         self.Index_map = None # an intermediate variable
         self.Height_fringe_offset_fore = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),False) 
         self.Height_fringe_offset_td = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),200) 
+
         self.Heigh_fringe_offset_index = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),-1,dtype = np.int64) 
         
         
@@ -51,6 +51,7 @@ class Raster_DBSCAN():
         Td_map_offset = np.concatenate([self.Td_map[:,-self.Width_fringe:],
                                         self.Td_map,
                                         self.Td_map[:,:self.Width_fringe]],axis = 1)
+
         # Vertical padding 
         Foreground_map_offset = np.concatenate([self.Height_fringe_offset_fore,
                                                 Foreground_map_offset,
@@ -78,7 +79,8 @@ class Raster_DBSCAN():
         core_samples = np.asarray(n_neighbors >= self.min_samples,dtype=np.uint8)
         dbscan_inner(core_samples, neighborhoods, Labels)
 
-        Labeling_map = -1*np.ones_like(Foreground_map)
+        Labeling_map = self.Labeling_map_template.copy()
+
         Labeling_map[rows,cols] = Labels
         # self.Labeling_map = Labeling_map
         

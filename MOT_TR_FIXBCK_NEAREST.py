@@ -68,7 +68,7 @@ class MOT():
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps, 
                                 min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)     
         
-    def mot_tracking(self,A,P_em,H,Q,R):
+    def mot_tracking(self,A,P,H,Q,R):
         
         missing_thred = self.missing_thred
         lidar_reader = TDmapLoader(self.pcap_path)
@@ -82,7 +82,7 @@ class MOT():
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
             #mea_init : n x 2 x 2 x 1
-            mea_init,app_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
+            mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)
             
             if self.save_pcd != 'nosave':
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind_init)
@@ -99,15 +99,13 @@ class MOT():
         # mea_init.shape[2]
         n_offset_dim = A.shape[0] - mea_init.shape[2]
         state_init = np.concatenate([mea_init,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
-        # s: n x 2 x 6 x 1
-        P_init = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
-        # P: n x 2 x 6 x 6 s
+        # s: n x 2 x 4 x 1
                 
         for i,label in enumerate(unique_label_init):
-            create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],app_init[i],label,mea_init[i],Frame_ind_init)
+            create_new_detection_NEAREST(self.Tracking_pool,self.Global_id,state_init[i],app_init[i],label,mea_init[i],Frame_ind_init)
             self.Global_id += 1
                         
-        state_cur,P_cur = state_init,P_init 
+        state_cur = state_init 
         
         pbar = tqdm(range(Frame_ind_init,self.ending_frame))
         
@@ -117,17 +115,13 @@ class MOT():
             Extract Matrix P and State of each tracklet in Current Tracking Pool
             
             """
-            glb_ids,P_cur,state_cur,heading_vecs,app_cur,mea_cur = [],[],[],[],[],[]
+            glb_ids,state_cur,app_cur, = [],[],[]
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
-                P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
                 app_cur.append(self.Tracking_pool[glb_id].apperance)
-                mea_cur.append(self.Tracking_pool[glb_id].mea_seq[-1])
-                # heading_vec = cal_heading_vec(self.Tracking_pool[glb_id].post_seq)
-                # heading_vecs.append(heading_vec) # 2 x 2 x 1
 
-            glb_ids,P_cur,state_cur,heading_vecs,app_cur = np.array(glb_ids),np.array(P_cur),np.array(state_cur),np.array(heading_vecs),np.array(app_cur)
+            glb_ids,state_cur,app_cur = np.array(glb_ids),np.array(state_cur),np.array(app_cur)
             # P_cur: n x 2 x 4 x 4
             # state_cur: n x 2 x 4 x 1
             # heading_vecs: n x 2 x 2 x 1
@@ -142,10 +136,8 @@ class MOT():
              # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state  
-                    # State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
-                    
-                    State_affinity = get_affinity_dis_box_TR(state_cur,state_cur_,mea_next,app_next,app_cur)
+
+                    State_affinity = get_affinity_dis_box_TR_NEAREST(state_cur,mea_next,app_next,app_cur)
                     associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)
                     
                     """
@@ -156,8 +148,8 @@ class MOT():
                     
                     if len(failed_tracked_ind) > 0:
                         for fid in failed_tracked_ind:
-                            process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                        glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
+                            process_fails_NEAREST(self.Tracking_pool,self.Off_tracking_pool,
+                                        glb_ids[fid])
 
                     new_detection_ind = np.setdiff1d(np.arange(len(unique_label_next)),associated_ind_label)
                     if len(new_detection_ind) > 0:
@@ -166,32 +158,32 @@ class MOT():
                             n_offset_dim = A.shape[0] - mea_init.shape[2]
                             state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
                             
-                            create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
+                            create_new_detection_NEAREST(self.Tracking_pool,self.Global_id,state_init,
                                                 app_next[n_id],unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
-                    
                         
                     if len(associated_ind_glb) != 0:
-                        state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
+
+                        state_cur = state_cur[associated_ind_glb]
+                        
                         glb_ids = glb_ids[associated_ind_glb]
                         mea_next = mea_next[associated_ind_label]
                         app_next = app_next[associated_ind_label]
                         unique_label_next = unique_label_next[associated_ind_label]
-                        
+                        speed = mea_next[:,:,:2] - state_cur[:,:,:2]
+                        state_cur[:,:,2:4] =  speed # calculate speed 
+                        state_cur[:,:,:2] = mea_next[:,:,:2]
+
                         """
                         Associate detections 
                         """
                         for i,glb_id in enumerate(glb_ids):
-
-                            associate_detections(self.Tracking_pool,glb_id,state[i],app_next[i],P[i],
-                                                unique_label_next[i],
-                                                mea_next[i])
+                            associate_detections_NEAREST(self.Tracking_pool,glb_id,state_cur[i],app_next[i],unique_label_next[i],mea_next[i])
                 else:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                     for i,glb_id in enumerate(glb_ids):
+                        process_fails_NEAREST(self.Tracking_pool,self.Off_tracking_pool,
+                                        glb_ids[glb_id])
 
-                        process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                    glb_id,state_cur_[i],P_cur_[i],missing_thred)
             else:    
                 if len(unique_label_next) > 0:
                     for n_id in range(len(mea_next)):
@@ -199,10 +191,11 @@ class MOT():
                         n_repr = mea_init.shape[1]
                         n_offset_dim = A.shape[0] - mea_init.shape[2]
                         state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
-                        create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
-                                                app_next[n_id],unique_label_next[n_id],mea_next[n_id],Frame_ind)
+
+                        create_new_detection_NEAREST(self.Tracking_pool,self.Global_id,state_init,
+                                            app_next[n_id],unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
-            
+
             if self.save_pcd != 'nosave':
                 self.save_cur_pcd(Td_map,Labeling_map,self.Tracking_pool,Frame_ind)
             if self.save_LabelingMap:
@@ -250,30 +243,34 @@ class MOT():
         else:
             sums_0 = []
             sums_1 = []
+            app_dfs = []
             keys = []
             start_frame = []
             lengths = []
             for key in tqdm(self.Off_tracking_pool):  
 
-                sum_file_0,sum_file_1 = get_summary_file_TR(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
+                sum_file_0,sum_file_1,app_df = get_summary_file_TR(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
                                             key,self.Off_tracking_pool[key].start_frame,self.Off_tracking_pool[key].app_seq,self.missing_thred,T) 
-                sum_file_0 = sum_file_0.iloc[:-self.missing_thred]
-                sum_file_1 = sum_file_1.iloc[:-self.missing_thred]
                 sums_0.append(sum_file_0)
                 sums_1.append(sum_file_1)
+                app_dfs.append(app_df)
                 keys.append(key)
                 start_frame.append(self.Off_tracking_pool[key].start_frame)   
-                lengths.append(len(sum_file_0))    
+                lengths.append(len(sum_file_0))   
+
             sums_0 = pd.concat(sums_0)
             sums_1 = pd.concat(sums_1)
+            app_dfs = pd.concat(app_dfs)
             sums_0 = sums_0.reset_index(drop=True).astype('float32')
             sums_1 = sums_1.reset_index(drop=True).astype('float32')
-            df_target_0 = process_traj_data(sums_0)
-            df_target_1 = process_traj_data(sums_1)
+            app_dfs = app_dfs.reset_index(drop=True).astype('float32')
+
 
             classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))
-            sums_0 = classify_trajs(sums_0,df_target_0,classifier=classifier)
-            sums_1 = classify_trajs(sums_1,df_target_1,classifier=classifier)
+            X_test = np.array(app_dfs.loc[:,['Point_Cnt','Height','Length','Area']])
+            pred = classifier.predict(X_test)
+            sums_0 = pd.concat([sums_0,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
+            sums_1 = pd.concat([sums_1,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
             sums_0.to_csv(self.traj_path + '/Trajctories_0.csv',index = False)
             sums_1.to_csv(self.traj_path + '/Trajctories_1.csv',index = False)
             pd.DataFrame({
