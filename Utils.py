@@ -771,6 +771,7 @@ def get_affinity_mat_dis_TR(state,state_,P_,mea):
                     State_affinity[k,i,j] = dis_error
 
     return np.min(State_affinity,axis = 0)
+
 def get_affinity_dis_box_TR_NEAREST(state,mea_next,app_next,app_cur):
     State_affinity = 1e3*np.ones((state.shape[1],state.shape[0],mea_next.shape[0]))
     for i,s in enumerate(state):
@@ -1042,9 +1043,3 @@ def process_traj_data(data): # alternate max length, return the data for classif
     
     return data_temp_set
 
-def classify_trajs(df,df_target,classifier):
-    X_test = np.array(df_target.loc[:,['Point_Cnt','Height','Length','Area']]) 
-    y_pred = classifier.predict(X_test)
-    df.Length = df_target.Length
-    df = pd.concat([df,pd.DataFrame(y_pred.reshape(-1,1),columns=['Class'])],axis = 1)
-    return df 

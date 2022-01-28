@@ -130,7 +130,7 @@ class MOT():
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            mea_next,app_next,unique_label_next,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
+            mea_next,app_next,unique_label_next,Labeling_map = extract_xy(Labeling_map,Td_map)
              # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
              # app: n x 1 x 7 x 1
              # first repr point refers to the one with lower azimuth id 
@@ -361,5 +361,5 @@ if __name__ == "__main__":
     bck_map_path = os.path.join(input_path,'bck_map.npy')
     bck_map = np.load(bck_map_path)
     mot.initialization(bck_map)
-    mot.mot_tracking(A,P,H,Q,R)
+    mot.mot_tracking(A)
     mot.save_result(ref_LLH,ref_xyz)
