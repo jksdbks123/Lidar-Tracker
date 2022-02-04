@@ -169,7 +169,7 @@ class MOT():
                 else:
                     for i,glb_id in enumerate(glb_ids):
                         process_fails_NEAREST(self.Tracking_pool,self.Off_tracking_pool,
-                                        glb_ids[glb_id])
+                                        glb_id)
 
             else:    
                 if len(unique_label_next) > 0:
