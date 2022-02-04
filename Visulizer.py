@@ -41,7 +41,7 @@ def show_3d_sequence(PCD_folder):
     ctr=vis.get_view_control()
     ctr.convert_from_pinhole_camera_parameters(param)
     
-    vis.add_geometry(initial_pcd)a
+    vis.add_geometry(initial_pcd)
     
     for i in range(0,len(lisdir)):
         time.sleep(0.1)

@@ -1,5 +1,5 @@
 import argparse
-from MOT_TR import MOT
+from MOT_TR_FIXBCK_NEAREST import MOT
 from Utils import *
 import pandas as pd
 import json
@@ -13,6 +13,7 @@ parser.add_argument('-o','--output', help='specified output path', required=True
 args = parser.parse_args()
 
 input_path = args.input
+calibration_path = os.path.join(input_path,'Calibration')
 dir_lis = os.listdir(input_path)
 output_file_path = args.output
 pcap_paths = []
@@ -28,11 +29,13 @@ for f in dir_lis:
 if len(pcap_paths) == 0:
     print('Pcap file is not detected')
 
-config_path = os.path.join(input_path,'config.json')
-ref_LLH_path,ref_xyz_path = os.path.join(input_path,'LLE_ref.csv'),os.path.join(input_path,'xyz_ref.csv')
+config_path = os.path.join(calibration_path,'config.json')
+ref_LLH_path,ref_xyz_path = os.path.join(calibration_path,'LLE_ref.csv'),os.path.join(calibration_path,'xyz_ref.csv')
 ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
 ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
 ref_LLH[:,2] = ref_LLH[:,2]/3.2808
+bck_map_path = os.path.join(calibration_path,'bck_map.npy')
+bck_map = np.load(bck_map_path)
 
 with open(config_path) as f:
     params = json.load(f)
@@ -42,6 +45,8 @@ for i,p in enumerate(pcap_paths):
     if not os.path.exists(output_file_paths[i]):
         os.makedirs(output_file_paths[i])
     mot = MOT(p,output_file_paths[i],**params)
-    mot.initialization()
-    mot.mot_tracking(A,P,H,Q,R)
+    mot.initialization(bck_map)
+    mot.mot_tracking(A)
     mot.save_result(ref_LLH,ref_xyz)
+
+
