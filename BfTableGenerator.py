@@ -281,13 +281,17 @@ class TDmapLoader():
         while True:
             Td_map = np.zeros((32,1800))
             Intens_map = np.zeros((32,1800))
-            for ts,buf in self.lidar_reader:
-                
+
+            try:
+                ts,buf = next(self.lidar_reader)
+            except (StopIteration,dpkt.NeedData) as e1:
+                yield None
+            if len(buf) == 1248:
                 eth = dpkt.ethernet.Ethernet(buf)
                 data = eth.data.data.data
                 packet_status = eth.data.data.sport
                 if packet_status == 2368:
-                    if len(data)<1206:
+                    if len(data)<1206: # 1206 bytes
                         culmulative_azimuth += 2.4
                         continue
                     # 32,12, 32,12, （12，） azi
@@ -304,12 +308,12 @@ class TDmapLoader():
                         # azimuth_ind = azimuth_ind.flatten()
                         # Td_map[self.laser_id,azimuth_ind] = distances.flatten()
                         culmulative_azimuth += self.cal_angle_diff(azimuth_per_block[-1],azimuth_per_block[0])
-                    else:# non-initialization
+                    else:
+                        # non-initialization
                         diff = self.cal_angle_diff(azimuth_per_block[-1],cur_azimuth)
                         culmulative_azimuth += diff 
                         
                         if culmulative_azimuth > 360: 
-                            
                             
                             culmulative_azimuth_values.append(azimuth)
                             culmulative_laser_ids.append(self.laser_id)
@@ -331,7 +335,6 @@ class TDmapLoader():
                             culmulative_distances = []
                             
                             cur_azimuth = azimuth_per_block[-1]
-                            
                             
                             yield Td_map[np.argsort(self.omega),:] #32*1800
                             

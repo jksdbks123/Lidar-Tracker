@@ -126,10 +126,25 @@ def count(TSAv):
     counts = np.array(counts)
     counts = counts[counts > 0]
     return np.array(counts), np.array(apear_ind)
-
-def extract_xy(Labeling_map,Td_map):
+def if_bck(rows,cols,Td_map,Plane_model):
+    # check if an object is background
+    # car: 2.6m 
+    td_freq_map = Td_map
+    longitudes = theta[rows]*np.pi / 180
+    latitudes = azimuths[cols] * np.pi / 180 
+    hypotenuses = td_freq_map[rows,cols] * np.cos(longitudes)
+    X = hypotenuses * np.sin(latitudes)
+    Y = hypotenuses * np.cos(latitudes)
+    Z = td_freq_map[rows,cols] * np.sin(longitudes)
+    Height_from_ground = Plane_model[0] * X + Plane_model[1] * Y  + Plane_model[2] * Z + Plane_model[3] 
+    Max_Height = Height_from_ground.max()
+    if (Max_Height > 3)|(Max_Height < 0.3):
+        return True
+    else:
+        return False   
+def extract_xy(Labeling_map,Td_map,Plane_model):
         
-
+    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
     new_uni_labels = np.unique(Labeling_map)
         #Only Background contains 
     if -1 in new_uni_labels:
@@ -138,25 +153,32 @@ def extract_xy(Labeling_map,Td_map):
     apperance_set = []
     for label in new_uni_labels:
         rows,cols = np.where(Labeling_map == label)
-        rows_temp,cols_temp = rows.copy(),cols.copy()
-        sort_ind = np.argsort(cols)
-        refer_cols = cols[sort_ind[[0,-1]]]
-        # this is being said, the first place is for less azimuth id 
-        refer_rows = rows[sort_ind[[0,-1]]]
-        if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
-            cols[cols <= 900] += 1800
+        if if_bck(rows,cols,Td_map,Plane_model):
+            Labeling_map[rows,cols] = -1
+        else:
+            rows_temp,cols_temp = rows.copy(),cols.copy()
             sort_ind = np.argsort(cols)
             refer_cols = cols[sort_ind[[0,-1]]]
-            refer_cols[refer_cols >= 1800] -= 1800
+            # this is being said, the first place is for less azimuth id 
             refer_rows = rows[sort_ind[[0,-1]]]
-        xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
-        xy_set.append(xy)
-        apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
-        apperance_set.append(apperance)
+            if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
+                cols[cols <= 900] += 1800
+                sort_ind = np.argsort(cols)
+                refer_cols = cols[sort_ind[[0,-1]]]
+                refer_cols[refer_cols >= 1800] -= 1800
+                refer_rows = rows[sort_ind[[0,-1]]]
+            apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
+            xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
+            xy_set.append(xy)
+            apperance_set.append(apperance)
     # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
     # x , y is 2 x 2 x 1
     xy_set = np.array(xy_set)
     apperance_set = np.array(apperance_set)
+    new_uni_labels = np.unique(Labeling_map)
+    if -1 in new_uni_labels:
+        new_uni_labels = new_uni_labels[1:]
+
     return xy_set,apperance_set,new_uni_labels,Labeling_map
 
 

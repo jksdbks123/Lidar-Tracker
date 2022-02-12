@@ -40,8 +40,10 @@ class RansacCollector():
         frame_gen = lidar_reader.frame_gen()
         td_maps = [] 
         print('Loading pcap...')
-        for i in tqdm(range(self.update_frame_num)):
+        for i in range(self.update_frame_num):
             one_frame = next(frame_gen)
+            if one_frame is None:
+                break 
             td_maps.append(one_frame)
         aggregated_maps = np.array(td_maps) # 1800 * 32 * len(ts)
         self.aggregated_map = aggregated_maps
@@ -281,65 +283,69 @@ class TDmapLoader():
         while True:
             Td_map = np.zeros((32,1800))
             Intens_map = np.zeros((32,1800))
-            for ts,buf in self.lidar_reader:
-                
-                eth = dpkt.ethernet.Ethernet(buf)
-                data = eth.data.data.data
-                packet_status = eth.data.data.sport
-                if packet_status == 2368:
-                    if len(data)<1206:
-                        culmulative_azimuth += 2.4
-                        continue
-                    # 32,12, 32,12, （12，） azi
-                    distances,intensities,azimuth_per_block = self.parse_one_packet(data)
-                    azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
-                    
-                    
-                    if frame_initial_azimuth == -1: #initialization
-                        frame_initial_azimuth = azimuth_per_block[0]
-                        cur_azimuth = azimuth_per_block[-1]
-                        culmulative_azimuth_values.append(azimuth)
-                        culmulative_laser_ids.append(self.laser_id)
-                        culmulative_distances.append(distances)
-                        # azimuth_ind = azimuth_ind.flatten()
-                        # Td_map[self.laser_id,azimuth_ind] = distances.flatten()
-                        culmulative_azimuth += self.cal_angle_diff(azimuth_per_block[-1],azimuth_per_block[0])
-                    else:# non-initialization
-                        diff = self.cal_angle_diff(azimuth_per_block[-1],cur_azimuth)
-                        culmulative_azimuth += diff 
+            while True:
+                try:
+                    ts,buf = next(self.lidar_reader)
+                except (StopIteration,dpkt.NeedData) as e1:
+                    yield None
+                if len(buf) == 1248:
+                    eth = dpkt.ethernet.Ethernet(buf)
+                    data = eth.data.data.data
+                    packet_status = eth.data.data.sport
+                    if packet_status == 2368:
+                        if len(data)<1206:
+                            culmulative_azimuth += 2.4
+                            continue
+                        # 32,12, 32,12, （12，） azi
+                        distances,intensities,azimuth_per_block = self.parse_one_packet(data)
+                        azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
                         
-                        if culmulative_azimuth > 360: 
-                            
-                            
+                        
+                        if frame_initial_azimuth == -1: #initialization
+                            frame_initial_azimuth = azimuth_per_block[0]
+                            cur_azimuth = azimuth_per_block[-1]
                             culmulative_azimuth_values.append(azimuth)
                             culmulative_laser_ids.append(self.laser_id)
                             culmulative_distances.append(distances)
+                            # azimuth_ind = azimuth_ind.flatten()
+                            # Td_map[self.laser_id,azimuth_ind] = distances.flatten()
+                            culmulative_azimuth += self.cal_angle_diff(azimuth_per_block[-1],azimuth_per_block[0])
+                        else:# non-initialization
+                            diff = self.cal_angle_diff(azimuth_per_block[-1],cur_azimuth)
+                            culmulative_azimuth += diff 
                             
-                            culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
-                            culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
-                            culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
-                            culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
-                            
-                            culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
-                            culmulative_azimuth_inds[culmulative_azimuth_inds > 1799] -= 1800
-                            culmulative_azimuth_inds[culmulative_azimuth_inds < 0 ] += 1800
-                            
-                            Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
-                            culmulative_azimuth = 0
-                            culmulative_azimuth_values = []
-                            culmulative_laser_ids = []
-                            culmulative_distances = []
-                            
-                            cur_azimuth = azimuth_per_block[-1]
-                            
-                            
-                            yield Td_map[np.argsort(self.omega),:] #32*1800
-                            
-                        else:
-                            culmulative_azimuth_values.append(azimuth)
-                            culmulative_laser_ids.append(self.laser_id)
-                            culmulative_distances.append(distances)
-                            cur_azimuth = azimuth_per_block[-1]
+                            if culmulative_azimuth > 360: 
+                                
+                                
+                                culmulative_azimuth_values.append(azimuth)
+                                culmulative_laser_ids.append(self.laser_id)
+                                culmulative_distances.append(distances)
+                                
+                                culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
+                                culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
+                                culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
+                                culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
+                                
+                                culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
+                                culmulative_azimuth_inds[culmulative_azimuth_inds > 1799] -= 1800
+                                culmulative_azimuth_inds[culmulative_azimuth_inds < 0 ] += 1800
+                                
+                                Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
+                                culmulative_azimuth = 0
+                                culmulative_azimuth_values = []
+                                culmulative_laser_ids = []
+                                culmulative_distances = []
+                                
+                                cur_azimuth = azimuth_per_block[-1]
+                                
+                                
+                                yield Td_map[np.argsort(self.omega),:] #32*1800
+                                
+                            else:
+                                culmulative_azimuth_values.append(azimuth)
+                                culmulative_laser_ids.append(self.laser_id)
+                                culmulative_distances.append(distances)
+                                cur_azimuth = azimuth_per_block[-1]
             
 if __name__ == "__main__":
     os.chdir(r'/Users/czhui960/Documents/Lidar/RawLidarData/USAPKWY')

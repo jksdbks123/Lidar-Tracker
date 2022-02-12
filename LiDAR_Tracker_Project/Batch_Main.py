@@ -32,21 +32,27 @@ if len(pcap_paths) == 0:
 config_path = os.path.join(calibration_path,'config.json')
 ref_LLH_path,ref_xyz_path = os.path.join(calibration_path,'LLE_ref.csv'),os.path.join(calibration_path,'xyz_ref.csv')
 ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
+if len(np.unique(ref_xyz[:,2])) == 1:
+    np.random.seed(1)
+    offset = np.random.normal(-0.521,3.28,len(ref_LLH))
+    ref_xyz[:,2] += offset
+    ref_LLH[:,2] += offset
 ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
 ref_LLH[:,2] = ref_LLH[:,2]/3.2808
 bck_map_path = os.path.join(calibration_path,'bck_map.npy')
 bck_map = np.load(bck_map_path)
-
+plane_model_path = os.path.join(calibration_path,'plane_model.npy')
+plane_model = np.load(plane_model_path)
 with open(config_path) as f:
     params = json.load(f)
 
 for i,p in enumerate(pcap_paths):
-    
+    print(p)
     if not os.path.exists(output_file_paths[i]):
         os.makedirs(output_file_paths[i])
     mot = MOT(p,output_file_paths[i],**params)
     mot.initialization(bck_map)
-    mot.mot_tracking(A)
+    mot.mot_tracking(A,plane_model)
     mot.save_result(ref_LLH,ref_xyz)
 
 
