@@ -893,14 +893,9 @@ def get_summary_file_split(post_seq,mea_seq):
     return summary
 
 
-col_info =['ObjectID','FrameIndex']
-col_est = ['Object_Length_est','Object_Width_est','Object_Height_est','Coord_X_est','Coord_Y_est','Coord_Lon_est','Coord_Lat_est','Coord_Evel_est','Coord_Dis_est','Speed_x','Speed_y','Speed_est']
-col_mea = ['Object_Length_mea','Object_Width_mea','Object_Height_mea','Coord_X_mea','Coord_Y_mea','Coord_Lon_mea','Coord_Lat_mea','Coord_Evel_mea','Coord_dis_mea']
-column_names_TR = ['ObjectID','FrameIndex','Coord_X_Mea','Coord_Y_Mea','Coord_Z_Mea','Distance_Mea','Longitude_Mea','Latitude_Mea',
-                'Elevation_Mea','Coord_X_Est','Coord_Y_Est','Coord_Z_Est','Distance_Est','Speed_X','Speed_Y','Speed(m/s)','Acc_X','Acc_Y','Longitude_Est','Latitude_Est','Elevation_Est']
-column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X_Mea','Coord_Y_Mea','Coord_Z_Mea','Distance_Mea','Longitude_Mea','Latitude_Mea',
-                'Elevation_Mea','Coord_X_Est','Coord_Y_Est','Coord_Z_Est','Distance_Est','Speed_X','Speed_Y','Speed(m/s)','Longitude_Est','Latitude_Est','Elevation_Est']
+column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X','Coord_Y','Coord_Z','Distance','Speed_X','Speed_Y','Speed(m/s)''Longitude','Latitude','Elevation']
 app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area']
+    # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
 
 def convert_LLH(xyz,T):
     xyz1 = np.concatenate([xyz,np.ones(len(xyz)).reshape(-1,1)],axis = 1)
@@ -912,8 +907,9 @@ def convert_LLH(xyz,T):
     lat = lat*180/np.pi
     LLH = np.concatenate([lon.reshape(-1,1),lat.reshape(-1,1),evel.reshape(-1,1)],axis = 1)
     return LLH
+column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X','Coord_Y','Coord_Z','Distance','Speed_X','Speed_Y','Speed(m/s)','Longitude','Latitude','Elevation']
 
-def get_summary_file_TR(post_seq,mea_seq,key,start_frame,app_seq,T):
+def get_summary_file_TR(post_seq,key,start_frame,app_seq,T):
     temp = np.array(post_seq)
     temp = temp.reshape((temp.shape[0],temp.shape[1],temp.shape[2]))
     # n x 2 x 6
@@ -925,44 +921,22 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,app_seq,T):
     # n x 2 x 2
     speed = np.sqrt((speed_xy[:,:,0]**2 + speed_xy[:,:,1]**2))
     # n x 2
-    acc_xy = temp[:,:,4:6]
-    # n x 2
     xyz_0 = np.concatenate([temp_xy[:,0],np.zeros(len(temp_xy)).reshape(-1,1)],axis = 1)
     xyz_1 = np.concatenate([temp_xy[:,1],np.zeros(len(temp_xy)).reshape(-1,1)],axis = 1)
-    LLH_est_0 = convert_LLH(xyz_0,T)
-    LLH_est_1 = convert_LLH(xyz_1,T)
-    est_0 = np.concatenate([xyz_0,dis_est[:,0].reshape(-1,1),speed_xy[:,0],speed[:,0].reshape(-1,1),acc_xy[:,0],LLH_est_0],axis = 1)
-    est_1 = np.concatenate([xyz_1,dis_est[:,1].reshape(-1,1),speed_xy[:,1],speed[:,1].reshape(-1,1),acc_xy[:,1],LLH_est_1],axis = 1)
-    temp = mea_seq
-    emp_0,emp_1 = [],[]
-    for i,vec in enumerate(temp):
-        if type(vec) == int:
-            emp_row = np.empty(2)
-            emp_row[:] = np.nan
-            emp_0.append(emp_row)
-            emp_1.append(emp_row)
-        else:
-            emp_0.append(vec[0].flatten())
-            emp_1.append(vec[1].flatten())
-    emp_0,emp_1 = np.array(emp_0),np.array(emp_1)
-    dis_mea_0,dis_mea_1 = np.sqrt(np.sum(emp_0**2,axis = 1)).reshape(-1,1),np.sqrt(np.sum(emp_1**2,axis = 1)).reshape(-1,1)
-    xyz_0 = np.concatenate([emp_0,np.zeros(len(emp_0)).reshape(-1,1)],axis  = 1)
-    xyz_1 = np.concatenate([emp_1,np.zeros(len(emp_1)).reshape(-1,1)],axis  = 1)
-    LLH_est_0 = convert_LLH(xyz_0,T)
-    LLH_est_1 = convert_LLH(xyz_1,T)
-    mea_0 = np.concatenate([xyz_0,dis_mea_0,LLH_est_0],axis = 1)
-    mea_1 = np.concatenate([xyz_1,dis_mea_1,LLH_est_1],axis = 1)
+    xyz = (xyz_0 + xyz_1)/2
+    LLH_est = convert_LLH(xyz,T)
+    est = np.concatenate([xyz_0,dis_est[:,0].reshape(-1,1),speed_xy[:,0],speed[:,0].reshape(-1,1),LLH_est],axis = 1)
+    # x,y,z,d,s_x,s_y,s,L,L,H
     timestp = []
     for i in range(len(temp)):
         f = i + start_frame + 1
         timestp.append('%06.0f'%f)
     timestp = np.array(timestp).reshape(-1,1)
     objid = (np.ones(len(temp)) * key).astype(int).reshape(-1,1)
-    summary_0 = np.concatenate([objid,timestp,mea_0,est_0],axis = 1)
-    summary_1 = np.concatenate([objid,timestp,mea_1,est_1],axis = 1)
+    summary = np.concatenate([objid,timestp,est],axis = 1)
+    # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
+    summary = pd.DataFrame(summary,columns = column_names_TR_2o)
 
-    summary_0 = pd.DataFrame(summary_0,columns=column_names_TR_2o)
-    summary_1 = pd.DataFrame(summary_1,columns=column_names_TR_2o)
     emp = []
     for app in app_seq:
         if type(app) == int:
@@ -975,7 +949,7 @@ def get_summary_file_TR(post_seq,mea_seq,key,start_frame,app_seq,T):
     app_df = pd.DataFrame(emp,columns = app_col_names)
     app_df.Length = app_df.Length.max()
 
-    return summary_0,summary_1,app_df
+    return summary,app_df
 
 def get_summary_file(post_seq,mea_seq,key,start_frame,missing_thred,T):
     

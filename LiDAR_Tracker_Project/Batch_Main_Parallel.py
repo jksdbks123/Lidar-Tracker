@@ -21,15 +21,15 @@ if __name__ == "__main__":
     calibration_path = os.path.join(input_path,'Calibration')
     dir_lis = os.listdir(input_path)
     output_file_path = args.output
+    output_traj_path = os.path.join(output_file_path,'Trajectories')
+    if not os.path.exists(output_traj_path):
+        os.mkdir(output_traj_path)
     pcap_paths = []
-    output_file_paths = []
 
     for f in dir_lis:
         if 'pcap' in f.split('.'):
             pcap_path = os.path.join(input_path,f)
-            output_path = os.path.join(output_file_path,f.split('.')[0])
             pcap_paths.append(pcap_path)
-            output_file_paths.append(output_path)
 
     if len(pcap_paths) == 0:
         print('Pcap file is not detected')
@@ -58,25 +58,11 @@ if __name__ == "__main__":
         mot.save_result(ref_LLH,ref_xyz)
         print(mot.pcap_path)
 
-
     mots = []
     for i,p in enumerate(pcap_paths):
-        if not os.path.exists(output_file_paths[i]):
-            os.makedirs(output_file_paths[i])
-        mots.append(MOT(p,output_file_paths[i],**params))
-    print('Parallel Begin')
+        mots.append(MOT(p,output_traj_path,**params))
+
+    print('Parallel Processing Begin')
 
     p_umap(partial(run_mot,bck_map = bck_map, plane_model = plane_model, ref_LLH = ref_LLH, ref_xyz = ref_xyz), mots,num_cpus = 8)
-
-    # results = Parallel(n_jobs=-1)(
-    #     delayed(run_mot)(mots[i],bck_map,plane_model,ref_LLH,ref_xyz) for i in tqdm(range(len(mots))))
-
-    # for i,p in enumerate(pcap_paths):
-    #     if not os.path.exists(output_file_paths[i]):
-    #         os.makedirs(output_file_paths[i])
-    #     mot = MOT(p,output_file_paths[i],**params)
-    #     mot.initialization(bck_map)
-    #     mot.mot_tracking(A,plane_model)
-    #     mot.save_result(ref_LLH,ref_xyz)
-
 
