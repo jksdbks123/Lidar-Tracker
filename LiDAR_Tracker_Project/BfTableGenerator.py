@@ -152,7 +152,6 @@ class TDmapLoader():
                         distances,intensities,azimuth_per_block = self.parse_one_packet(data)
                         azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
                         
-                        
                         if frame_initial_azimuth == -1: #initialization
                             frame_initial_azimuth = azimuth_per_block[0]
                             cur_azimuth = azimuth_per_block[-1]

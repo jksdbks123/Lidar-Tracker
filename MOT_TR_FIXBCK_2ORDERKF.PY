@@ -39,6 +39,7 @@ class MOT():
         self.thred_map = None #two dimentional maps
         self.frame_gen = None
         
+        
         ###
         self.Tracking_pool = {}
         self.Off_tracking_pool = {}
@@ -93,6 +94,7 @@ class MOT():
             Frame_ind_init += 1
             if len(unique_label_init)>0:
                 break
+
         # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
         n_observed = mea_init.shape[0]
         n_repr = mea_init.shape[1]
