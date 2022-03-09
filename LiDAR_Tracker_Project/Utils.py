@@ -1036,3 +1036,34 @@ def traj_post_processing(traj_df,length_thred,output_path):
     traj_post = pd.concat(traj_post)
 
     traj_post.to_csv(output_path,index = False)
+
+def get_thred_modified(ts,d ,thred_s ,N ,delta_thred ,step):# Ransac Para
+    ts_temp = ts.copy()
+    ts_temp[ts_temp == 0] = 1000
+    valid_dises = []
+    for i in range(N):
+        sample = np.random.choice(ts_temp,replace=False)
+        set_d = ts_temp[(ts_temp > sample - d)&(ts_temp < sample + d)]
+        condition_thred = len(set_d)/len(ts_temp) > thred_s
+        if condition_thred :
+            valid_dises.append(sample)
+            
+    if len(valid_dises) == 0:
+        return 1000
+
+    cur_thred = np.min(valid_dises)
+
+    while True:
+        next_thred = cur_thred - step
+        if (len(ts[ts > next_thred])/len(ts) - len(ts[ts > cur_thred])/len(ts)) < delta_thred:
+            break
+        cur_thred = next_thred
+
+    return next_thred
+
+def gen_bckmap(aggregated_maps , d, thred_s, N , delta_thred, step):
+    thred_map = np.zeros((32,1800))
+    for i in range(thred_map.shape[0]):
+        for j in range(thred_map.shape[1]):
+            thred_map[i,j] = get_thred_modified(aggregated_maps[:,i,j],d,thred_s ,N, delta_thred ,step )
+    return thred_map

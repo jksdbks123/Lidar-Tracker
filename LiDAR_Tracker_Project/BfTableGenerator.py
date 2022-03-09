@@ -140,6 +140,7 @@ class TDmapLoader():
                     ts,buf = next(self.lidar_reader)
                 except (StopIteration,dpkt.NeedData) as e1:
                     yield None
+                    
                 if len(buf) == 1248:
                     eth = dpkt.ethernet.Ethernet(buf)
                     data = eth.data.data.data
