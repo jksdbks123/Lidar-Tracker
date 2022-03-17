@@ -43,18 +43,18 @@ class MOT():
         ###
         self.background_update_time = background_update_time
         self.thred_map = None 
-        
+        self.Plane_model = None
         
         ###
         self.Tracking_pool = {}
         self.Off_tracking_pool = {}
         self.Global_id = 0
+        self.Td_map_cur = None
+        self.Labeling_map_cur = None
 
         ### Online holder
         self.Td_maps_queue = Queue(18000) # 200 temp frames
         self.parrnt_conn,self.child_cnn = Pipe()
-        
-        
         self.if_vis = if_vis
 
         
@@ -86,6 +86,12 @@ class MOT():
         aggregated_maps = np.array(aggregated_maps)
         print("Generating Background Map: ", aggregated_maps.shape)
         
+        pcd = get_pcd_uncolored(aggregated_maps[0])
+
+        plane_model, inliers = pcd.segment_plane(distance_threshold=0.2,
+                                         ransac_n=3,
+                                         num_iterations=1000)
+        self.Plane_model = plane_model
         self.thred_map = gen_bckmap(aggregated_maps , self.d, self.thred_s, self.N , self.delta_thred, self.step)
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps, 
                                 min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)     
@@ -110,34 +116,30 @@ class MOT():
             frame = next(frame_gen)
             Td_maps_queue.put_nowait(frame)
             self.child_cnn.send(frame)
-            # self.child_cnn.close()
-            # self.aggregated_maps.put_nowait(frame)
 
-    def mot_tracking(self,Td_maps_queue,A = A,P_em = P,H = H,Q = Q,R = R):
+    def mot_tracking(self,Td_maps_queue):
         
         if self.if_vis:
             vis = op3.visualization.Visualizer()
             vis.create_window()
         
-        missing_thred = self.missing_thred
         Frame_ind = 0
 
         while True: #Iterate Until a frame with one or more targets are detected 
             Td_map = Td_maps_queue.get()
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
             #mea_init : n x 2 x 2 x 1
-            mea_init,app_init,unique_label_init,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
-            
-
+            mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map,self.Plane_model)            
+            # label here does't necessarily to be sequential from 0 - n  
             if self.save_LabelingMap:
                 self.save_Labeling_map(Labeling_map,Frame_ind)
             if self.save_TDMap:
                 self.save_TD_map(Td_map,Frame_ind)
             Frame_ind += 1
-            
             if len(unique_label_init)>0:
+                self.Td_map_cur = Td_map
+                self.Labeling_map_cur = Labeling_map
                 if self.if_vis:
                     source = self.cur_pcd(Td_map,Labeling_map,self.Tracking_pool)
                     vis.add_geometry(source)
@@ -147,17 +149,16 @@ class MOT():
         n_observed = mea_init.shape[0]
         n_repr = mea_init.shape[1]
         # mea_init.shape[2]
-        n_offset_dim = A.shape[0] - mea_init.shape[2]
+        n_offset_dim = 4 - mea_init.shape[2]
         state_init = np.concatenate([mea_init,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
-        # s: n x 2 x 6 x 1
-        P_init = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
-        # P: n x 2 x 6 x 6 s
+        # s: n x 2 x 4 x 1: x,y,vx,vy
                 
         for i,label in enumerate(unique_label_init):
-            create_new_detection(self.Tracking_pool,self.Global_id,P_init[i],state_init[i],app_init[i],label,mea_init[i],Frame_ind)
+            create_new_detection(self.Tracking_pool,self.Global_id,state_init[i],
+            app_init[i],label,mea_init[i],Frame_ind)
             self.Global_id += 1
                         
-        state_cur,P_cur = state_init,P_init 
+        state_cur = state_init 
         
         while True:
             """
@@ -166,89 +167,83 @@ class MOT():
             """
             time_a = time.time()
 
-            glb_ids,P_cur,state_cur,heading_vecs,app_cur,mea_cur = [],[],[],[],[],[]
+            glb_ids,state_cur,app_cur,mea_cur,unique_label_cur = [],[],[],[],[]
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
-                P_cur.append(self.Tracking_pool[glb_id].P)
                 state_cur.append(self.Tracking_pool[glb_id].state)
                 app_cur.append(self.Tracking_pool[glb_id].apperance)
                 mea_cur.append(self.Tracking_pool[glb_id].mea_seq[-1])
-                # heading_vec = cal_heading_vec(self.Tracking_pool[glb_id].post_seq)
-                # heading_vecs.append(heading_vec) # 2 x 2 x 1
-
-            glb_ids,P_cur,state_cur,heading_vecs,app_cur = np.array(glb_ids),np.array(P_cur),np.array(state_cur),np.array(heading_vecs),np.array(app_cur)
-            # P_cur: n x 2 x 4 x 4
+                unique_label_cur.append(self.Tracking_pool[glb_id].label_seq[-1])
+            mea_cur = np.array(mea_cur)
+            glb_ids = np.array(glb_ids)
+            state_cur = np.array(state_cur)
+            app_cur = np.array(app_cur)
+            unique_label_cur = np.array(unique_label_cur)
             # state_cur: n x 2 x 4 x 1
-            # heading_vecs: n x 2 x 2 x 1
+
             # read next data 
             Td_map = Td_maps_queue.get()
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            Background_map = (Td_map >= self.thred_map)&(Td_map != 0)
-            mea_next,app_next,unique_label_next,Labeling_map = extract_xy_interval_merging_TR(Labeling_map,Td_map,Background_map)
+            mea_next,app_next,unique_label_next,Labeling_map = extract_xy(Labeling_map,Td_map,self.Plane_model)
+            
              # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
              # app: n x 1 x 7 x 1
              # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state  
-                    # State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
                     
-                    State_affinity = get_affinity_dis_box_TR(state_cur,state_cur_,mea_next,app_next,app_cur)
-                    associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)
+                    State_affinity = get_affinity_mat_td(app_cur,app_next,unique_label_next,
+                    unique_label_cur,self.Labeling_map_cur,Labeling_map)
+                    # assiciated_ind for unique_label
+                    associated_ind_cur,associated_ind_next = linear_assignment(State_affinity)
                     
                     """
                     Failed tracking and new detections
                     """
                     # in a but not in b
-                    failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_glb) 
+                    failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_cur) 
                     
                     if len(failed_tracked_ind) > 0:
                         for fid in failed_tracked_ind:
-                            process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                        glb_ids[fid],state_cur_[fid],P_cur_[fid],missing_thred)
+                            process_fails(self.Tracking_pool,self.Off_tracking_pool,glb_ids[fid])
 
-                    new_detection_ind = np.setdiff1d(np.arange(len(unique_label_next)),associated_ind_label)
+                    new_detection_ind = np.setdiff1d(np.arange(len(unique_label_next)),associated_ind_next)
                     if len(new_detection_ind) > 0:
                         for n_id in new_detection_ind:
                             n_repr = mea_init.shape[1]
-                            n_offset_dim = A.shape[0] - mea_init.shape[2]
+                            n_offset_dim = 4 - mea_init.shape[2]
+
                             state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
-                            
-                            create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
-                                                app_next[n_id],unique_label_next[n_id],mea_next[n_id],Frame_ind)
+                            create_new_detection(self.Tracking_pool,self.Global_id,state_init,app_next[n_id],
+                            unique_label_next[n_id],mea_next[n_id],Frame_ind)
                             self.Global_id += 1
-                    
                         
-                    if len(associated_ind_glb) != 0:
-                        state,P = state_update(A,H,state_cur_[associated_ind_glb],P_cur_[associated_ind_glb],R,mea_next[associated_ind_label])
-                        glb_ids = glb_ids[associated_ind_glb]
-                        mea_next = mea_next[associated_ind_label]
-                        app_next = app_next[associated_ind_label]
-                        unique_label_next = unique_label_next[associated_ind_label]
+                    if len(associated_ind_cur) != 0:
+                        glb_ids = glb_ids[associated_ind_cur]
+                        mea_next = mea_next[associated_ind_next]
+                        app_next = app_next[associated_ind_next]
+                        unique_label_next = unique_label_next[associated_ind_next]
                         
                         """
                         Associate detections 
                         """
                         for i,glb_id in enumerate(glb_ids):
 
-                            associate_detections(self.Tracking_pool,glb_id,state[i],app_next[i],P[i],
-                                                unique_label_next[i],
-                                                mea_next[i])
+                            associate_detections(self.Tracking_pool,glb_id,state_cur[i],app_next[i],
+                                                unique_label_next[i],mea_next[i])
                 else:
-                    state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state
                     for i,glb_id in enumerate(glb_ids):
-
                         process_fails(self.Tracking_pool,self.Off_tracking_pool,
-                                    glb_id,state_cur_[i],P_cur_[i],missing_thred)
+                                    glb_id)
             else:    
                 if len(unique_label_next) > 0:
-                    for n_id in range(len(mea_next)):
+                    for n_id, mea in enumerate(mea_next):
                         
                         n_repr = mea_init.shape[1]
                         n_offset_dim = A.shape[0] - mea_init.shape[2]
                         state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
-                        create_new_detection(self.Tracking_pool,self.Global_id,np.full((2,P_em.shape[0],P_em.shape[1]),P_em),state_init,
+                        create_new_detection(self.Tracking_pool,self.Global_id,state_init,
                                                 app_next[n_id],unique_label_next[n_id],mea_next[n_id],Frame_ind)
                         self.Global_id += 1
             
@@ -258,6 +253,8 @@ class MOT():
                 self.save_Labeling_map(Labeling_map,Frame_ind)
             if self.save_TDMap:
                 self.save_TD_map(Td_map,Frame_ind)
+            self.Labeling_map_cur = Labeling_map
+            self.Td_map_cur = Td_map
             Frame_ind += 1 
             time_b = time.time()
             if self.if_vis:
@@ -402,18 +399,6 @@ class MOT():
     def save_cur_pcd(self,pcd,f):
         op3.io.write_point_cloud(os.path.join(self.pcd_path,'%06.0f.pcd'%f), pcd)
 
-    # def show_vis(self,pcd_queue):
-    #     vis = op3.visualization.Visualizer()
-    #     vis.create_window()
-    #     source = op3.geometry.PointCloud()
-    #     vis.add_geometry(source)
-    #     while True:
-    #         cur_pcd = pcd_queue.get()
-    #         source.points = cur_pcd.points
-    #         source.colors = cur_pcd.colors
-    #         self.vis.update_geometry(source)
-    #         self.vis.poll_events()
-    #         self.vis.update_renderer()
 
     def run(self):
         self.initialization()
