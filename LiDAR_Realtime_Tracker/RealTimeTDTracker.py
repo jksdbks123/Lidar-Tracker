@@ -38,7 +38,7 @@ class MOT():
         self.win_size = win_size
         self.eps = eps 
         self.min_samples = min_samples
-        self.missing_thred = missing_thred
+        self.missing_thred = missing_thred 
         
         ###
         self.background_update_time = background_update_time
@@ -268,13 +268,12 @@ class MOT():
             sys.stdout.write('\rProcessing Time (ms): {}, Visualization Time (ms): {}'.format(round((time_b - time_a) * 1000,2), round((time_c - time_b) * 1000),2))
             sys.stdout.flush()     
         vis.destroy_window() 
-
-        # """
-        # Release all tracking obj into off tracking pool
-        # """
-        # release_ids = [glb_id for glb_id in self.Tracking_pool.keys()]
-        # for r_id in release_ids:
-        #     self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)
+        self.exit_tracking()
+        
+    def exit_tracking(self):
+        release_ids = [glb_id for glb_id in self.Tracking_pool.keys()]
+        for r_id in release_ids:
+            self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)    
                     
     def save_TD_map(self,Td_map,f):
         np.save(os.path.join(self.Td_map_path,'%06.0f.npy'%f),Td_map)
@@ -283,64 +282,36 @@ class MOT():
 
     def save_result(self,ref_LLH,ref_xyz):
         
-        if 'OutputTrajs' not in os.listdir(self.data_collector.output_path ):
-            self.traj_path = os.path.join(self.data_collector.output_path,'OutputTrajs')
-            os.mkdir(self.traj_path)
-        
-        print('Generating Traj Files...')
-        T = generate_T(ref_LLH,ref_xyz)
-
-        if self.result_type == 'split':
-            keys = []
-            start_frame = []
-            lengths = []
-            for key in tqdm(self.Off_tracking_pool):  
-                sum_file = get_summary_file_split(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq)
-                sum_file.to_csv(self.traj_path + '/{}.csv'.format(key),index = False)
-                keys.append(key)
-                start_frame.append(self.Off_tracking_pool[key].start_frame)
-                lengths.append(len(self.Off_tracking_pool[key].post_seq))
-                
-            pd.DataFrame({
-                'Glb_ID':keys,
-                'Start_Frame':start_frame,
-                'Len':lengths
-            }).to_csv(self.data_collector.output_path+'/Summary.csv')
+        if len(self.Off_tracking_pool) == 0:
+            print('No Trajs Here')
         else:
-            sums_0 = []
-            sums_1 = []
+            # print('Generating Traj Files...')
+            T = generate_T(ref_LLH,ref_xyz)
+            sums = []
+            app_dfs = []
             keys = []
             start_frame = []
             lengths = []
-            for key in tqdm(self.Off_tracking_pool):  
-
-                sum_file_0,sum_file_1 = get_summary_file_TR(self.Off_tracking_pool[key].post_seq,self.Off_tracking_pool[key].mea_seq,
-                                            key,self.Off_tracking_pool[key].start_frame,self.Off_tracking_pool[key].app_seq,self.missing_thred,T) 
-                sum_file_0 = sum_file_0.iloc[:-self.missing_thred]
-                sum_file_1 = sum_file_1.iloc[:-self.missing_thred]
-                sums_0.append(sum_file_0)
-                sums_1.append(sum_file_1)
+            for key in self.Off_tracking_pool:  
+                sum_file,app_df = get_summary_file_TR(self.Off_tracking_pool[key].post_seq,
+                                            key,self.Off_tracking_pool[key].start_frame,self.Off_tracking_pool[key].app_seq,T) 
+                sums.append(sum_file)
+                app_dfs.append(app_df)
                 keys.append(key)
                 start_frame.append(self.Off_tracking_pool[key].start_frame)   
-                lengths.append(len(sum_file_0))    
-            sums_0 = pd.concat(sums_0)
-            sums_1 = pd.concat(sums_1)
-            sums_0 = sums_0.reset_index(drop=True).astype('float32')
-            sums_1 = sums_1.reset_index(drop=True).astype('float32')
-            df_target_0 = process_traj_data(sums_0)
-            df_target_1 = process_traj_data(sums_1)
+                lengths.append(len(sum_file))   
+
+            sums = pd.concat(sums)
+            app_dfs = pd.concat(app_dfs)
+            sums = sums.reset_index(drop=True).astype('float64')
+            app_dfs = app_dfs.reset_index(drop=True).astype('float64')
 
             classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))
-            sums_0 = classify_trajs(sums_0,df_target_0,classifier=classifier)
-            sums_1 = classify_trajs(sums_1,df_target_1,classifier=classifier)
-            sums_0.to_csv(self.traj_path + '/Trajctories_0.csv',index = False)
-            sums_1.to_csv(self.traj_path + '/Trajctories_1.csv',index = False)
-            pd.DataFrame({
-                'Glb_ID':keys,
-                'Start_Frame':start_frame,
-                'Len':lengths
-            }).to_csv(self.data_collector.output_path+'/Summary.csv')
-
+            X_test = np.array(app_dfs.loc[:,['Point_Cnt','Height','Length','Area']])
+            pred = classifier.predict(X_test)
+            sums = pd.concat([sums,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
+            f_name = self.pcap_path.split('\\')[-1].split('.')[-2] + '.csv'
+            sums.to_csv(os.path.join(self.traj_path,f_name),index = False)
             
     def cur_pcd(self,Td_map,Labeling_map,Tracking_pool):
         td_freq_map = Td_map
@@ -417,20 +388,20 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        "win_size":[5,13],
-        "eps" : 1.5,
+        "win_size":[5,5],
+        "eps" : 1.7,
         "min_samples" : 12,
         "background_update_time":60,
-        "d" : 1.5,
-        "thred_s" : 0.4,
+        "d" : 0.2,
+        "thred_s" : 0.7,
         "N": 20,
         "delta_thred" : 1e-3,
         "step" : 0.1,
         "missing_thred" : 8
         }
 
-    pcap_path = r'D:/LiDAR_Data/MidTown/Thoma/2021-12-18-12-0-0.pcap'
-    output_file_path = r'D:/LiDAR_Data/MidTown/Thoma'
+    pcap_path = r'D:/LiDAR_Data/MidTown/Plumbnorth/2022-2-2-11-0-0.pcap'
+    output_file_path = r'D:/LiDAR_Data/MidTown/Plumbnorth'
     
     mot = MOT(pcap_path,output_file_path,**params)
     mot.run()
