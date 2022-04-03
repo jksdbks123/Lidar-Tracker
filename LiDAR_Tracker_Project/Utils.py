@@ -142,7 +142,8 @@ def if_bck(rows,cols,Td_map,Plane_model):
         return True
     else:
         return False   
-def extract_xy(Labeling_map,Td_map,Plane_model):
+        
+def extract_xy(Labeling_map,Td_map):
         
     # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
     new_uni_labels = np.unique(Labeling_map)
@@ -153,27 +154,26 @@ def extract_xy(Labeling_map,Td_map,Plane_model):
     apperance_set = []
     for label in new_uni_labels:
         rows,cols = np.where(Labeling_map == label)
-        if if_bck(rows,cols,Td_map,Plane_model):
-            Labeling_map[rows,cols] = -1
-        else:
-            rows_temp,cols_temp = rows.copy(),cols.copy()
+
+        rows_temp,cols_temp = rows.copy(),cols.copy()
+        sort_ind = np.argsort(cols)
+        refer_cols = cols[sort_ind[[0,-1]]]
+        # this is being said, the first place is for less azimuth id 
+        refer_rows = rows[sort_ind[[0,-1]]]
+        if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
+            cols[cols <= 900] += 1800
             sort_ind = np.argsort(cols)
             refer_cols = cols[sort_ind[[0,-1]]]
-            # this is being said, the first place is for less azimuth id 
+            refer_cols[refer_cols >= 1800] -= 1800
             refer_rows = rows[sort_ind[[0,-1]]]
-            if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
-                cols[cols <= 900] += 1800
-                sort_ind = np.argsort(cols)
-                refer_cols = cols[sort_ind[[0,-1]]]
-                refer_cols[refer_cols >= 1800] -= 1800
-                refer_rows = rows[sort_ind[[0,-1]]]
-            apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
-            xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
-            xy_set.append(xy)
-            apperance_set.append(apperance)
+        apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
+        xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
+        xy_set.append(xy)
+        apperance_set.append(apperance)
     # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
     # x , y is 2 x 2 x 1
     xy_set = np.array(xy_set)
+    # n x 2 x 2 x 1
     apperance_set = np.array(apperance_set)
     new_uni_labels = np.unique(Labeling_map)
     if -1 in new_uni_labels:
@@ -461,17 +461,6 @@ def extract_xylwh_by_frame(Labeling_map,Td_map,Thred_map):
 def extract_mea_state_vec(xylwh_set):
     return xylwh_set.reshape((-1,xylwh_set.shape[1],1))
 
-def create_new_detection_NN(Tracking_pool,Global_id,state_init,label_init,mea_init,start_frame):
-    dis = np.sqrt(np.sum(state_init[0][:2]**2))
-    if (dis > 7)&(dis < 60):
-        new_detection = detected_obj()
-        new_detection.glb_id = Global_id
-        new_detection.state = state_init
-        new_detection.label_seq.append(label_init)
-        new_detection.start_frame = start_frame
-        new_detection.mea_seq.append(mea_init)
-        new_detection.post_seq.append(state_init)
-        Tracking_pool[Global_id] = new_detection
 
 def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,label_init,mea_init,start_frame):
 
@@ -511,19 +500,7 @@ def process_fails_NEAREST(Tracking_pool,Off_tracking_pool,glb_id):
     Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
 
 
-def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
-    Tracking_pool[glb_id].missing_count += 1
-    fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
-    # dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
-    if  fail_condition1:
-        Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
-    else:
-        Tracking_pool[glb_id].state = state_cur_
-        Tracking_pool[glb_id].P = P_cur_
-        Tracking_pool[glb_id].label_seq.append(-1)
-        Tracking_pool[glb_id].mea_seq.append(-1)
-        Tracking_pool[glb_id].app_seq.append(-1)
-        Tracking_pool[glb_id].post_seq.append(state_cur_)
+
         
 def process_fails_NN(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,missing_thred):
     if Tracking_pool[glb_id].missing_count > missing_thred:
@@ -543,16 +520,6 @@ def associate_detections_NN(Tracking_pool,glb_id,state,next_label,mea_next):
     Tracking_pool[glb_id].post_seq.append(state)
     Tracking_pool[glb_id].missing_count = 0
 
-def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
-    
-    Tracking_pool[glb_id].state = state
-    Tracking_pool[glb_id].apperance = app
-    Tracking_pool[glb_id].P = P
-    Tracking_pool[glb_id].label_seq.append(next_label)
-    Tracking_pool[glb_id].mea_seq.append(mea_next)
-    Tracking_pool[glb_id].post_seq.append(state)
-    Tracking_pool[glb_id].app_seq.append(app)
-    Tracking_pool[glb_id].missing_count = 0
 
 def associate_detections_NEAREST(Tracking_pool,glb_id,state,app,next_label,mea_next):
     Tracking_pool[glb_id].state = state
@@ -562,6 +529,33 @@ def associate_detections_NEAREST(Tracking_pool,glb_id,state,app,next_label,mea_n
     Tracking_pool[glb_id].post_seq.append(state)
     Tracking_pool[glb_id].app_seq.append(app)
     Tracking_pool[glb_id].missing_count = 0
+
+def create_new_detection(Tracking_pool,Global_id,state_init,app_init,label_init,mea_init,start_frame):
+    new_detection = detected_obj()
+    new_detection.glb_id = Global_id
+    new_detection.state = state_init
+    new_detection.apperance = app_init
+    new_detection.label_seq.append(label_init)
+    new_detection.start_frame = start_frame
+    new_detection.mea_seq.append(mea_init)
+    new_detection.post_seq.append(state_init)
+    new_detection.app_seq.append(app_init)
+    Tracking_pool[Global_id] = new_detection
+        
+
+
+def process_fails(Tracking_pool,Off_tracking_pool,glb_id):
+
+    Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+        
+def associate_detections(Tracking_pool,glb_id,state,app,next_label,mea_next):
+    
+    Tracking_pool[glb_id].state = state
+    Tracking_pool[glb_id].apperance = app
+    Tracking_pool[glb_id].label_seq.append(next_label)
+    Tracking_pool[glb_id].mea_seq.append(mea_next)
+    Tracking_pool[glb_id].post_seq.append(state)
+    Tracking_pool[glb_id].app_seq.append(app)
 
 def state_predict_NN(state,tracking_nn):
     
@@ -822,6 +816,20 @@ def get_affinity_dis_box_TR(state,state_,mea_next,app_next,app_cur):
 
     return np.min(State_affinity,axis = 0) 
 
+def linear_assignment(State_affinity):
+
+    associated_ind_cur,associated_ind_next = [],[]
+    associated_ind_cur_extend_,associated_ind_next_extend_= linear_sum_assignment(State_affinity,maximize = True)
+    for i in range(len(associated_ind_cur_extend_)):
+        if State_affinity[associated_ind_cur_extend_[i],associated_ind_next_extend_[i]] != 0:
+            associated_ind_cur.append(associated_ind_cur_extend_[i])
+            associated_ind_next.append(associated_ind_next_extend_[i])
+    associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
+    ind = np.argsort(associated_ind_cur)
+    associated_ind_cur = associated_ind_cur[ind]
+    associated_ind_next = associated_ind_next[ind]
+
+    return associated_ind_cur,associated_ind_next
 
 def get_affinity_mat_cos(state,state_,P_,mea):
     State_affinity = np.zeros((state_.shape[0],mea.shape[0]))
@@ -853,24 +861,36 @@ def get_affinity_mat_cos(state,state_,P_,mea):
             
     return State_affinity
 
+def get_ovlp_pairs(Labeling_map_cur,Labeling_map_next):
+    cooresponding_map = np.array([Labeling_map_cur.flatten(),Labeling_map_next.flatten()]).T
+    pairs,counts = np.unique(cooresponding_map,return_counts = True, axis = 0)
+    return pairs,counts
 
 
-def get_affinity_mat_NN(state_cur_,mea_next):
+
+def get_affinity_mat_td(app_cur,app_next,unique_label_next,unique_label_cur,Labeling_map_cur,Labeling_map_next):
     
-    State_affinity_0 = np.empty((state_cur_.shape[0],mea_next.shape[0]))
-    # State_affinity_1 = np.empty((state_cur_.shape[0],mea_next.shape[0])) 
-    State_affinity_0.fill(1e3)
-    # State_affinity_1.fill(np.inf)
+    pairs,counts = get_ovlp_pairs(Labeling_map_cur,Labeling_map_next)
+    associated_matrix = np.zeros((app_cur.shape[0],app_next.shape[0]))
+    dis_matrix = np.ones((app_cur.shape[0],app_next.shape[0]))
     
-    for i,s_ in enumerate(state_cur_):    
-        v_ = s_.copy()
-        for j,m in enumerate(mea_next):
-            u = m.copy()
-            d = np.sum((v_[:2] - u[:2])**2) #Distance match
-            if d < 49 :
-                State_affinity_0[i][j] = d
-            
-    return State_affinity_0
+    for i,pair in enumerate(pairs):
+        if (-1 == pair).any():
+            continue
+        c = counts[i]
+        if c > 500:
+            c = 500  
+
+        ind_cur = np.where(unique_label_cur == pair[0])[0][0]
+        ind_next = np.where(unique_label_next == pair[1])[0][0]
+        associated_matrix[ind_cur,ind_next] = c/500        
+        dis = np.abs(app_next[ind_next,-1,0] - app_cur[ind_cur,-1,0])
+        if dis > 2:
+            dis = 2
+        dis_matrix[ind_cur,ind_next] = dis/2
+
+    
+    return  0.6*associated_matrix + 0.4*(1 - dis_matrix)
 
 #sum file
 col_names_ = ['X_Coord_est','Y_Coord_est','X_Len_est','Y_Len_est','Z_Len_est','X_Vel_est','Y_Vel_est','X_Acc_est','Y_Acc_est']

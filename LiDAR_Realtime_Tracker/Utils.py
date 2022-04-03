@@ -147,7 +147,7 @@ def get_pcd_uncolored(Td_map):
     pcd.points = op3.utility.Vector3dVector(XYZ)
     return pcd    
 
-def extract_xy(Labeling_map,Td_map,Plane_model):
+def extract_xy(Labeling_map,Td_map):
         
     # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
     new_uni_labels = np.unique(Labeling_map)
@@ -498,25 +498,25 @@ def traj_post_processing(traj_df,length_thred,output_path):
 
     traj_post.to_csv(output_path,index = False)
 
-def get_thred_modified(ts,d ,thred_s ,N ,delta_thred ,step):# Ransac Para
+def get_thred(ts,d ,thred_s ,N ,delta_thred ,step):# Ransac Para
     ts_temp = ts.copy()
     ts_temp[ts_temp == 0] = 1000
-    valid_dises = []
+    
     for i in range(N):
         sample = np.random.choice(ts_temp,replace=False)
         set_d = ts_temp[(ts_temp > sample - d)&(ts_temp < sample + d)]
         condition_thred = len(set_d)/len(ts_temp) > thred_s
         if condition_thred :
-            valid_dises.append(sample)
+            break
             
-    if len(valid_dises) == 0:
-        return 1000
+    cur_thred = sample
+    if i == (N -1):
+        cur_thred = 1000
 
-    cur_thred = np.min(valid_dises)
 
     while True:
         next_thred = cur_thred - step
-        if (len(ts[ts > next_thred])/len(ts) - len(ts[ts > cur_thred])/len(ts)) < delta_thred:
+        if (len(ts_temp[ts_temp > next_thred])/len(ts_temp) - len(ts_temp[ts_temp > cur_thred])/len(ts_temp)) < delta_thred:
             break
         cur_thred = next_thred
 
@@ -526,5 +526,5 @@ def gen_bckmap(aggregated_maps , d, thred_s, N , delta_thred, step):
     thred_map = np.zeros((32,1800))
     for i in range(thred_map.shape[0]):
         for j in range(thred_map.shape[1]):
-            thred_map[i,j] = get_thred_modified(aggregated_maps[:,i,j],d,thred_s ,N, delta_thred ,step )
+            thred_map[i,j] = get_thred(aggregated_maps[:,i,j],d,thred_s ,N, delta_thred ,step )
     return thred_map
