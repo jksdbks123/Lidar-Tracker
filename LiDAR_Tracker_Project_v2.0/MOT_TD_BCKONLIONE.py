@@ -23,7 +23,7 @@ class MOT():
         self.min_samples = min_samples
         self.bck_update_frame = bck_update_frame
         self.db = None
-        self.frame_gen = TDmapLoader(input_file_path).frame_gen()
+
         ###
         self.thred_map = None         
         ###
@@ -60,12 +60,12 @@ class MOT():
             self.vis.create_window()
         
         Frame_ind = 0
-        self.frame_gen = TDmapLoader(self.input_file_path).frame_gen()
+        frame_gen = TDmapLoader(self.input_file_path).frame_gen()
         # begin_time = time.time()
         
         while True: #Iterate Until a frame with one or more targets are detected 
 
-            Frame = next(self.frame_gen)
+            Frame = next(frame_gen)
             if Frame is None:
                 break 
             Td_map,Intensity_map = Frame
@@ -109,7 +109,7 @@ class MOT():
             Extract Matrix P and State of each tracklet in Current Tracking Pool
             
             """
-            Frame = next(self.frame_gen)
+            Frame = next(frame_gen)
             if Frame is None:
                 break 
             Td_map,Intensity_map = Frame
@@ -274,14 +274,14 @@ class MOT():
 if __name__ == "__main__":
     params = {
         "win_size":[7,15],
-        "eps" : 1.2,
+        "eps" : 1.8,
         "min_samples" : 10 ,
         "bck_update_frame":2000,
         "if_vis":True
         }
 
     output_file_path = r'D:/Test'
-    input_file_path = r'D:/LiDAR_Data/MidTown/California/2021-12-8-18-0-0.pcap'
+    input_file_path = r'D:\LiDAR_Data\ASWS\Thomas/2022-3-2-13-20-49R.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
