@@ -214,6 +214,7 @@ class MOT():
                 source.colors = pcd.colors
                 self.vis.update_geometry(source)
                 self.vis.poll_events()
+                self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
                 self.vis.update_renderer()   
             time_d = time.time()
             sys.stdout.write('\rProcessing Time: {}'.format(round((time_c - time_b) * 1000,2)))
@@ -272,15 +273,15 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        "win_size":[7,15],
-        "eps" : 1.8,
-        "min_samples" : 10 ,
+        "win_size":[5,13],
+        "eps" : 1.2,
+        "min_samples" : 15 ,
         "bck_update_frame":2000,
         "if_vis":True
         }
 
     output_file_path = r'D:/Test'
-    input_file_path = r'D:\LiDAR_Data\ASWS\Thomas/2022-3-2-13-20-49R.pcap'
+    input_file_path = r'D:\LiDAR_Data\MidTown\California/2021-12-8-18-0-0.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
