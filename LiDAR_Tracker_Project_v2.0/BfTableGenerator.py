@@ -10,7 +10,7 @@ import time
 import sys 
 import cv2
 from VisulizerTools import *
-
+from DDBSCAN import Raster_DBSCAN
 class TDmapLoader():
     def __init__(self,file_path): 
         self.Data_order = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
@@ -217,6 +217,8 @@ if __name__ == "__main__":
     # background_object.setBackgroundRatio(0.5)
     thred_map = np.load(r'D:\Test\bck.npy')
     td_gen = TDmapLoader(r'D:\LiDAR_Data\MidTown\California\2021-12-8-18-0-0.pcap').frame_gen()
+    db = Raster_DBSCAN(window_size=[5,15],eps = 1.5,min_samples= 10,Td_map_szie=thred_map.shape)
+    
     vis = op3.visualization.Visualizer()
     vis.create_window()
     Td_map,Intens_map = next(td_gen)
@@ -232,6 +234,7 @@ if __name__ == "__main__":
         # img = get_image(Td_map,Intens_map)
         # fgmsk = background_object.apply(img,learningRate = 0.1)
         Foreground_map = Td_map < thred_map
+        
         pcd = get_pcd_colored(Td_map,Foreground_map)
         source.points = pcd.points
         source.colors = pcd.colors
