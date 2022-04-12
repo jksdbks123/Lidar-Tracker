@@ -8,6 +8,9 @@ import pandas as pd
 import os
 import time 
 import sys 
+import cv2
+from VisulizerTools import *
+
 class TDmapLoader():
     def __init__(self,file_path): 
         self.Data_order = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
@@ -204,13 +207,36 @@ class TDmapLoader():
                         yield Td_map[self.arg_omega,:],Intens_map[self.arg_omega,:] #32*1800
                         break
 
+def get_image(Td_map,Inten_map):
+    Image = np.concatenate([Td_map[:,:,np.newaxis],Inten_map[:,:,np.newaxis]],axis = -1)
+    return Image
 
 if __name__ == "__main__":
-
+    # background_object = cv2.createBackgroundSubtractorMOG2(varThreshold=10)
+    # background_object.setNMixtures(1)
+    # background_object.setBackgroundRatio(0.5)
+    thred_map = np.load(r'D:\Test\bck.npy')
     td_gen = TDmapLoader(r'D:\LiDAR_Data\MidTown\California\2021-12-8-18-0-0.pcap').frame_gen()
-    Td_maps = []
-    while True:
-        
-        Td_maps.append(next(td_gen))
-        print(Td_maps[-1])
+    vis = op3.visualization.Visualizer()
+    vis.create_window()
+    Td_map,Intens_map = next(td_gen)
+    # img = get_image(Td_map,Intens_map)
+    # fgmsk = background_object.apply(Td_map)
     
+    Foreground_map = (Td_map < thred_map)
+    source = get_pcd_colored(Td_map,Foreground_map)
+    vis.add_geometry(source)
+    i = 0
+    while True:
+        Td_map,Intens_map = next(td_gen)
+        # img = get_image(Td_map,Intens_map)
+        # fgmsk = background_object.apply(img,learningRate = 0.1)
+        Foreground_map = Td_map < thred_map
+        pcd = get_pcd_colored(Td_map,Foreground_map)
+        source.points = pcd.points
+        source.colors = pcd.colors
+        vis.capture_screen_image(f'D:\Test\Figs\{i}.png')
+        vis.update_geometry(source)
+        vis.poll_events()
+        vis.update_renderer()   
+        i += 1 
