@@ -69,7 +69,6 @@ class MOT():
             if Frame is None:
                 break 
             Td_map,Intensity_map = Frame
-
             Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             #mea_init : n x 2 x 2 x 1
