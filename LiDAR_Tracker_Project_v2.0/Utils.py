@@ -283,6 +283,49 @@ def get_ovlp_pairs(Labeling_map_cur,Labeling_map_next):
     pairs,counts = np.unique(cooresponding_map,return_counts = True, axis = 0)
     return pairs,counts
 
+
+def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labeling_map_cur,Labeling_map_next):
+    # Union: only A or B 
+    # Intersect : only A and B 
+    
+    Fore_next = Labeling_map_next != -1
+    Fore_cur = Labeling_map_cur != -1
+    Union = Fore_cur|Fore_next
+    Intersect = Fore_cur & Fore_next
+    Union[Intersect] = False
+    
+    labels_next_union,labels_cur_union = Labeling_map_next[Union],Labeling_map_cur[Union]
+    pairs_union,counts_union = np.unique(np.array([labels_cur_union,labels_next_union]).T,return_counts=True,axis = 0)
+    
+    labels_next_intersect,labels_cur_intersect = Labeling_map_next[Intersect],Labeling_map_cur[Intersect]
+    pairs_intersect,counts_intersect = np.unique(np.array([labels_cur_intersect,labels_next_intersect]).T,return_counts=True,axis = 0)
+
+    IoU_matrix = np.zeros((unique_label_cur.shape[0],unique_label_next.shape[0]))
+    dis_matrix = np.ones((unique_label_cur.shape[0],unique_label_next.shape[0]))
+
+    for i,pair in enumerate(pairs_intersect):
+        cur_label,next_label = pair[0],pair[1]
+        Intersection_p = counts_intersect[i]
+        A_p = counts_union[(pairs_union[:,0] == cur_label)]
+        if A_p.size == 0:
+            A_p = 0
+        B_p = counts_union[(pairs_union[:,1] == next_label)]
+        if B_p.size == 0:
+            B_p = 0
+        Union_p = Intersection_p + A_p + B_p
+        cur_ind = unique_label_cur == cur_label
+        next_ind = unique_label_next == next_label
+        IoU_matrix[cur_ind,next_ind] = Intersection_p/Union_p
+        dis = np.abs(app_next[next_ind,-1,0] - app_cur[cur_ind,-1,0])
+        if dis > 2:
+            dis = 2 
+        dis_matrix[cur_ind,next_ind] = dis/2
+
+    return 0.6*IoU_matrix + 0.4*(1 - dis_matrix) 
+
+
+
+
 def get_affinity_mat_td(app_cur,app_next,unique_label_next,unique_label_cur,Labeling_map_cur,Labeling_map_next):
     
     pairs,counts = get_ovlp_pairs(Labeling_map_cur,Labeling_map_next)

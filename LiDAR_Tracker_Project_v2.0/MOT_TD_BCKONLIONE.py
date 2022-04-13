@@ -144,7 +144,7 @@ class MOT():
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
                     
-                    State_affinity = get_affinity_mat_td(app_cur,app_next,unique_label_next,
+                    State_affinity = get_affinity_IoU(app_cur,app_next,unique_label_next,
                     unique_label_cur,self.Labeling_map_cur,Labeling_map)
                     # assiciated_ind for unique_label
                     associated_ind_cur,associated_ind_next = linear_assignment(State_affinity)
@@ -214,7 +214,7 @@ class MOT():
                 source.colors = pcd.colors
                 self.vis.update_geometry(source)
                 self.vis.poll_events()
-                self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
+                # self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
                 self.vis.update_renderer()   
             time_d = time.time()
             sys.stdout.write('\rProcessing Time: {}'.format(round((time_c - time_b) * 1000,2)))
@@ -281,7 +281,7 @@ if __name__ == "__main__":
         }
 
     output_file_path = r'D:/Test'
-    input_file_path = r'D:\LiDAR_Data\MidTown\California/2021-12-8-18-0-0.pcap'
+    input_file_path = r'D:\LiDAR_Data\Veteran/Veteran.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
