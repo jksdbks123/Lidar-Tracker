@@ -28,11 +28,11 @@ class Raster_DBSCAN():
         self.Height_fringe_offset_fore = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),False) 
         self.Height_fringe_offset_td = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),200) 
         self.Heigh_fringe_offset_index = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),-1,dtype = np.int64) 
-        self.a = 0
-        self.Sub_indmap = None
-        self.Sub_tdmap = None
-        self.Sub_foremap = None
-        self.valid_windows = None
+        # self.a = 0
+        # self.Sub_indmap = None
+        # self.Sub_tdmap = None
+        # self.Sub_foremap = None
+        # self.valid_windows = None
         
         
     def fit_predict(self,Td_map,Foreground_map):
@@ -71,9 +71,9 @@ class Raster_DBSCAN():
         Sub_tdmap = sliding_window_view(Td_map_offset,self.window_size).reshape(-1,self.window_size[0],self.window_size[1])
         Sub_foremap = sliding_window_view(Foreground_map_offset,self.window_size).reshape(-1,self.window_size[0],self.window_size[1])
         # Window inds that are valid as Foregound, and only 
-        self.Sub_foremap,self.Sub_indmap,self.Sub_tdmap = Sub_foremap,Sub_indmap,Sub_tdmap
+        # self.Sub_foremap,self.Sub_indmap,self.Sub_tdmap = Sub_foremap,Sub_indmap,Sub_tdmap
         valid_windows = Sub_foremap[:,self.Height_fringe ,self.Width_fringe] 
-        self.valid_windows = valid_windows
+        # self.valid_windows = valid_windows
         Sub_indmap,Sub_foremap,Sub_tdmap = Sub_indmap[valid_windows],Sub_foremap[valid_windows],Sub_tdmap[valid_windows]
         
         # ***key step
