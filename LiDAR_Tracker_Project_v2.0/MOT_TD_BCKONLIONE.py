@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 
 class MOT():
-    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,
+    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,d,thred_s,N,
                  if_vis = False):
         """
         background_update_time : background update time (sec)
@@ -22,6 +22,10 @@ class MOT():
         self.eps = eps 
         self.min_samples = min_samples
         self.bck_update_frame = bck_update_frame
+        self.d = d
+        self.thred_s = thred_s
+        self.N = N
+        
         self.db = None
 
         ###
@@ -48,7 +52,7 @@ class MOT():
             Td_map,Int_map = Frame
             aggregated_maps.append(Td_map)
         aggregated_maps = np.array(aggregated_maps)
-        thred_map = gen_bckmap(aggregated_maps, d = 0.3, thred_s = 0.3, N = 20, delta_thred = 0.001, step = 0.1)
+        thred_map = gen_bckmap(aggregated_maps, d = self.d, thred_s = self.thred_s, N = self.N, delta_thred = 0.001, step = 0.1)
         self.thred_map = thred_map
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)
         print('Initialization Done')
@@ -115,7 +119,7 @@ class MOT():
             aggregated_maps.append(Td_map)
             if Frame_ind%self.bck_update_frame == 0:
                 aggregated_maps = np.array(aggregated_maps)
-                self.thred_map = gen_bckmap(aggregated_maps, d = 0.3, thred_s = 0.3, N = 20, delta_thred = 0.001, step = 0.1)
+                self.thred_map = gen_bckmap(aggregated_maps, d = self.d, thred_s = self.thred_s, N = self.N, delta_thred = 0.001, step = 0.1)
                 aggregated_maps = []
 
             time_b = time.time()
@@ -217,8 +221,9 @@ class MOT():
                 # self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
                 self.vis.update_renderer()   
             time_d = time.time()
-            sys.stdout.write('\rProcessing Time: {}'.format(round((time_c - time_b) * 1000,2)))
-            sys.stdout.flush()
+            if self.if_vis:
+                sys.stdout.write('\rProcessing Time: {}, Frame: {}'.format(round((time_c - time_b) * 1000,2),Frame_ind))
+                sys.stdout.flush()
         if self.if_vis:
             self.vis.destroy_window() 
 
@@ -226,10 +231,6 @@ class MOT():
         for r_id in release_ids:
             self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)
             
-        # file_name = '{}.pickle'.format(cur_time) 
-        # with open(os.path.join(self.traj_path,file_name), 'wb') as handle:
-        #     pickle.dump(self.Off_tracking_pool, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
 
             
     def cur_pcd(self,Td_map,Labeling_map,Tracking_pool):
@@ -285,5 +286,3 @@ if __name__ == "__main__":
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
-    # mot.mot_tracking(A,P,H,Q,R)
-    # mot.save_result(ref_LLH,ref_xyz)
