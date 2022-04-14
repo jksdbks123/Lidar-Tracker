@@ -15,6 +15,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='This is a program generating trajectories from .pcap files')
     parser.add_argument('-i','--input', help='path that contains .pcap file', required=True)
     parser.add_argument('-o','--output', help='specified output path', required=True)
+    parser.add_argument('-c','--n_cpu', help='specified CPU number', default = 20 , required=False, type=int)
     args = parser.parse_args()
 
     input_path = args.input
@@ -44,10 +45,6 @@ if __name__ == "__main__":
         ref_LLH[:,2] += offset
     ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
     ref_LLH[:,2] = ref_LLH[:,2]/3.2808
-    # bck_map_path = os.path.join(calibration_path,'bck_map.npy')
-    # bck_map = np.load(bck_map_path)
-    # plane_model_path = os.path.join(calibration_path,'plane_model.npy')
-    # plane_model = np.load(plane_model_path)
     with open(config_path) as f:
         params = json.load(f)
 
@@ -62,10 +59,9 @@ if __name__ == "__main__":
     for i,p in enumerate(pcap_paths):
         f_name = p.split('.')[0].split('\\')[-1] +'.csv'
         out_path = os.path.join(output_traj_path, f_name)
-        mots.append(MOT(p,out_path,**params))
+        mots.append(MOT(p,out_path,**params,if_vis=False))
         print(out_path)
-
-    print('Parallel Processing Begin')
-
-    p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz), mots,num_cpus = 8)
+    n_cpu = args.n_cpu
+    print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
+    p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz), mots,num_cpus = n_cpu)
 
