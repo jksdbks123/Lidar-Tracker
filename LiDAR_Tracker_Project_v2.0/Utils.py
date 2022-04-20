@@ -42,7 +42,7 @@ azimuths = np.arange(0,360,0.2)
 # color map 
 np.random.seed(412)
 color_map = np.random.random((100,3))
-
+db_merge = DBSCAN(eps = 2.5, min_samples = 2)
 #xylwh xylwh, xy
 
 def convert_point_cloud(Td_map, Labeling_map, Thred_map): 
@@ -126,18 +126,12 @@ def get_pcd_uncolored(Td_map):
     pcd.points = op3.utility.Vector3dVector(XYZ)
     return pcd    
 
-def extract_xy(Labeling_map,Td_map):
-        
-    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
-    new_uni_labels = np.unique(Labeling_map)
-        #Only Background contains 
-    if -1 in new_uni_labels:
-        new_uni_labels = new_uni_labels[1:]
+def get_xy_set(new_uni_labels,Labeling_map,Td_map,if_app):
     xy_set = [] # xy position and apperance features
-    apperance_set = []
+    if if_app:
+        apperance_set = []
     for label in new_uni_labels:
         rows,cols = np.where(Labeling_map == label)
-
         rows_temp,cols_temp = rows.copy(),cols.copy()
         sort_ind = np.argsort(cols)
         refer_cols = cols[sort_ind[[0,-1]]]
@@ -149,19 +143,37 @@ def extract_xy(Labeling_map,Td_map):
             refer_cols = cols[sort_ind[[0,-1]]]
             refer_cols[refer_cols >= 1800] -= 1800
             refer_rows = rows[sort_ind[[0,-1]]]
-        apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
+        if if_app:
+            apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
+            apperance_set.append(apperance)
         xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
         xy_set.append(xy)
-        apperance_set.append(apperance)
-    # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
-    # x , y is 2 x 2 x 1
     xy_set = np.array(xy_set)
-    # n x 2 x 2 x 1
-    apperance_set = np.array(apperance_set)
-    new_uni_labels = np.unique(Labeling_map)
-    if -1 in new_uni_labels:
-        new_uni_labels = new_uni_labels[1:]
+    if if_app:
+        apperance_set = np.array(apperance_set)
+        return xy_set,apperance_set
+    else:
+        return xy_set
 
+def extract_xy(Labeling_map,Td_map):
+        
+    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
+    new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
+    xy_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,False)
+    
+    total_labels = np.concatenate([new_uni_labels,new_uni_labels])
+    edge_points = np.concatenate([xy_set[:,1,:,0],xy_set[:,0,:,0]])
+    merge_labels = db_merge.fit_predict(edge_points)
+    unique_merge_labels = np.unique(merge_labels[merge_labels != -1])
+    merge_pairs = [total_labels[merge_labels == l] for l in unique_merge_labels]
+    for p in merge_pairs:
+        merging_p = np.unique(p)
+        if len(merging_p) > 1:
+            for i in range(1,len(merging_p)):
+                Labeling_map[Labeling_map == merging_p[i]] = merging_p[0]
+    new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
+    xy_set,apperance_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,True)
+    
     return xy_set,apperance_set,new_uni_labels,Labeling_map
 
 
@@ -199,7 +211,7 @@ def get_appearance_features(rows,cols,Td_map): #obtain length height and width
         dir_vec = dir_vec/modility
     height = Z.max() - Z.min()
     area = length * width
-    vec = np.array([points_num,dir_vec[0],dir_vec[1],height,length,width,area]).reshape(-1,1)
+    vec = np.array([points_num,dir_vec[0],dir_vec[1],height,length,width,area, dis.mean()]).reshape(-1,1)
     # vec = np.full((2,8,1),vec) # status vec for two representative points 
     return vec #1 x 8 x 1  
 
@@ -325,30 +337,6 @@ def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labelin
 
 
 
-
-def get_affinity_mat_td(app_cur,app_next,unique_label_next,unique_label_cur,Labeling_map_cur,Labeling_map_next):
-    
-    pairs,counts = get_ovlp_pairs(Labeling_map_cur,Labeling_map_next)
-    associated_matrix = np.zeros((app_cur.shape[0],app_next.shape[0]))
-    dis_matrix = np.ones((app_cur.shape[0],app_next.shape[0]))
-    
-    for i,pair in enumerate(pairs):
-        if (-1 == pair).any():
-            continue
-        c = counts[i]
-        if c > 500:
-            c = 500  
-
-        ind_cur = np.where(unique_label_cur == pair[0])[0][0]
-        ind_next = np.where(unique_label_next == pair[1])[0][0]
-        associated_matrix[ind_cur,ind_next] = c/500        
-        dis = np.abs(app_next[ind_next,-1,0] - app_cur[ind_cur,-1,0])
-        if dis > 2:
-            dis = 2
-        dis_matrix[ind_cur,ind_next] = dis/2
-
-    
-    return  0.6*associated_matrix + 0.4*(1 - dis_matrix)
     
 
 #sum file
@@ -507,33 +495,34 @@ def traj_post_processing(traj_df,length_thred,output_path):
 
     traj_post.to_csv(output_path,index = False)
 
-def get_thred_modified(ts,d ,thred_s ,N ,delta_thred ,step):# Ransac Para
-    ts_temp = ts.copy()
-    ts_temp[ts_temp == 0] = 1000
-    valid_dises = []
-    for i in range(N):
-        sample = np.random.choice(ts_temp,replace=False)
-        set_d = ts_temp[(ts_temp > sample - d)&(ts_temp < sample + d)]
-        condition_thred = len(set_d)/len(ts_temp) > thred_s
-        if condition_thred :
-            valid_dises.append(sample)
-            
-    if len(valid_dises) == 0:
-        return 1000
-
-    cur_thred = np.min(valid_dises)
-
-    while True:
-        next_thred = cur_thred - step
-        if (len(ts[ts > next_thred])/len(ts) - len(ts[ts > cur_thred])/len(ts)) < delta_thred:
+def get_thred(temp,N = 10,d_thred = 0.1,d = 0.17,bck_n = 3):
+    temp = temp.copy()
+    total_sample = len(temp)
+    bck_ds = []
+    bck_portions = []
+    repeat = 0
+    while repeat < N:
+        if len(temp) == 0:
             break
-        cur_thred = next_thred
+        sample = np.random.choice(temp,replace=False)
+        ind = np.abs(temp - sample) < d
+        portion = ind.sum()/total_sample
+        if portion > d_thred:
+            bck_portions.append(portion)
+            bck_ds.append(sample)
+            temp = temp[~ind]
+        repeat += 1
+    bck_ds = np.array(bck_ds)
+    bck_portions = np.array(bck_portions)
+    arg_ind = np.argsort(bck_portions)[::-1]
+    bck_ds_ = bck_ds[arg_ind[:bck_n]]
+    if len(bck_ds_) < bck_n:
+        bck_ds_ = np.concatenate([bck_ds_,-d * np.ones(bck_n - len(bck_ds_))])
+    return bck_ds_
 
-    return next_thred
-
-def gen_bckmap(aggregated_maps , d, thred_s, N , delta_thred, step):
-    thred_map = np.zeros((32,1800))
-    for i in range(thred_map.shape[0]):
-        for j in range(thred_map.shape[1]):
-            thred_map[i,j] = get_thred_modified(aggregated_maps[:,i,j],d,thred_s ,N, delta_thred ,step )
+def gen_bckmap(aggregated_maps, N, d_thred, d , bck_n):
+    thred_map = np.zeros((3,32,1800))
+    for i in range(thred_map.shape[1]):
+        for j in range(thred_map.shape[2]):
+            thred_map[:,i,j] = get_thred(aggregated_maps[:,i,j],N = N,d_thred = d_thred,d = d,bck_n = bck_n)
     return thred_map

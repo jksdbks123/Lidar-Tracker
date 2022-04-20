@@ -1,3 +1,4 @@
+from tkinter import SEL
 from BfTableGenerator import *
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
@@ -6,7 +7,7 @@ import sys
 from datetime import datetime
 
 class MOT():
-    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,d,thred_s,N,
+    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,N = 10,d_thred = 0.1,d = 0.17,bck_n = 3,
                  if_vis = False):
         """
         background_update_time : background update time (sec)
@@ -23,9 +24,9 @@ class MOT():
         self.min_samples = min_samples
         self.bck_update_frame = bck_update_frame
         self.d = d
-        self.thred_s = thred_s
+        self.d_thred = d_thred 
         self.N = N
-        
+        self.bck_n = bck_n
         self.db = None
 
         ###
@@ -52,9 +53,9 @@ class MOT():
             Td_map,Int_map = Frame
             aggregated_maps.append(Td_map)
         aggregated_maps = np.array(aggregated_maps)
-        thred_map = gen_bckmap(aggregated_maps, d = self.d, thred_s = self.thred_s, N = self.N, delta_thred = 0.001, step = 0.1)
+        thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, d = self.d, bck_n = self.bck_n )
         self.thred_map = thred_map
-        self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=self.thred_map.shape)
+        self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
         print('Initialization Done')
 
     def mot_tracking(self): 
@@ -73,7 +74,8 @@ class MOT():
             if Frame is None:
                 break 
             Td_map,Intensity_map = Frame
-            Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
+            # Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
+            Foreground_map = ~(np.abs(Td_map - self.thred_map) <= 0.3).any(axis = 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             #mea_init : n x 2 x 2 x 1
             mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)            
@@ -119,7 +121,7 @@ class MOT():
             aggregated_maps.append(Td_map)
             if Frame_ind%self.bck_update_frame == 0:
                 aggregated_maps = np.array(aggregated_maps)
-                self.thred_map = gen_bckmap(aggregated_maps, d = self.d, thred_s = self.thred_s, N = self.N, delta_thred = 0.001, step = 0.1)
+                self.thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, d = self.d, bck_n = self.bck_n )
                 aggregated_maps = []
 
             time_b = time.time()
@@ -138,16 +140,20 @@ class MOT():
             unique_label_cur = np.array(unique_label_cur)
             # state_cur: n x 2 x 4 x 1
 
-            Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
+            # Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
+            Foreground_map = ~(np.abs(Td_map - self.thred_map) <= 0.3).any(axis = 0)
+            
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            mea_next,app_next,unique_label_next,Labeling_map = extract_xy(Labeling_map,Td_map)
             
              # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
              # app: n x 1 x 7 x 1
              # first repr point refers to the one with lower azimuth id 
             if len(glb_ids) >0:
+
+                mea_next,app_next,unique_label_next,Labeling_map = extract_xy(Labeling_map,Td_map)
                 if len(unique_label_next) > 0:
                     
+                    # app_next : n x 7 x 1
                     State_affinity = get_affinity_IoU(app_cur,app_next,unique_label_next,
                     unique_label_cur,self.Labeling_map_cur,Labeling_map)
                     # assiciated_ind for unique_label
@@ -218,7 +224,7 @@ class MOT():
                 source.colors = pcd.colors
                 self.vis.update_geometry(source)
                 self.vis.poll_events()
-                # self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
+                self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
                 self.vis.update_renderer()   
             time_d = time.time()
             if self.if_vis:
@@ -274,15 +280,19 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-        "win_size":[5,13],
-        "eps" : 1.2,
-        "min_samples" : 15 ,
-        "bck_update_frame":2000,
-        "if_vis":True
-        }
+                "win_size": [5, 15], 
+                "eps": 1,
+                "min_samples": 10,
+                "bck_update_frame":2000,
+                "N":20,
+                "d_thred":0.1,
+                "d":0.2,
+                "bck_n" : 3,
+                "if_vis" : True}
+
 
     output_file_path = r'D:/Test'
-    input_file_path = r'D:\LiDAR_Data\Veteran/Veteran.pcap'
+    input_file_path = r'D:\LiDAR_Data\MidTown\Roundabout\2022-1-19-14-30-0.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
