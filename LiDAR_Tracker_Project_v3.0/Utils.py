@@ -25,6 +25,10 @@ class detected_obj():
         self.mea_seq = []
         self.post_seq = []
         self.app_seq = []
+        self.P_seq = []
+        self.P = None
+        self.missing_count = 0
+        
         
 
 #calibration 
@@ -42,6 +46,20 @@ azimuths = np.arange(0,360,0.2)
 # color map 
 np.random.seed(412)
 color_map = np.random.random((100,3))
+A = np.array([ # x,y,x',y'
+    [1,0,1,0],
+    [0,1,0,1],
+    [0,0,1,0],
+    [0,0,0,1],
+])
+Q = np.diag([0.1,0.1,1,1])
+R = np.diag([1,1])
+P_em = np.diag([1.53,1.53,2.2,2.2])
+
+H = np.array([
+    [1,0,0,0],
+    [0,1,0,0]
+])
 db_merge = DBSCAN(eps = 2.5, min_samples = 2)
 #xylwh xylwh, xy
 
@@ -74,6 +92,27 @@ def convert_point_cloud(Td_map, Labeling_map, Thred_map):
     Labels = np.concatenate(Labels).astype('int')
     XYZ = np.concatenate([Xs.reshape(-1,1),Ys.reshape(-1,1),Zs.reshape(-1,1)],axis = 1)
     return XYZ, Labels
+
+def state_predict(A,Q,state,P):
+    """
+    state: s_k-1, (n x 10 x 1)
+    Cov: P_k-1 (n x 10 x 10)
+    """
+    state_ = np.matmul(A,state)
+    P_ = np.matmul(np.matmul(A,P),A.transpose()) + Q
+    return state_,P_
+
+def state_update(A,H,state_,P_,R,mea):
+    """
+    mea: m_k (m x 5 x 1)
+    
+    """
+    K = np.matmul(np.matmul(P_,H.transpose()),np.linalg.inv(np.matmul(np.matmul(H,P_),H.transpose()) + R))
+    P = np.matmul((np.eye(A.shape[0]) - np.matmul(K,H)),P_)
+    residual = mea - np.matmul(H,state_) # n x 5 x 1
+    state = state_ + np.matmul(K,residual)
+    
+    return state, P 
 
 def get_params_from_detection_points(point):
     
@@ -247,28 +286,56 @@ def linear_assignment(State_affinity):
 
     return associated_ind_cur,associated_ind_next
 
+def linear_assignment_kalman(State_affinity):
+
+    associated_ind_cur,associated_ind_next = [],[]
+    associated_ind_cur_extend_,associated_ind_next_extend_= linear_sum_assignment(State_affinity,maximize = False)
+    for i in range(len(associated_ind_cur_extend_)):
+        if State_affinity[associated_ind_cur_extend_[i],associated_ind_next_extend_[i]] < 2.5:
+            associated_ind_cur.append(associated_ind_cur_extend_[i])
+            associated_ind_next.append(associated_ind_next_extend_[i])
+    associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
+    ind = np.argsort(associated_ind_cur)
+    associated_ind_cur = associated_ind_cur[ind]
+    associated_ind_next = associated_ind_next[ind]
+
+    return associated_ind_cur,associated_ind_next
 
 
 
-def create_new_detection(Tracking_pool,Global_id,state_init,app_init,label_init,mea_init,start_frame):
+def create_new_detection(Tracking_pool,Global_id,state_init,app_init,label_init,mea_init,P,start_frame):
     new_detection = detected_obj()
     new_detection.glb_id = Global_id
     new_detection.state = state_init
     new_detection.apperance = app_init
+    new_detection.P = P
     new_detection.label_seq.append(label_init)
     new_detection.start_frame = start_frame
     new_detection.mea_seq.append(mea_init)
     new_detection.post_seq.append(state_init)
     new_detection.app_seq.append(app_init)
+    new_detection.P_seq.append(P)
     Tracking_pool[Global_id] = new_detection
         
 
 
-def process_fails(Tracking_pool,Off_tracking_pool,glb_id):
+def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
+    Tracking_pool[glb_id].missing_count += 1
+    fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
+    fail_condition2 = (np.sqrt(np.sum(Tracking_pool[glb_id].state[0,:2,0]**2)) > 100) & (Tracking_pool[glb_id].missing_count > 0)
+    if fail_condition1 | fail_condition2:
+        Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+    else:
+        Tracking_pool[glb_id].state = state_cur_
+        Tracking_pool[glb_id].P = P_cur_
+        Tracking_pool[glb_id].P_seq.append(P_cur_)
+        Tracking_pool[glb_id].label_seq.append(-1)
+        Tracking_pool[glb_id].mea_seq.append(-1)
+        Tracking_pool[glb_id].app_seq.append(Tracking_pool[glb_id].app_seq[-1])
+        Tracking_pool[glb_id].post_seq.append(state_cur_)
 
-    Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
-        
-def associate_detections(Tracking_pool,glb_id,state,app,next_label,mea_next):
+
+def associate_detections(Tracking_pool,glb_id,state,app,P_post,next_label,mea_next):
     
     Tracking_pool[glb_id].state = state
     Tracking_pool[glb_id].apperance = app
@@ -276,6 +343,9 @@ def associate_detections(Tracking_pool,glb_id,state,app,next_label,mea_next):
     Tracking_pool[glb_id].mea_seq.append(mea_next)
     Tracking_pool[glb_id].post_seq.append(state)
     Tracking_pool[glb_id].app_seq.append(app)
+    Tracking_pool[glb_id].P = P_post
+    Tracking_pool[glb_id].P_seq.append(P_post)
+    Tracking_pool[glb_id].missing_count = 0
 
     
 def state_update(A,H,state_,P_,R,mea):
@@ -333,9 +403,25 @@ def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labelin
             dis = 2 
         dis_matrix[cur_ind,next_ind] = dis/2
 
-    return 0.6*IoU_matrix + 0.4*(1 - dis_matrix) 
+    return 0.7*IoU_matrix + 0.3*(1 - dis_matrix) 
 
-
+def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next,P_cur_):
+    State_affinity = 2.5 * np.ones((len(failed_tracked_ind),len(new_detection_ind)))
+    for i,glb_ind in enumerate(failed_tracked_ind):
+        state_pred = state_cur_[glb_ind].copy().reshape(2,-1)[:,:2]
+        for j,label_ind in enumerate(new_detection_ind):
+            mea = mea_next[label_ind].copy().reshape(2,-1)
+            for k in range(state_pred.shape[0]):
+                mal_dis = distance.mahalanobis(mea[k],state_pred[k],np.linalg.inv(P_cur_[i][k][:2,:2]))
+                if mal_dis < State_affinity[i,j]:
+                    State_affinity[i,j] = mal_dis
+            # dis_error = np.sqrt(np.sum((state_pred - mea)**2,axis = 1))
+            # dis_error = dis_error.min()
+            # if dis_error > 1.5:
+            #     continue
+            # State_affinity[i,j] = dis_error
+    
+    return State_affinity
 
     
 
@@ -360,8 +446,9 @@ def get_summary_file_split(post_seq,mea_seq):
     return summary
 
 
-app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area']
-    # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
+app_col_names = ['Dis','Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area']
+    
+# obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
 
 def convert_LLH(xyz,T):
     xyz1 = np.concatenate([xyz,np.ones(len(xyz)).reshape(-1,1)],axis = 1)
@@ -417,6 +504,7 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,T):
 
     return summary,app_df
 
+
 def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path):
 
     if len(Off_tracking_pool) == 0:
@@ -448,7 +536,6 @@ def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path):
         pred = classifier.predict(X_test)
         sums = pd.concat([sums,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
         sums.to_csv(f_path,index = False)
-
 a = 6378137
 b = 6356752.31414
 e1=(a**2-b**2)/(a**2) #First eccentricity of the ellipsoid

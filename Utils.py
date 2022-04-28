@@ -620,6 +620,7 @@ def state_update(A,H,state_,P_,R,mea):
     state = state_ + np.matmul(K,residual)
     
     return state, P 
+    
 from scipy.stats import multivariate_normal
 
 def get_affinity_mat_jpd(state,state_,P_,mea):

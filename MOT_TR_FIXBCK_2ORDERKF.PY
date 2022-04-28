@@ -145,7 +145,6 @@ class MOT():
             if len(glb_ids) >0:
                 if len(unique_label_next) > 0:
                     state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) # predict next state  
-                    # State_affinity = get_affinity_mat_jpd_TR(state_cur,state_cur_,P_cur_,mea_next)
                     
                     State_affinity = get_affinity_dis_box_TR(state_cur,state_cur_,mea_next,app_next,app_cur)
                     associated_ind_glb,associated_ind_label = linear_assignment_modified_dis(State_affinity)

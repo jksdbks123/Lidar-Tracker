@@ -238,7 +238,7 @@ if __name__ == "__main__":
         pcd = get_pcd_colored(Td_map,Foreground_map)
         source.points = pcd.points
         source.colors = pcd.colors
-        vis.capture_screen_image(f'D:\Test\Figs\{i}.png')
+        # vis.capture_screen_image(f'D:\Test\Figs\{i}.png')
         vis.update_geometry(source)
         vis.poll_events()
         vis.update_renderer()   
