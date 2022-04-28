@@ -249,8 +249,8 @@ def get_appearance_features(rows,cols,Td_map): #obtain length height and width
     else:
         dir_vec = dir_vec/modility
     height = Z.max() - Z.min()
-    area = length * width
-    vec = np.array([points_num,dir_vec[0],dir_vec[1],height,length,width,area, dis.mean()]).reshape(-1,1)
+    area = b1 * b2
+    vec = np.array([points_num,dir_vec[0],dir_vec[1],height,length,width,area,dis.mean()]).reshape(-1,1)
     # vec = np.full((2,8,1),vec) # status vec for two representative points 
     return vec #1 x 8 x 1  
 
@@ -291,7 +291,7 @@ def linear_assignment_kalman(State_affinity):
     associated_ind_cur,associated_ind_next = [],[]
     associated_ind_cur_extend_,associated_ind_next_extend_= linear_sum_assignment(State_affinity,maximize = False)
     for i in range(len(associated_ind_cur_extend_)):
-        if State_affinity[associated_ind_cur_extend_[i],associated_ind_next_extend_[i]] < 2.5:
+        if State_affinity[associated_ind_cur_extend_[i],associated_ind_next_extend_[i]] < 1.5:
             associated_ind_cur.append(associated_ind_cur_extend_[i])
             associated_ind_next.append(associated_ind_next_extend_[i])
     associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
@@ -406,7 +406,7 @@ def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labelin
     return 0.7*IoU_matrix + 0.3*(1 - dis_matrix) 
 
 def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next,P_cur_):
-    State_affinity = 2.5 * np.ones((len(failed_tracked_ind),len(new_detection_ind)))
+    State_affinity = 1.5 * np.ones((len(failed_tracked_ind),len(new_detection_ind)))
     for i,glb_ind in enumerate(failed_tracked_ind):
         state_pred = state_cur_[glb_ind].copy().reshape(2,-1)[:,:2]
         for j,label_ind in enumerate(new_detection_ind):
@@ -423,30 +423,9 @@ def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next
     
     return State_affinity
 
-    
-
-#sum file
-col_names_ = ['X_Coord_est','Y_Coord_est','X_Len_est','Y_Len_est','Z_Len_est','X_Vel_est','Y_Vel_est','X_Acc_est','Y_Acc_est']
-col_names = ['X_Coord_mea','Y_Coord_mea','X_Len_mea','Y_Len_mea','Z_Len_mea']
-
-def get_summary_file_split(post_seq,mea_seq):
-    temp = np.array(post_seq)
-    temp = temp.reshape(temp.shape[0],temp.shape[1])[:,[0,1,2,3,4,5,6,10,11]]
-    df_ = pd.DataFrame(temp,columns= col_names_)
-    temp = mea_seq
-    emp = []
-    for i,vec in enumerate(temp):
-        if type(vec) == int:
-            emp.append(-np.ones(len(col_names)).astype(np.int8))
-        else:
-            emp.append(vec.flatten())
-    emp = np.array(emp)
-    df = pd.DataFrame(emp,columns = col_names)
-    summary = pd.concat([df,df_],axis = 1)
-    return summary
 
 
-app_col_names = ['Dis','Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area']
+app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area','Dis']
     
 # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
 
@@ -460,7 +439,8 @@ def convert_LLH(xyz,T):
     lat = lat*180/np.pi
     LLH = np.concatenate([lon.reshape(-1,1),lat.reshape(-1,1),evel.reshape(-1,1)],axis = 1)
     return LLH
-column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X','Coord_Y','Coord_Z','Distance','Speed_X','Speed_Y','Speed(m/s)','Longitude','Latitude','Elevation']
+
+column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X','Coord_Y','Coord_Z','Distance','Speed_X','Speed_Y','Speed','Longitude','Latitude','Elevation']
 
 def get_summary_file_TR(post_seq,key,start_frame,app_seq,T):
     temp = np.array(post_seq)
