@@ -38,7 +38,7 @@ class MOT():
         self.Global_id = 0
         self.Td_map_cur = None
         self.Labeling_map_cur = None
-        self.missing_thred = 3
+        self.missing_thred = 10
         ### Online holder
         if self.if_vis:
             self.vis = None
@@ -169,7 +169,7 @@ class MOT():
                     State_affinity = get_affinity_IoU(app_cur,app_next,unique_label_next,
                      unique_label_cur,self.Labeling_map_cur,Labeling_map)
                     
-                    # assiciated_ind for unique_label
+                    # assiciated_ind for unique_label_next and unique_label_cur
                     associated_ind_cur,associated_ind_next = linear_assignment(State_affinity)
                     # in a but not in b
                     failed_tracked_ind = np.setdiff1d(np.arange(len(glb_ids)),associated_ind_cur) 
@@ -177,7 +177,6 @@ class MOT():
                     if ( len(failed_tracked_ind) > 0 ) & (len(new_detection_ind) > 0):
                         State_affinity_kalman = get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next,P_cur_)
                         failed_tracked_ind_,new_detection_ind_ = linear_assignment_kalman(State_affinity_kalman)
-                        
 
                         if len(failed_tracked_ind_) > 0:
                             associated_ind_cur = np.concatenate([associated_ind_cur,failed_tracked_ind[failed_tracked_ind_]])
@@ -309,7 +308,7 @@ class MOT():
 
 if __name__ == "__main__":
     params = {
-                "win_size": [7, 13], 
+                "win_size": [7, 11], 
                 "eps": 1.1,
                 "min_samples": 5,
                 "bck_update_frame":2000,

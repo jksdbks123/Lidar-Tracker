@@ -52,15 +52,15 @@ A = np.array([ # x,y,x',y'
     [0,0,1,0],
     [0,0,0,1],
 ])
-Q = np.diag([0.1,0.1,1,1])
-R = np.diag([1,1])
+Q = np.diag([0.1,0.1,0.01,0.01])
+R = np.diag([0.2,0.2])
 P_em = np.diag([1.53,1.53,2.2,2.2])
 
 H = np.array([
     [1,0,0,0],
     [0,1,0,0]
 ])
-db_merge = DBSCAN(eps = 2.5, min_samples = 2)
+db_merge = DBSCAN(eps = 1.8, min_samples = 2)
 #xylwh xylwh, xy
 
 def convert_point_cloud(Td_map, Labeling_map, Thred_map): 
@@ -280,9 +280,9 @@ def linear_assignment(State_affinity):
             associated_ind_cur.append(associated_ind_cur_extend_[i])
             associated_ind_next.append(associated_ind_next_extend_[i])
     associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
-    ind = np.argsort(associated_ind_cur)
-    associated_ind_cur = associated_ind_cur[ind]
-    associated_ind_next = associated_ind_next[ind]
+    # ind = np.argsort(associated_ind_cur)
+    # associated_ind_cur = associated_ind_cur[ind]
+    # associated_ind_next = associated_ind_next[ind]
 
     return associated_ind_cur,associated_ind_next
 
@@ -295,9 +295,9 @@ def linear_assignment_kalman(State_affinity):
             associated_ind_cur.append(associated_ind_cur_extend_[i])
             associated_ind_next.append(associated_ind_next_extend_[i])
     associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
-    ind = np.argsort(associated_ind_cur)
-    associated_ind_cur = associated_ind_cur[ind]
-    associated_ind_next = associated_ind_next[ind]
+    # ind = np.argsort(associated_ind_cur)
+    # associated_ind_cur = associated_ind_cur[ind]
+    # associated_ind_next = associated_ind_next[ind]
 
     return associated_ind_cur,associated_ind_next
 
@@ -327,7 +327,7 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
     else:
         Tracking_pool[glb_id].state = state_cur_
-        Tracking_pool[glb_id].P = P_cur_
+        # Tracking_pool[glb_id].P = P_cur_
         Tracking_pool[glb_id].P_seq.append(P_cur_)
         Tracking_pool[glb_id].label_seq.append(-1)
         Tracking_pool[glb_id].mea_seq.append(-1)
@@ -400,13 +400,14 @@ def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labelin
         IoU_matrix[cur_ind,next_ind] = Intersection_p/Union_p
         dis = np.abs(app_next[next_ind,-1,0] - app_cur[cur_ind,-1,0])
         if dis > 2:
-            dis = 2 
+            IoU_matrix[cur_ind,next_ind] = 0
+            continue
         dis_matrix[cur_ind,next_ind] = dis/2
 
     return 0.7*IoU_matrix + 0.3*(1 - dis_matrix) 
 
 def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next,P_cur_):
-    State_affinity = 1.5 * np.ones((len(failed_tracked_ind),len(new_detection_ind)))
+    State_affinity =  1.5*np.ones((len(failed_tracked_ind),len(new_detection_ind)))
     for i,glb_ind in enumerate(failed_tracked_ind):
         state_pred = state_cur_[glb_ind].copy().reshape(2,-1)[:,:2]
         for j,label_ind in enumerate(new_detection_ind):
@@ -415,12 +416,6 @@ def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next
                 mal_dis = distance.mahalanobis(mea[k],state_pred[k],np.linalg.inv(P_cur_[i][k][:2,:2]))
                 if mal_dis < State_affinity[i,j]:
                     State_affinity[i,j] = mal_dis
-            # dis_error = np.sqrt(np.sum((state_pred - mea)**2,axis = 1))
-            # dis_error = dis_error.min()
-            # if dis_error > 1.5:
-            #     continue
-            # State_affinity[i,j] = dis_error
-    
     return State_affinity
 
 
