@@ -7,8 +7,8 @@ import sys
 from datetime import datetime
 
 class MOT():
-    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,N = 10,d_thred = 0.1,d = 0.17,bck_n = 3,bck_radius = 0.5,
-                 if_vis = False,if_save_pcd = False ):
+    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,N = 10,d_thred = 0.1,d = 0.17,bck_n = 3,bck_radius = 0.5,missing_thred = 10
+                 ,if_vis = False,if_save_pcd = False ):
         """
         background_update_time : background update time (sec)
         """
@@ -38,7 +38,7 @@ class MOT():
         self.Global_id = 0
         self.Td_map_cur = None
         self.Labeling_map_cur = None
-        self.missing_thred = 10
+        self.missing_thred = missing_thred
         ### Online holder
         if self.if_vis:
             self.vis = None
@@ -76,7 +76,6 @@ class MOT():
             if Frame is None:
                 break 
             Td_map,Intensity_map = Frame
-            # Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
             #mea_init : n x 2 x 2 x 1
@@ -98,9 +97,6 @@ class MOT():
         n_offset_dim = A.shape[0] - mea_init.shape[2]
         state_init = np.concatenate([mea_init,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
         P_init = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
-        # n_offset_dim = 4 - mea_init.shape[2]
-        # state_init = np.concatenate([mea_init,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
-        
 
         # s: n x 2 x 4 x 1: x,y,vx,vy
                 
@@ -110,8 +106,6 @@ class MOT():
             self.Global_id += 1
                         
         state_cur,P_cur = state_init,P_init 
-        # cur_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        # print(cur_time,'processing begin')
         aggregated_maps = []
 
         while True:
@@ -249,7 +243,7 @@ class MOT():
                 
                 self.vis.update_geometry(source)
                 self.vis.poll_events()
-                # self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
+                self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
                 self.vis.update_renderer()   
             time_d = time.time()
             if self.if_vis:
@@ -261,6 +255,7 @@ class MOT():
         release_ids = [glb_id for glb_id in self.Tracking_pool.keys()]
         for r_id in release_ids:
             self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)
+
         file_name = '{}.pickle'.format('test_kal_td') 
         traj_pickle_path = os.path.join('D:\Test',file_name)
         with open(traj_pickle_path, 'wb') as handle:
@@ -307,9 +302,9 @@ class MOT():
 
 
 if __name__ == "__main__":
-    params = {
+    params = { 
                 "win_size": [7, 11], 
-                "eps": 1.1,
+                "eps": 1.5,
                 "min_samples": 5,
                 "bck_update_frame":2000,
                 "N":20,
@@ -317,6 +312,8 @@ if __name__ == "__main__":
                 "d":0.2,
                 "bck_n" : 3,
                 "bck_radius":0.5,
+                "missing_thred":10,
+                "if_save_pcd" : False,
                 "if_vis" : True}
 
 

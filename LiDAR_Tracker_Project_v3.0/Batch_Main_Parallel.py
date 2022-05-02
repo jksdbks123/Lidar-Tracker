@@ -4,9 +4,7 @@ from Utils import *
 import pandas as pd
 import json
 import os
-from joblib import Parallel, delayed
-from tqdm import tqdm
-from p_tqdm import p_map,p_umap
+from p_tqdm import p_umap
 from functools import partial
 
 if __name__ == "__main__":
@@ -52,7 +50,7 @@ if __name__ == "__main__":
     def run_mot(mot,ref_LLH,ref_xyz):
         mot.initialization()
         mot.mot_tracking()
-        save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path )
+        save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path)
         print(mot.traj_path)
         
     mots = []

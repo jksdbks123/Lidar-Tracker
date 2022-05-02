@@ -29,7 +29,6 @@ class detected_obj():
         self.P = None
         self.missing_count = 0
         
-        
 
 #calibration 
 theta_raw = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
@@ -52,8 +51,8 @@ A = np.array([ # x,y,x',y'
     [0,0,1,0],
     [0,0,0,1],
 ])
-Q = np.diag([0.1,0.1,0.01,0.01])
-R = np.diag([0.2,0.2])
+Q = np.diag([1,1,0.1,0.1])
+R = np.diag([0.5,0.5])
 P_em = np.diag([1.53,1.53,2.2,2.2])
 
 H = np.array([
@@ -322,13 +321,15 @@ def create_new_detection(Tracking_pool,Global_id,state_init,app_init,label_init,
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
     Tracking_pool[glb_id].missing_count += 1
     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
-    fail_condition2 = (np.sqrt(np.sum(Tracking_pool[glb_id].state[0,:2,0]**2)) > 100) & (Tracking_pool[glb_id].missing_count > 0)
-    if fail_condition1 | fail_condition2:
+    # fail_condition2 = (np.sqrt(np.sum(Tracking_pool[glb_id].state[0,:2,0]**2)) > 100) & (Tracking_pool[glb_id].missing_count > 0)
+    if fail_condition1 :
         Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+        if len(Off_tracking_pool[glb_id].post_seq) == 1:
+            print(Off_tracking_pool[glb_id].missing_count) 
     else:
         Tracking_pool[glb_id].state = state_cur_
         # Tracking_pool[glb_id].P = P_cur_
-        Tracking_pool[glb_id].P_seq.append(P_cur_)
+        Tracking_pool[glb_id].P_seq.append(Tracking_pool[glb_id].P)
         Tracking_pool[glb_id].label_seq.append(-1)
         Tracking_pool[glb_id].mea_seq.append(-1)
         Tracking_pool[glb_id].app_seq.append(Tracking_pool[glb_id].app_seq[-1])
@@ -418,9 +419,6 @@ def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next
                     State_affinity[i,j] = mal_dis
     return State_affinity
 
-
-
-app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area','Dis']
     
 # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
 
@@ -435,15 +433,17 @@ def convert_LLH(xyz,T):
     LLH = np.concatenate([lon.reshape(-1,1),lat.reshape(-1,1),evel.reshape(-1,1)],axis = 1)
     return LLH
 
-column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X','Coord_Y','Coord_Z','Distance','Speed_X','Speed_Y','Speed','Longitude','Latitude','Elevation']
+app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area','Dis']
+column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X','Coord_Y','Coord_Z','Speed_X','Speed_Y','Speed','Longitude','Latitude','Elevation']
 
-def get_summary_file_TR(post_seq,key,start_frame,app_seq,T):
+def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,T,missing_thred):
     temp = np.array(post_seq)
+    temp = temp[:-missing_thred]
     temp = temp.reshape((temp.shape[0],temp.shape[1],temp.shape[2]))
     # n x 2 x 6
     temp_xy = temp[:,:,:2]
     # n x 2 x 2
-    dis_est = np.sqrt((temp_xy[:,:,0]**2 + temp_xy[:,:,1]**2))
+#     dis_est = np.sqrt((temp_xy[:,:,0]**2 + temp_xy[:,:,1]**2))
     # n x 2 
     speed_xy = temp[:,:,2:4] * 10 
     # n x 2 x 2
@@ -453,7 +453,7 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,T):
     xyz_1 = np.concatenate([temp_xy[:,1],np.zeros(len(temp_xy)).reshape(-1,1)],axis = 1)
     xyz = (xyz_0 + xyz_1)/2
     LLH_est = convert_LLH(xyz,T)
-    est = np.concatenate([xyz_0,dis_est[:,0].reshape(-1,1),speed_xy[:,0],speed[:,0].reshape(-1,1),LLH_est],axis = 1)
+    est = np.concatenate([xyz_0,speed_xy[:,0],speed[:,0].reshape(-1,1),LLH_est],axis = 1)
     # x,y,z,d,s_x,s_y,s,L,L,H
     timestp = []
     for i in range(len(temp)):
@@ -464,23 +464,18 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,T):
     summary = np.concatenate([objid,timestp,est],axis = 1)
     # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
     summary = pd.DataFrame(summary,columns = column_names_TR_2o)
+    app_seq = np.array(app_seq)[:-missing_thred]
+    app_seq = app_seq.reshape(-1,len(app_col_names))
 
-    emp = []
-    for app in app_seq:
-        if type(app) == int:
-            emp_row = np.empty(len(app_col_names))
-            emp_row[:] = np.nan
-            emp.append(emp_row)
-        else:
-            emp.append(app.flatten())
+    app_df = pd.DataFrame(app_seq,columns = app_col_names)
 
-    app_df = pd.DataFrame(emp,columns = app_col_names)
-    app_df.Length = app_df.Length.max()
+    max_length = np.percentile(np.array(app_df.Length), 80)
+    app_df['Max_Length'] = max_length
 
     return summary,app_df
 
 
-def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path):
+def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path,missing_thred):
 
     if len(Off_tracking_pool) == 0:
         print('No Trajs Here')
@@ -492,9 +487,11 @@ def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path):
         keys = []
         start_frame = []
         lengths = []
-        for key in Off_tracking_pool:  
+        for key in Off_tracking_pool: 
+            if len(Off_tracking_pool[key].post_seq) < (10 + missing_thred):
+                continue
             sum_file,app_df = get_summary_file_TR(Off_tracking_pool[key].post_seq,
-                                        key,Off_tracking_pool[key].start_frame,Off_tracking_pool[key].app_seq,T) 
+                                        key,Off_tracking_pool[key].start_frame,Off_tracking_pool[key].app_seq,Off_tracking_pool[key].P_seq,T,missing_thred) 
             sums.append(sum_file)
             app_dfs.append(app_df)
             keys.append(key)
@@ -507,10 +504,12 @@ def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path):
         app_dfs = app_dfs.reset_index(drop=True).astype('float64')
 
         classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))
-        X_test = np.array(app_dfs.loc[:,['Point_Cnt','Height','Length','Area']])
+        X_test = np.array(app_dfs.loc[:,['Point_Cnt','Height','Max_Length','Area']])
         pred = classifier.predict(X_test)
         sums = pd.concat([sums,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
         sums.to_csv(f_path,index = False)
+
+
 a = 6378137
 b = 6356752.31414
 e1=(a**2-b**2)/(a**2) #First eccentricity of the ellipsoid
