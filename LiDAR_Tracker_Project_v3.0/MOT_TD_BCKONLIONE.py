@@ -243,7 +243,7 @@ class MOT():
                 
                 self.vis.update_geometry(source)
                 self.vis.poll_events()
-                self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
+                # self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
                 self.vis.update_renderer()   
             time_d = time.time()
             if self.if_vis:
