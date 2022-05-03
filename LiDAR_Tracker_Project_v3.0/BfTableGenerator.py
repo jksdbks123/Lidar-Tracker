@@ -148,18 +148,20 @@ class TDmapLoader():
                     yield None
                         
                 eth = dpkt.ethernet.Ethernet(buf)
-                data = eth.data.data.data
-                packet_status = eth.data.data.sport
+                if eth.type == 2048: # for ipv4
+                    if type(eth.data.data) == dpkt.udp.UDP:
+                        data = eth.data.data.data
+                        packet_status = eth.data.data.sport
 
-                if packet_status == 2368:
-                    distances,intensities,azimuth_per_block = self.parse_one_packet(data)
-                    azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
-                    cur_azimuth = azimuth_per_block[-1]
-                    culmulative_azimuth_values.append(azimuth)
-                    culmulative_laser_ids.append(self.laser_id)
-                    culmulative_distances.append(distances)
-                    culmulative_intensities.append(intensities)
-                    break 
+                        if packet_status == 2368:
+                            distances,intensities,azimuth_per_block = self.parse_one_packet(data)
+                            azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
+                            cur_azimuth = azimuth_per_block[-1]
+                            culmulative_azimuth_values.append(azimuth)
+                            culmulative_laser_ids.append(self.laser_id)
+                            culmulative_distances.append(distances)
+                            culmulative_intensities.append(intensities)
+                            break 
                 
             while True:
                 try:
@@ -168,44 +170,46 @@ class TDmapLoader():
                     yield None
                     
                 eth = dpkt.ethernet.Ethernet(buf)
-                data = eth.data.data.data
-                packet_status = eth.data.data.sport
-
-                if packet_status == 2368:
-                    """
-                    distances : (32,12)
-                    intensities : (32,12)
-                    azimuth_per_block : (12,0)
-                    """
-                    distances,intensities,azimuth_per_block = self.parse_one_packet(data)
-                    azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
-                    culmulative_azimuth_values.append(azimuth)
-                    culmulative_laser_ids.append(self.laser_id)
-                    culmulative_distances.append(distances)
-                    culmulative_intensities.append(intensities)
-                    diff = self.cal_angle_diff(azimuth_per_block[-1],cur_azimuth)
-                    cur_azimuth = azimuth_per_block[-1]
-                    culmulative_azimuth += diff 
+                if eth.type == 2048:
+                    if type(eth.data.data) == dpkt.udp.UDP:
+                        data = eth.data.data.data
+                        packet_status = eth.data.data.sport
                     
-                    if culmulative_azimuth > 360: 
-                        # print(len(culmulative_azimuth_values))
-                        culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
-                        culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
-                        culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
-                        culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
-                        culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
-                        culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
-                        culmulative_azimuth_inds[culmulative_azimuth_inds > 1799] -= 1800
-                        culmulative_azimuth_inds[culmulative_azimuth_inds < 0 ] += 1800
-                        
-                        Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
-                        Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
-                        # cur_azimuth = azimuth_per_block[-1]
-                        # sys.stdout.write('\rProcessing Time: {} ms'.format(round((time.time() - a) * 1000,2)))
-                        # sys.stdout.flush()
-                        
-                        yield Td_map[self.arg_omega,:],Intens_map[self.arg_omega,:] #32*1800
-                        break
+                        if packet_status == 2368:
+                            """
+                            distances : (32,12)
+                            intensities : (32,12)
+                            azimuth_per_block : (12,0)
+                            """
+                            distances,intensities,azimuth_per_block = self.parse_one_packet(data)
+                            azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
+                            culmulative_azimuth_values.append(azimuth)
+                            culmulative_laser_ids.append(self.laser_id)
+                            culmulative_distances.append(distances)
+                            culmulative_intensities.append(intensities)
+                            diff = self.cal_angle_diff(azimuth_per_block[-1],cur_azimuth)
+                            cur_azimuth = azimuth_per_block[-1]
+                            culmulative_azimuth += diff 
+                            
+                            if culmulative_azimuth > 360: 
+                                # print(len(culmulative_azimuth_values))
+                                culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
+                                culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
+                                culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
+                                culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
+                                culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
+                                culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
+                                culmulative_azimuth_inds[culmulative_azimuth_inds > 1799] -= 1800
+                                culmulative_azimuth_inds[culmulative_azimuth_inds < 0 ] += 1800
+                                
+                                Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
+                                Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
+                                # cur_azimuth = azimuth_per_block[-1]
+                                # sys.stdout.write('\rProcessing Time: {} ms'.format(round((time.time() - a) * 1000,2)))
+                                # sys.stdout.flush()
+                                
+                                yield Td_map[self.arg_omega,:],Intens_map[self.arg_omega,:] #32*1800
+                                break
 
 def get_image(Td_map,Inten_map):
     Image = np.concatenate([Td_map[:,:,np.newaxis],Inten_map[:,:,np.newaxis]],axis = -1)

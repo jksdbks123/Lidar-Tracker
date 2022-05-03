@@ -173,8 +173,8 @@ class MOT():
                         failed_tracked_ind_,new_detection_ind_ = linear_assignment_kalman(State_affinity_kalman)
 
                         if len(failed_tracked_ind_) > 0:
-                            associated_ind_cur = np.concatenate([associated_ind_cur,failed_tracked_ind[failed_tracked_ind_]])
-                            associated_ind_next = np.concatenate([associated_ind_next,new_detection_ind[new_detection_ind_]])
+                            associated_ind_cur = np.concatenate([associated_ind_cur,failed_tracked_ind[failed_tracked_ind_]]).astype(int)
+                            associated_ind_next = np.concatenate([associated_ind_next,new_detection_ind[new_detection_ind_]]).astype(int)
 
                     """
                     Failed tracking and new detections
@@ -198,7 +198,7 @@ class MOT():
 
 
                     if len(associated_ind_cur) != 0:
-
+                        # print(associated_ind_cur,associated_ind_next)
                         state_cur,P_post = state_update(A,H,state_cur_[associated_ind_cur],P_cur_[associated_ind_cur],R,mea_next[associated_ind_next])
                         glb_ids = glb_ids[associated_ind_cur]
                         # state_cur = state_post[associated_ind_cur]
@@ -303,7 +303,7 @@ class MOT():
 
 if __name__ == "__main__":
     params = { 
-                "win_size": [7, 11], 
+                "win_size": [7, 13], 
                 "eps": 1.5,
                 "min_samples": 5,
                 "bck_update_frame":2000,
@@ -318,7 +318,7 @@ if __name__ == "__main__":
 
 
     output_file_path = r'D:/Test'
-    input_file_path = r'D:\LiDAR_Data\MidTown\Roundabout\2022-1-19-14-30-0.pcap'
+    input_file_path = r'D:\LiDAR_Data\ASWS\Thomas\2022-04-06-15-11-07.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
