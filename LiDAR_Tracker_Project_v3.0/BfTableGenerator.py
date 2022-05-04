@@ -144,16 +144,17 @@ class TDmapLoader():
             while True:
                 try:
                     ts,buf = next(self.lidar_reader)
+                    eth = dpkt.ethernet.Ethernet(buf)
                 except (StopIteration,dpkt.NeedData) as e1:
                     yield None
                         
-                eth = dpkt.ethernet.Ethernet(buf)
                 if eth.type == 2048: # for ipv4
                     if type(eth.data.data) == dpkt.udp.UDP:
                         data = eth.data.data.data
                         packet_status = eth.data.data.sport
-
                         if packet_status == 2368:
+                            if len(data) != 1206:
+                                continue
                             distances,intensities,azimuth_per_block = self.parse_one_packet(data)
                             azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
                             cur_azimuth = azimuth_per_block[-1]
@@ -166,16 +167,18 @@ class TDmapLoader():
             while True:
                 try:
                     ts,buf = next(self.lidar_reader)
+                    eth = dpkt.ethernet.Ethernet(buf)
                 except (StopIteration,dpkt.NeedData) as e1:
                     yield None
-                    
-                eth = dpkt.ethernet.Ethernet(buf)
+                
                 if eth.type == 2048:
                     if type(eth.data.data) == dpkt.udp.UDP:
                         data = eth.data.data.data
                         packet_status = eth.data.data.sport
-                    
                         if packet_status == 2368:
+                            if len(data) != 1206:
+                                culmulative_azimuth += diff 
+                                continue
                             """
                             distances : (32,12)
                             intensities : (32,12)
@@ -191,7 +194,7 @@ class TDmapLoader():
                             cur_azimuth = azimuth_per_block[-1]
                             culmulative_azimuth += diff 
                             
-                            if culmulative_azimuth > 360: 
+                            if culmulative_azimuth > 359.8: 
                                 # print(len(culmulative_azimuth_values))
                                 culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
                                 culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
