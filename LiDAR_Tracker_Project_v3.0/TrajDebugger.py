@@ -45,8 +45,4 @@ for f in tqdm(range(start_frame,end_frame)):
         plt.annotate('{},{}'.format(key,clas),coord_key[-1],fontsize=20)
     
     plt.savefig(os.path.join(output_path,'{}.png'.format(f)))
-<<<<<<< HEAD
     plt.close()
-=======
-    plt.close()
->>>>>>> 11d79c7706577bdb7c4bdecbdcdc3da6a736f848
