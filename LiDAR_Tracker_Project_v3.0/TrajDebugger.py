@@ -11,6 +11,9 @@ end_frame = 310
 pcap_path =  r'D:\LiDAR_Data\ASWS\Thomas\2022-04-06-15-11-07.pcap'
 output_path = r'D:\Test\vis_traj'
 input_path = r'D:\Test\test.csv'
+
+if not os.path.exists(output_path):
+    os.mkdir(output_path)
 aggregated_map = []
 lidar_reader = TDmapLoader(pcap_path)
 frame_gen = lidar_reader.frame_gen()
