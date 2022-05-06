@@ -1,4 +1,5 @@
 import argparse
+from ast import arg
 from MOT_TD_BCKONLIONE import MOT
 from Utils import *
 import pandas as pd
@@ -6,6 +7,7 @@ import json
 import os
 from p_tqdm import p_umap
 from functools import partial
+import time
 
 def run_mot(mot,ref_LLH,ref_xyz):
         mot.initialization()
@@ -17,10 +19,13 @@ if __name__ == "__main__":
 
     
     parser = argparse.ArgumentParser(description='This is a program generating trajectories from .pcap files')
-    parser.add_argument('-i','--input', help='path that contains .pcap file', required=True)
+    parser.add_argument('-i','--input', help='path to the folder contains .pcap files and Calibration folder', required=True)
     parser.add_argument('-o','--output', help='specified output path', required=True)
     parser.add_argument('-c','--n_cpu', help='specified CPU number', default = 20 , required=False, type=int)
+    parser.add_argument('-t','--timer', help='Timer (hour)', default = 0 , required=False, type=int)
     args = parser.parse_args()
+    timer = args.timer
+    time.sleep(timer * 3600)
 
     input_path = args.input
     calibration_path = os.path.join(input_path,'Calibration')
