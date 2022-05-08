@@ -6,8 +6,8 @@ from BfTableGenerator import TDmapLoader
 import matplotlib.pyplot as plt
 import os
 
-start_frame = 0
-end_frame = 310
+start_frame = 2
+end_frame = 100
 pcap_path =  r'D:\LiDAR_Data\ASWS\Thomas\2022-04-06-15-11-07.pcap'
 output_path = r'D:\Test\vis_traj'
 input_path = r'D:\Test\test.csv'

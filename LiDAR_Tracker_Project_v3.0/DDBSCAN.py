@@ -83,8 +83,12 @@ class Raster_DBSCAN():
         n_neighbors = np.array([len(neighbor) for neighbor in neighborhoods])
         Labels = np.full(len(n_neighbors), -1, dtype=np.intp)
         core_samples = np.asarray(n_neighbors >= self.min_samples,dtype=np.uint8)
-        dbscan_inner(core_samples, neighborhoods, Labels)
-
+        
+        try:
+            dbscan_inner(core_samples, neighborhoods, Labels)
+        except:
+            pass
+        
         Labeling_map = self.Labeling_map_template.copy()
 
         Labeling_map[rows,cols] = Labels
