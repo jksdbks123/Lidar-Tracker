@@ -28,11 +28,7 @@ class Raster_DBSCAN():
         self.Height_fringe_offset_fore = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),False) 
         self.Height_fringe_offset_td = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),200) 
         self.Heigh_fringe_offset_index = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),-1,dtype = np.int64) 
-        # self.a = 0
-        # self.Sub_indmap = None
-        # self.Sub_tdmap = None
-        # self.Sub_foremap = None
-        # self.valid_windows = None
+
         
         
     def fit_predict(self,Td_map,Foreground_map):
@@ -88,7 +84,7 @@ class Raster_DBSCAN():
             dbscan_inner(core_samples, neighborhoods, Labels)
         except:
             pass
-        
+
         Labeling_map = self.Labeling_map_template.copy()
 
         Labeling_map[rows,cols] = Labels

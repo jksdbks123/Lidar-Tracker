@@ -55,10 +55,11 @@ class MOT():
             Td_map,Int_map = Frame
             aggregated_maps.append(Td_map)
         aggregated_maps = np.array(aggregated_maps)
-        thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, d = self.d, bck_n = self.bck_n )
-        self.thred_map = thred_map
-        self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
-        print('Initialization Done')
+        if len(aggregated_maps.shape) == 3:
+            thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, d = self.d, bck_n = self.bck_n )
+            self.thred_map = thred_map
+            self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
+            print('Initialization Done')
 
     def mot_tracking(self): 
 
@@ -318,7 +319,7 @@ if __name__ == "__main__":
 
 
     output_file_path = r'D:/Test'
-    input_file_path = r'D:\LiDAR_Data\ASWS\Thomas\2022-04-06-15-11-07.pcap'
+    input_file_path = r'D:\LiDAR_Data\TexasMedian.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()

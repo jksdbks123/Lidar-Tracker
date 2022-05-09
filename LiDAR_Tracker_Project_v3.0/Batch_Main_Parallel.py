@@ -11,9 +11,10 @@ import time
 
 def run_mot(mot,ref_LLH,ref_xyz):
         mot.initialization()
-        mot.mot_tracking()
-        save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.missing_thred)
-        print(mot.traj_path)
+        if mot.thred_map is not None:
+            mot.mot_tracking()
+            save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.missing_thred)
+            print(mot.traj_path)
 
 if __name__ == "__main__":
 
