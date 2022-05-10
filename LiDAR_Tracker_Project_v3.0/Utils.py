@@ -499,17 +499,17 @@ def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path,missing_thred):
             keys.append(key)
             start_frame.append(Off_tracking_pool[key].start_frame)   
             lengths.append(len(sum_file))   
+        if len(sums) != 0:
+            sums = pd.concat(sums)
+            app_dfs = pd.concat(app_dfs)
+            sums = sums.reset_index(drop=True).astype('float64')
+            app_dfs = app_dfs.reset_index(drop=True).astype('float64')
 
-        sums = pd.concat(sums)
-        app_dfs = pd.concat(app_dfs)
-        sums = sums.reset_index(drop=True).astype('float64')
-        app_dfs = app_dfs.reset_index(drop=True).astype('float64')
-
-        classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))
-        X_test = np.array(app_dfs.loc[:,['Point_Cnt','Height','Max_Length','Area']])
-        pred = classifier.predict(X_test)
-        sums = pd.concat([sums,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
-        sums.to_csv(f_path,index = False)
+            classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))
+            X_test = np.array(app_dfs.loc[:,['Point_Cnt','Height','Max_Length','Area']])
+            pred = classifier.predict(X_test)
+            sums = pd.concat([sums,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
+            sums.to_csv(f_path,index = False)
 
 
 a = 6378137
