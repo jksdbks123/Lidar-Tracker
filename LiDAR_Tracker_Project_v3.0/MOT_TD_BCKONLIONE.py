@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 
 class MOT():
-    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,N = 10,d_thred = 0.1,d = 0.17,bck_n = 3,bck_radius = 0.5,missing_thred = 10
+    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,N = 10,d_thred = 0.08,bck_n = 3,missing_thred = 10,bck_radius = 0.9
                  ,if_vis = False,if_save_pcd = False ):
         """
         background_update_time : background update time (sec)
@@ -23,7 +23,6 @@ class MOT():
         self.eps = eps 
         self.min_samples = min_samples
         self.bck_update_frame = bck_update_frame
-        self.d = d
         self.d_thred = d_thred 
         self.N = N
         self.bck_n = bck_n
@@ -56,7 +55,7 @@ class MOT():
             aggregated_maps.append(Td_map)
         aggregated_maps = np.array(aggregated_maps)
         if len(aggregated_maps.shape) == 3:
-            thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, d = self.d, bck_n = self.bck_n )
+            thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n )
             self.thred_map = thred_map
             self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
             print('Initialization Done')
@@ -123,7 +122,7 @@ class MOT():
             aggregated_maps.append(Td_map)
             if Frame_ind%self.bck_update_frame == 0:
                 aggregated_maps = np.array(aggregated_maps)
-                self.thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, d = self.d, bck_n = self.bck_n )
+                self.thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n )
                 aggregated_maps = []
 
             time_b = time.time()
@@ -156,7 +155,6 @@ class MOT():
             if len(glb_ids) >0:
                 # merging included
                 
-
                 state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur)
 
                 if len(unique_label_next) > 0:
@@ -307,19 +305,18 @@ if __name__ == "__main__":
                 "win_size": [7, 13], 
                 "eps": 1.5,
                 "min_samples": 5,
-                "bck_update_frame":2000,
+                "bck_update_frame":18000,
                 "N":20,
-                "d_thred":0.1,
-                "d":0.2,
+                "d_thred":0.056,
                 "bck_n" : 3,
-                "bck_radius":0.5,
+                "bck_radius":0.9,
                 "missing_thred":10,
                 "if_save_pcd" : False,
                 "if_vis" : True}
 
 
     output_file_path = r'D:/Test'
-    input_file_path = r'D:\LiDAR_Data\TexasMedian.pcap'
+    input_file_path = r'D:\Test\2022-05-21-17-00-00.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
