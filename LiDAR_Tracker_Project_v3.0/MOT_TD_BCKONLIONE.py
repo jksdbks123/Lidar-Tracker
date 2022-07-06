@@ -55,7 +55,7 @@ class MOT():
             aggregated_maps.append(Td_map)
         aggregated_maps = np.array(aggregated_maps)
         if len(aggregated_maps.shape) == 3:
-            thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n )
+            thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n)
             self.thred_map = thred_map
             self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
             print('Initialization Done')
