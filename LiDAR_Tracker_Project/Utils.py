@@ -126,6 +126,7 @@ def count(TSAv):
     counts = np.array(counts)
     counts = counts[counts > 0]
     return np.array(counts), np.array(apear_ind)
+    
 def if_bck(rows,cols,Td_map,Plane_model):
     # check if an object is background
     # car: 2.6m 

@@ -590,3 +590,9 @@ def get_thred(temp,N = 10,d_thred = 0.1,bck_n = 3):
         bck_ds_ = np.concatenate([bck_ds_,-1 * np.ones(bck_n - len(bck_ds_))])
     return bck_ds_
 
+def gen_bckmap(aggregated_maps, N, d_thred, bck_n):
+    thred_map = np.zeros((3,32,1800))
+    for i in range(thred_map.shape[1]):
+        for j in range(thred_map.shape[2]):
+            thred_map[:,i,j] = get_thred(aggregated_maps[:,i,j],N = N,d_thred = d_thred,bck_n = bck_n)
+    return thred_map

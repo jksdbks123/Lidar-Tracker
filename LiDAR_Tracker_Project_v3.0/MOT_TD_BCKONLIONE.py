@@ -305,7 +305,7 @@ if __name__ == "__main__":
                 "win_size": [7, 13], 
                 "eps": 1.5,
                 "min_samples": 5,
-                "bck_update_frame":18000,
+                "bck_update_frame":2000,
                 "N":20,
                 "d_thred":0.056,
                 "bck_n" : 3,
@@ -315,8 +315,8 @@ if __name__ == "__main__":
                 "if_vis" : True}
 
 
-    output_file_path = r'D:/Test'
-    input_file_path = r'D:\Test\2022-05-21-17-00-00.pcap'
+    output_file_path = r'D:\LiDAR_Data\MidTown\Martin'
+    input_file_path = r'D:\LiDAR_Data\MidTown\Martin\2022-1-20-11-25-37R.pcap'
     mot = MOT(input_file_path,output_file_path,**params)
     mot.initialization()
     mot.mot_tracking()
