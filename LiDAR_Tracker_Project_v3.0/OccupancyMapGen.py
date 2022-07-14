@@ -1,6 +1,5 @@
 import argparse
 from ast import arg
-from pyrsistent import T
 from Utils import *
 import pandas as pd
 import os
@@ -24,7 +23,7 @@ def gen_xyz(dis,i,j):
 db = Raster_DBSCAN(window_size=[5,13],eps = 1.5,min_samples = 12,Td_map_szie = [32,1800])
 dbscan = DBSCAN(eps = 1, min_samples = 20)
 
-def gen_occ_map(pcap_path,T,out_path):
+def gen_occ_map(pcap_path,out_path,T):
     aggregated_map = []
     # pcap_path = r'D:\LiDAR_Data\ASWS\MtRose\Thomas_asws2nd\2022-04-07-04-30-31.pcap'
     end_frame = 18000
@@ -117,7 +116,7 @@ if __name__ == "__main__":
         ref_LLH[:,2] += offset * 3.2808
     ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
     ref_LLH[:,2] = ref_LLH[:,2]/3.2808
-
+    T = generate_T(ref_LLH,ref_xyz)
     out_paths = []
     for i,p in enumerate(pcap_paths):
         f_name = pcap_names[i].split('.')[0] + '.csv'
