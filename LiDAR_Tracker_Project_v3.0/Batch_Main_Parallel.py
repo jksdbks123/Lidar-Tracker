@@ -54,7 +54,7 @@ if __name__ == "__main__":
         np.random.seed(1)
         offset = np.random.normal(-0.521,3.28,len(ref_LLH))
         ref_xyz[:,2] += offset
-        ref_LLH[:,2] += offset
+        ref_LLH[:,2] += offset * 3.2808
     ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
     ref_LLH[:,2] = ref_LLH[:,2]/3.2808
     
