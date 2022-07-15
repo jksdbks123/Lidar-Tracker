@@ -15,7 +15,6 @@ from Utils import *
 
 def gen_agg_map(pcap_path,out_path):
     aggregated_map = []
-    # pcap_path = r'D:\LiDAR_Data\ASWS\MtRose\Thomas_asws2nd\2022-04-07-04-30-31.pcap'
     end_frame = 18000
     lidar_reader = TDmapLoader(pcap_path)
     frame_gen = lidar_reader.frame_gen()
