@@ -40,7 +40,7 @@ if __name__ == "__main__":
     input_path = args.input
     dir_lis = os.listdir(input_path)
     output_file_path = args.output
-    output_traj_path = os.path.join(output_file_path,'Trajectories')
+    output_traj_path = os.path.join(output_file_path,'Result')
     if not os.path.exists(output_traj_path):
         os.mkdir(output_traj_path)
     traj_list = os.listdir(output_traj_path)
