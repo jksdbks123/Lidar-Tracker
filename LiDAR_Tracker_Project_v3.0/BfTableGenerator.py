@@ -145,7 +145,7 @@ class TDmapLoader():
                 try:
                     ts,buf = next(self.lidar_reader)
                     eth = dpkt.ethernet.Ethernet(buf)
-                except (StopIteration,dpkt.NeedData) as e1:
+                except:
                     yield None
                         
                 if eth.type == 2048: # for ipv4
@@ -168,7 +168,7 @@ class TDmapLoader():
                 try:
                     ts,buf = next(self.lidar_reader)
                     eth = dpkt.ethernet.Ethernet(buf)
-                except (StopIteration,dpkt.NeedData) as e1:
+                except:
                     yield None
                 
                 if eth.type == 2048:
