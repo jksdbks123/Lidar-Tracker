@@ -1,4 +1,5 @@
 from multiprocessing.spawn import import_main_path
+from sqlite3 import Timestamp
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import dpkt
@@ -27,6 +28,7 @@ class TDmapLoader():
         self.omega = self.Data_order[:,0]
         self.arg_omega = np.argsort(self.omega)
         self.lidar_reader = 0
+        self.end_time = 0
         self.file_path = file_path
         self.load_reader()
         
@@ -105,7 +107,7 @@ class TDmapLoader():
     def parse_one_packet(self,data):
         data = np.frombuffer(data, dtype=np.uint8).astype(np.uint32)
         blocks = data[0:1200].reshape(12, 100)
-        # Timestamp = self.read_uint32(data[1200:1204],0)
+        Timestamp = self.read_uint32(data[1200:1204],0)
         distances = []#12*32
         intensities = []#12*32
         azimuth_per_block = [] #(12,0)
@@ -120,27 +122,26 @@ class TDmapLoader():
         distances = 4/1000*np.array(distances).T # 32,12
         intensities = np.array(intensities).T # 32,12
 
-        return distances,intensities, azimuth_per_block # 12*0
+        return distances,intensities, azimuth_per_block, Timestamp # 12*0
  
     
 
-    def cal_angle_diff(self,advance_angle,lagging_angle):
-        if advance_angle < lagging_angle:
-            return advance_angle + 360 - lagging_angle
-        else:
-            return advance_angle - lagging_angle
+    # def cal_angle_diff(self,advance_angle,lagging_angle):
+    #     if advance_angle < lagging_angle:
+    #         return advance_angle + 360 - lagging_angle
+    #     else:
+    #         return advance_angle - lagging_angle
     
     def frame_gen(self):
 
         while True:
-            culmulative_azimuth = 0
             culmulative_azimuth_values = []
             culmulative_laser_ids = []
             culmulative_distances = []
             culmulative_intensities = []
             Td_map = np.zeros((32,1800))
             Intens_map = np.zeros((32,1800))
-
+            blk_num = 0
             while True:
                 try:
                     ts,buf = next(self.lidar_reader)
@@ -153,11 +154,18 @@ class TDmapLoader():
                         data = eth.data.data.data
                         packet_status = eth.data.data.sport
                         if packet_status == 2368:
+                            blk_num += 1
                             if len(data) != 1206:
                                 continue
-                            distances,intensities,azimuth_per_block = self.parse_one_packet(data)
+                            distances,intensities,azimuth_per_block,Timestamp = self.parse_one_packet(data)
+                            # self.end_time = Timestamp + 98869.248
+                            begin_azimuth = azimuth_per_block[0]
+                            if begin_azimuth > 360:
+                                begin_azimuth -= 360
+                            if begin_azimuth < 0:
+                                begin_azimuth += 360
                             azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
-                            cur_azimuth = azimuth_per_block[-1]
+                            
                             culmulative_azimuth_values.append(azimuth)
                             culmulative_laser_ids.append(self.laser_id)
                             culmulative_distances.append(distances)
@@ -176,25 +184,33 @@ class TDmapLoader():
                         data = eth.data.data.data
                         packet_status = eth.data.data.sport
                         if packet_status == 2368:
+                            blk_num += 1
                             if len(data) != 1206:
-                                culmulative_azimuth += diff 
+                                
                                 continue
                             """
                             distances : (32,12)
                             intensities : (32,12)
                             azimuth_per_block : (12,0)
                             """
-                            distances,intensities,azimuth_per_block = self.parse_one_packet(data)
+                            distances,intensities,azimuth_per_block,Timestamp = self.parse_one_packet(data)
+                            
                             azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
                             culmulative_azimuth_values.append(azimuth)
                             culmulative_laser_ids.append(self.laser_id)
                             culmulative_distances.append(distances)
                             culmulative_intensities.append(intensities)
-                            diff = self.cal_angle_diff(azimuth_per_block[-1],cur_azimuth)
-                            cur_azimuth = azimuth_per_block[-1]
-                            culmulative_azimuth += diff 
-                            
-                            if culmulative_azimuth > 359.8: 
+                            # cur_azimuth = azimuth[-1,-1]
+                            # if cur_azimuth > 360:
+                            #     cur_azimuth -= 360
+                            # if cur_azimuth < 0:
+                            #     cur_azimuth += 360
+                            # diff = cur_azimuth - begin_azimuth
+                            # if diff < 0:
+                            #     diff = cur_azimuth + 360 - begin_azimuth 
+                                
+                            if blk_num == 150: 
+                                
                                 # print(len(culmulative_azimuth_values))
                                 culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
                                 culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
@@ -207,9 +223,8 @@ class TDmapLoader():
                                 
                                 Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                                 Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
-                                # cur_azimuth = azimuth_per_block[-1]
-                                # sys.stdout.write('\rProcessing Time: {} ms'.format(round((time.time() - a) * 1000,2)))
-                                # sys.stdout.flush()
+
+                                # begin_azimuth = azimuth_per_block[-1]
                                 
                                 yield Td_map[self.arg_omega,:],Intens_map[self.arg_omega,:] #32*1800
                                 break

@@ -11,6 +11,57 @@ from sklearn.cluster import DBSCAN
 from VisulizerTools import *
 from Utils import *
 
+def count(TSAv):
+    temp_count = 0
+    apear_ind = []
+    counts = []
+    for i in range(len(TSAv)):
+        if (TSAv[i] == True):
+            temp_count += 1
+        else:
+            if (i > 0) & (TSAv[i - 1] == True):
+                apear_ind.append(i - temp_count)
+                counts.append(temp_count)
+                temp_count = 0
+                counts.append(0)
+            else:
+                counts.append(0)
+        if (i == len(TSAv) - 1) & (temp_count != 0):
+            apear_ind.append(i - temp_count + 1)
+            counts.append(temp_count)
+    counts = np.array(counts)
+    counts = counts[counts > 0]
+    return np.array(counts), np.array(apear_ind)
+
+def get_parking(temp,N = 20,d_thred = 0.15,bck_n = 6):
+    temp = temp.copy()
+    total_sample = len(temp)
+    temp = temp[temp > 0]
+    bck_ds = []
+    bck_portions = []
+    repeat = 0
+    while repeat < N:
+        if len(temp) == 0:
+            break
+        sample = np.random.choice(temp,replace=False)
+        
+        ind = np.abs(temp - sample) < 0.4
+        portion = ind.sum()/total_sample
+        if portion > d_thred:
+            bck_portions.append(portion)
+            bck_ds.append(sample)
+            temp = temp[~ind]
+        repeat += 1
+        
+    bck_ds = np.array(bck_ds)
+    bck_portions = np.array(bck_portions)
+    arg_ind = np.argsort(bck_portions)[::-1]
+    bck_ds_ = bck_ds[arg_ind[:bck_n]]
+    
+    if len(bck_ds_) <= bck_n:
+        bck_ds_ = np.concatenate([bck_ds_,-1 * np.ones(bck_n - len(bck_ds_))])
+    return bck_ds_
+
 def gen_xyz(dis,i,j):
     longitudes = theta[i]*np.pi / 180
     latitudes = azimuths[j] * np.pi / 180 
@@ -23,7 +74,7 @@ def gen_xyz(dis,i,j):
 db = Raster_DBSCAN(window_size=[5,13],eps = 1.5,min_samples = 12,Td_map_szie = [32,1800])
 dbscan = DBSCAN(eps = 1, min_samples = 20)
 
-def gen_occ_map(pcap_path,out_path,T):
+def gen_occ_map(pcap_path,out_path,thred_map,T):
     aggregated_map = []
     # pcap_path = r'D:\LiDAR_Data\ASWS\MtRose\Thomas_asws2nd\2022-04-07-04-30-31.pcap'
     end_frame = 18000
@@ -36,48 +87,72 @@ def gen_occ_map(pcap_path,out_path,T):
         Td_map,Int_map = Frame
         aggregated_map.append(Td_map)
     aggregated_map = np.array(aggregated_map)
-    thred_map = gen_bckmap(aggregated_map, N = 10,d_thred = 0.08,bck_n = 3 )
-    aggregated_Labeling_map = []
-    for i in range(aggregated_map.shape[0]):
-        Td_map = aggregated_map[i]
-        Foreground_map = ~(np.abs(Td_map - thred_map) <= 1.5).any(axis = 0)
-        Labeling_map = db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-        aggregated_Labeling_map.append(Labeling_map)
-    aggregated_Labeling_map = np.array(aggregated_Labeling_map)
-    points = []
-    occupancies = []
-    row_ind = []
-    col_ind = []
-    for i in range(32):
-        for j in range(1800):
-            foreground_ind = aggregated_Labeling_map[:,i,j] != -1
-            if foreground_ind.any(): # foreground
-                
-                dis_values = aggregated_map[foreground_ind,i,j]
-                labels = dbscan.fit_predict(dis_values.reshape(-1,1))
-                unique_labels = np.unique(labels)
-                unique_labels = unique_labels[1:]
-                if len(unique_labels) >= 1: 
-                    for l in unique_labels:
-                        dis = np.mean(dis_values[labels == l])
-                        XYZ = gen_xyz(dis,i,j)
-                        points.append(XYZ)
-                        occupancy = (labels == l).sum()/len(foreground_ind)
-                        occupancies.append(occupancy)
-                        row_ind.append(i)
-                        col_ind.append(j)
-    points = np.array(points)
-    occupancies = np.array(occupancies)
-    col_ind = np.array(col_ind)
-    row_ind = np.array(row_ind)
-    pcd = get_pcd_uncolored(aggregated_map[2])
-    plane_model, inliers = pcd.segment_plane(distance_threshold=0.3,
-                                            ransac_n=10,
-                                            num_iterations=1000)
-    height = np.abs(plane_model[0] * points[:,0] + plane_model[1] * points[:,1] + plane_model[2] * points[:,2] + plane_model[3]) / (np.sqrt(plane_model[0]**2 + plane_model[1]**2 +plane_model[2]**2))
-    LLH = convert_LLH(points.astype(np.float64),T)
-    resultGram = pd.DataFrame(np.concatenate([points,LLH,occupancies.reshape(-1,1),height.reshape(-1,1),row_ind.reshape(-1,1),col_ind.reshape(-1,1)],axis =1 ),columns=['X','Y','Z','Longitude','Latitude','Elevation','Occupancy','Height','LaserID','AzimuthID'])
-    resultGram.to_csv(out_path,index = False)
+    Parking_coord = np.array([[15,496],[11,537],[14,564]])
+    for pc_i,pc in enumerate(Parking_coord):
+        row_ind,col_ind = [],[]
+        occupancies = []
+        starts = []
+        ends = []
+        points = []
+        laser_id = pc[0]
+        azimuth_id = pc[1]
+
+        temp = aggregated_map[:,laser_id,azimuth_id].copy()
+        thred = thred_map[:,laser_id,azimuth_id]
+        thred_max = thred.max()
+        bck_inds = ((np.abs((temp - thred_max)) < 2))
+        temp[bck_inds] = 0
+        time_window = 600
+        parking_label  = []
+        for i in range(time_window,len(temp)):
+            past_dis = temp[i - time_window:i]
+            past_dis = past_dis[past_dis!=0]
+            if len(past_dis) == 0:
+                parking_label.append(False)
+            else:
+                if np.abs(temp[i] - np.median(past_dis)) < 0.6:
+                    parking_label.append(True)
+                else:
+                    parking_label.append(False)
+        parking_label = time_window*[parking_label[0]] + parking_label
+        parking_label = np.array(parking_label)
+        counts,appears = count(~parking_label)
+        for i,a in enumerate(appears):
+            c = counts[i]
+            if c < time_window:
+                parking_label[a:a+c+1] = True
+        counts,appears = count(parking_label)
+        for i,a in enumerate(appears):
+            c = counts[i]
+            if c < time_window:
+                parking_label[a:a+c+1] = False
+        counts,appears = count(parking_label) 
+
+        for l,a in enumerate(appears):
+            parking_dis = temp[a:a+counts[l]]
+            parking_dis = parking_dis[parking_dis!=0]
+            dis =  np.median(parking_dis)
+            XYZ = gen_xyz(dis,i,j)
+            points.append(XYZ)
+            occupancy = counts[l]
+            occupancies.append(occupancy)
+            row_ind.append(i)
+            col_ind.append(j)
+            starts.append(a)
+            ends.append(a + counts[l])
+
+        points = np.array(points)
+        occupancies = np.array(occupancies)
+        col_ind = np.array(col_ind)
+        row_ind = np.array(row_ind)
+        starts = np.array(starts)
+        ends = np.array(ends)
+        
+        LLH = convert_LLH(points.astype(np.float64),T)
+        resultGram = pd.DataFrame(np.concatenate([points,LLH,occupancies.reshape(-1,1),starts.reshape(-1,1),ends.reshape(-1,1),row_ind.reshape(-1,1),col_ind.reshape(-1,1)],axis =1 ),columns=['X','Y','Z','Longitude','Latitude','Elevation','Occupancy','Starts','Ends','LaserID','AzimuthID'])
+        out_path = out_path + '_{}'.format(pc_i) + '.csv'
+        resultGram.to_csv(out_path,index = False)
+
 
 
 if __name__ == "__main__":
@@ -89,6 +164,8 @@ if __name__ == "__main__":
 
     input_path = args.input
     calibration_path = os.path.join(input_path,'Calibration')
+    thred_map = np.load(os.path.join(calibration_path,'bck_larue.npy'))
+
     dir_lis = os.listdir(input_path)
     output_file_path = args.output
     output_traj_path = os.path.join(output_file_path,'Trajectories')
@@ -119,7 +196,7 @@ if __name__ == "__main__":
     T = generate_T(ref_LLH,ref_xyz)
     out_paths = []
     for i,p in enumerate(pcap_paths):
-        f_name = pcap_names[i].split('.')[0] + '.csv'
+        f_name = pcap_names[i].split('.')[0] 
         if f_name in traj_list:
             continue
         out_path = os.path.join(output_traj_path, f_name)
@@ -128,4 +205,4 @@ if __name__ == "__main__":
 
     n_cpu = args.n_cpu
     print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
-    p_umap(partial(gen_occ_map,T = T), pcap_paths,out_paths,num_cpus = n_cpu)
+    p_umap(partial(gen_occ_map,thred_map = thred_map,T = T), pcap_paths,out_paths,num_cpus = n_cpu)
