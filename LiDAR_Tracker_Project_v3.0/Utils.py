@@ -26,6 +26,7 @@ class detected_obj():
         self.post_seq = []
         self.app_seq = []
         self.P_seq = []
+        self.pred_state = [] # 0 : measured, 1: pred, 
         self.P = None
         self.missing_count = 0
         
@@ -310,6 +311,7 @@ def create_new_detection(Tracking_pool,Global_id,state_init,app_init,label_init,
     new_detection.state = state_init
     new_detection.apperance = app_init
     new_detection.P = P
+    new_detection.pred_state.append(0)
     new_detection.label_seq.append(label_init)
     new_detection.start_frame = start_frame
     new_detection.mea_seq.append(mea_init)
@@ -330,7 +332,7 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
             print(Off_tracking_pool[glb_id].missing_count) 
     else:
         Tracking_pool[glb_id].state = state_cur_
-        # Tracking_pool[glb_id].P = P_cur_
+        Tracking_pool[glb_id].pred_state.append(1)
         Tracking_pool[glb_id].P_seq.append(Tracking_pool[glb_id].P)
         Tracking_pool[glb_id].label_seq.append(-1)
         Tracking_pool[glb_id].mea_seq.append(-1)
@@ -342,6 +344,7 @@ def associate_detections(Tracking_pool,glb_id,state,app,P_post,next_label,mea_ne
     
     Tracking_pool[glb_id].state = state
     Tracking_pool[glb_id].apperance = app
+    Tracking_pool[glb_id].pred_state.append(0)
     Tracking_pool[glb_id].label_seq.append(next_label)
     Tracking_pool[glb_id].mea_seq.append(mea_next)
     Tracking_pool[glb_id].post_seq.append(state)
@@ -436,16 +439,17 @@ def convert_LLH(xyz,T):
     return LLH
 
 app_col_names = ['Point_Cnt','Dir_X_Bbox','Dir_Y_Bbox','Height','Length','Width','Area','Dis']
-column_names_TR_2o = ['ObjectID','FrameIndex','Coord_X','Coord_Y','Coord_Z','Speed_X','Speed_Y','Speed','Longitude','Latitude','Elevation']
+column_names_TR_2o = ['ObjectID','FrameIndex','PredInd','Coord_X','Coord_Y','Coord_Z','Speed_X','Speed_Y','Speed','Longitude','Latitude','Elevation']
 
-def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,T,missing_thred):
+def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,pred_state,T,start_ts,time_zone2utc):
+    
     temp = np.array(post_seq)
-    temp = temp[:-missing_thred]
+    # temp = temp[:-missing_thred]
     temp = temp.reshape((temp.shape[0],temp.shape[1],temp.shape[2]))
     # n x 2 x 6
     temp_xy = temp[:,:,:2]
     # n x 2 x 2
-#     dis_est = np.sqrt((temp_xy[:,:,0]**2 + temp_xy[:,:,1]**2))
+    #     dis_est = np.sqrt((temp_xy[:,:,0]**2 + temp_xy[:,:,1]**2))
     # n x 2 
     speed_xy = temp[:,:,2:4] * 10 
     # n x 2 x 2
@@ -457,18 +461,23 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,T,missing_thred):
     LLH_est = convert_LLH(xyz,T)
     est = np.concatenate([xyz_0,speed_xy[:,0],speed[:,0].reshape(-1,1),LLH_est],axis = 1)
     # x,y,z,d,s_x,s_y,s,L,L,H
-    timestp = []
+    frame_ind = []
+    timestamps = []
     for i in range(len(temp)):
-        f = i + start_frame + 1
-        timestp.append('%06.0f'%f)
-    timestp = np.array(timestp).reshape(-1,1)
+        f = i + start_frame
+        frame_ind.append('%06.0f'%f)
+        timestamps.append(start_ts + i*0.1)
+    frame_ind = np.array(frame_ind).reshape(-1,1)
+    timestamps = pd.to_datetime(timestamps,unit='s')
+    timestamps = timestamps + pd.Timedelta(time_zone2utc, unit = 'hour')
     objid = (np.ones(len(temp)) * key).astype(int).reshape(-1,1)
-    summary = np.concatenate([objid,timestp,est],axis = 1)
+    pred_state = np.array(pred_state).reshape(-1,1)
+    summary = np.concatenate([objid,frame_ind,pred_state,est],axis = 1)
     # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
     summary = pd.DataFrame(summary,columns = column_names_TR_2o)
-    app_seq = np.array(app_seq)[:-missing_thred]
+    summary.insert(0,'Timestamp',timestamps)
+    app_seq = np.array(app_seq)
     app_seq = app_seq.reshape(-1,len(app_col_names))
-
     app_df = pd.DataFrame(app_seq,columns = app_col_names)
 
     max_length = np.percentile(np.array(app_df.Length), 80)
@@ -477,7 +486,7 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,T,missing_thred):
     return summary,app_df
 
 
-def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path,missing_thred):
+def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path,start_ts,time_zone2utc):
 
     if len(Off_tracking_pool) == 0:
         print('No Trajs Here')
@@ -490,19 +499,19 @@ def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path,missing_thred):
         start_frame = []
         lengths = []
         for key in Off_tracking_pool: 
-            if len(Off_tracking_pool[key].post_seq) < (10 + missing_thred):
-                continue
+            
             sum_file,app_df = get_summary_file_TR(Off_tracking_pool[key].post_seq,
-                                        key,Off_tracking_pool[key].start_frame,Off_tracking_pool[key].app_seq,Off_tracking_pool[key].P_seq,T,missing_thred) 
+                                        key,Off_tracking_pool[key].start_frame,Off_tracking_pool[key].app_seq,Off_tracking_pool[key].P_seq,Off_tracking_pool[key].pred_state,T,start_ts,time_zone2utc) 
             sums.append(sum_file)
             app_dfs.append(app_df)
             keys.append(key)
             start_frame.append(Off_tracking_pool[key].start_frame)   
             lengths.append(len(sum_file))   
+        
         if len(sums) != 0:
             sums = pd.concat(sums)
             app_dfs = pd.concat(app_dfs)
-            sums = sums.reset_index(drop=True).astype('float64')
+            sums = sums.reset_index(drop=True)
             app_dfs = app_dfs.reset_index(drop=True).astype('float64')
 
             classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))

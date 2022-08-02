@@ -9,11 +9,11 @@ from p_tqdm import p_umap
 from functools import partial
 import time
 
-def run_mot(mot,ref_LLH,ref_xyz):
+def run_mot(mot,ref_LLH,ref_xyz,utc_diff):
         mot.initialization()
         if mot.thred_map is not None:
             mot.mot_tracking()
-            save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.missing_thred)
+            save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.start_timestamp, utc_diff)
             print(mot.traj_path)
 
 if __name__ == "__main__":
@@ -23,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument('-i','--input', help='path to the folder contains .pcap files and Calibration folder', required=True)
     parser.add_argument('-o','--output', help='specified output path', required=True)
     parser.add_argument('-c','--n_cpu', help='specified CPU number', default = 20 , required=False, type=int)
+    parser.add_argument('-d','--utcd', help='Time zone difference to UTC', default = -8 , required=False, type=int)
     parser.add_argument('-t','--timer', help='Timer (hour)', default = 0 , required=False, type=int)
     args = parser.parse_args()
     timer = args.timer
@@ -46,7 +47,7 @@ if __name__ == "__main__":
 
     if len(pcap_paths) == 0:
         print('Pcap file is not detected')
-
+    utc_diff = args.utcd
     config_path = os.path.join(calibration_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(calibration_path,'LLE_ref.csv'),os.path.join(calibration_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
@@ -72,5 +73,5 @@ if __name__ == "__main__":
             
         n_cpu = args.n_cpu
         print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
-        p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz), mots,num_cpus = n_cpu)
+        p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
 

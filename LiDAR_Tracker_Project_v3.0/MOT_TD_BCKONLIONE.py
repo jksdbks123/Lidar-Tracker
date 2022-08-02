@@ -30,7 +30,8 @@ class MOT():
         self.db = None
 
         ###
-        self.thred_map = None         
+        self.thred_map = None     
+        self.start_timestamp = 0    
         ###
         self.Tracking_pool = {}
         self.Off_tracking_pool = {}
@@ -44,8 +45,26 @@ class MOT():
 
         
     def initialization(self):    
+        # record start unix timestamp 
+        fpcap = open(self.input_file_path, 'rb')
+        lidar_reader = dpkt.pcap.Reader(fpcap)
+        while True:
+            try:
+                ts,buf = next(lidar_reader)
+                eth = dpkt.ethernet.Ethernet(buf)
+            except:
+                yield None
+            if eth.type == 2048: # for ipv4
+                if type(eth.data.data) == dpkt.udp.UDP:
+                    data = eth.data.data.data
+                    packet_status = eth.data.data.sport
+                    if packet_status == 2368:
+                        if len(data) != 1206:
+                            self.start_timestamp = ts
+                            break
         
         aggregated_maps = []
+        
         frame_gen = TDmapLoader(self.input_file_path).frame_gen()
         for i in tqdm(range(self.bck_update_frame)):
             Frame = next(frame_gen)
@@ -254,13 +273,12 @@ class MOT():
         release_ids = [glb_id for glb_id in self.Tracking_pool.keys()]
         for r_id in release_ids:
             self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)
-        """
                 
         file_name = '{}.pickle'.format('test_kal_td') 
         traj_pickle_path = os.path.join('D:\Test',file_name)
         with open(traj_pickle_path, 'wb') as handle:
             pickle.dump(self.Off_tracking_pool, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        """
+
 
             
     def cur_pcd(self,Td_map,Labeling_map,Tracking_pool):
