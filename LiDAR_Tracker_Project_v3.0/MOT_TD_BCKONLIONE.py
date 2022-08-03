@@ -46,25 +46,23 @@ class MOT():
         
     def initialization(self):    
         # record start unix timestamp 
-        fpcap = open(self.input_file_path, 'rb')
-        lidar_reader = dpkt.pcap.Reader(fpcap)
-        while True:
-            try:
-                ts,buf = next(lidar_reader)
-                eth = dpkt.ethernet.Ethernet(buf)
-            except:
-                yield None
-            if eth.type == 2048: # for ipv4
-                if type(eth.data.data) == dpkt.udp.UDP:
-                    data = eth.data.data.data
-                    packet_status = eth.data.data.sport
-                    if packet_status == 2368:
-                        if len(data) != 1206:
-                            self.start_timestamp = ts
-                            break
-        
+        with open(self.input_file_path, 'rb') as fpcap:
+            lidar_reader = dpkt.pcap.Reader(fpcap)
+            while True:
+                try:
+                    ts,buf = next(lidar_reader)
+                    eth = dpkt.ethernet.Ethernet(buf)
+                except:
+                    break
+                if eth.type == 2048: # for ipv4
+                    if type(eth.data.data) == dpkt.udp.UDP:
+                        data = eth.data.data.data
+                        packet_status = eth.data.data.sport
+                        if packet_status == 2368:
+                            if len(data) != 1206:
+                                self.start_timestamp = ts
+                                break
         aggregated_maps = []
-        
         frame_gen = TDmapLoader(self.input_file_path).frame_gen()
         for i in tqdm(range(self.bck_update_frame)):
             Frame = next(frame_gen)

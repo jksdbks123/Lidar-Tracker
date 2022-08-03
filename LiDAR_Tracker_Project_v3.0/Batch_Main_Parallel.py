@@ -10,11 +10,11 @@ from functools import partial
 import time
 
 def run_mot(mot,ref_LLH,ref_xyz,utc_diff):
-        mot.initialization()
-        if mot.thred_map is not None:
-            mot.mot_tracking()
-            save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.start_timestamp, utc_diff)
-            print(mot.traj_path)
+    mot.initialization()
+    if mot.thred_map is not None:
+        mot.mot_tracking()
+        save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.start_timestamp, utc_diff)
+        print(mot.traj_path)
 
 if __name__ == "__main__":
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     if len(pcap_paths) == 0:
         print('Pcap file is not detected')
-    utc_diff = args.utcd
+    utc_diff = eval(args.utcd)
     config_path = os.path.join(calibration_path,'config.json')
     ref_LLH_path,ref_xyz_path = os.path.join(calibration_path,'LLE_ref.csv'),os.path.join(calibration_path,'xyz_ref.csv')
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
