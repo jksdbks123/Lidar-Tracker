@@ -23,7 +23,7 @@ if __name__ == "__main__":
     parser.add_argument('-i','--input', help='path to the folder contains .pcap files and Calibration folder', required=True)
     parser.add_argument('-o','--output', help='specified output path', required=True)
     parser.add_argument('-c','--n_cpu', help='specified CPU number', default = 20 , required=False, type=int)
-    parser.add_argument('-d','--utcd', help='Time zone difference to UTC', default = -8 , required=False, type=int)
+    parser.add_argument('-d','--utcd', help='Time zone difference to UTC', default = "-8" , required=False, type=int)
     parser.add_argument('-t','--timer', help='Timer (hour)', default = 0 , required=False, type=int)
     args = parser.parse_args()
     timer = args.timer
