@@ -271,11 +271,13 @@ class MOT():
         release_ids = [glb_id for glb_id in self.Tracking_pool.keys()]
         for r_id in release_ids:
             self.Off_tracking_pool[r_id] = self.Tracking_pool.pop(r_id)
-                
+        """
         file_name = '{}.pickle'.format('test_kal_td') 
         traj_pickle_path = os.path.join('D:\Test',file_name)
         with open(traj_pickle_path, 'wb') as handle:
             pickle.dump(self.Off_tracking_pool, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        """        
+        
 
 
             
