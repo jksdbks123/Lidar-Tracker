@@ -51,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('-o','--output', help='specified output path', required=True)
     args = parser.parse_args()
 
-    f_path = parser.input
+    f_path = args.input
     agg_dirs = np.array(os.listdir(f_path))
     hours = [eval(f.split('-')[3]) for f in agg_dirs]
     agg_dirs = agg_dirs[np.argsort(hours)]
