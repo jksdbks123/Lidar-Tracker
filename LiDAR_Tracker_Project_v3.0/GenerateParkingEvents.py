@@ -33,35 +33,6 @@ def count(TSAv):
     counts = counts[counts > 0]
     return np.array(counts), np.array(apear_ind)
 
-def get_parking(temp,N = 20,d_thred = 0.15,bck_n = 6):
-    temp = temp.copy()
-    total_sample = len(temp)
-    temp = temp[temp > 0]
-    bck_ds = []
-    bck_portions = []
-    repeat = 0
-    while repeat < N:
-        if len(temp) == 0:
-            break
-        sample = np.random.choice(temp,replace=False)
-        
-        ind = np.abs(temp - sample) < 0.4
-        portion = ind.sum()/total_sample
-        if portion > d_thred:
-            bck_portions.append(portion)
-            bck_ds.append(sample)
-            temp = temp[~ind]
-        repeat += 1
-        
-    bck_ds = np.array(bck_ds)
-    bck_portions = np.array(bck_portions)
-    arg_ind = np.argsort(bck_portions)[::-1]
-    bck_ds_ = bck_ds[arg_ind[:bck_n]]
-    
-    if len(bck_ds_) <= bck_n:
-        bck_ds_ = np.concatenate([bck_ds_,-1 * np.ones(bck_n - len(bck_ds_))])
-    return bck_ds_
-
 def gen_xyz(dis,i,j):
     longitudes = theta[i]*np.pi / 180
     latitudes = azimuths[j] * np.pi / 180 
@@ -71,12 +42,14 @@ def gen_xyz(dis,i,j):
     Z = dis * np.sin(longitudes)
     return np.array([X,Y,Z])
 
-db = Raster_DBSCAN(window_size=[5,13],eps = 1.5,min_samples = 12,Td_map_szie = [32,1800])
-dbscan = DBSCAN(eps = 1, min_samples = 20)
+
+
+window_size = 100 # 900 frames -> 9 secs 
+sampled_inds = np.arange(0, len(18000), window_size)
+Laser_ID = np.arange(57600).reshape((32,1800))
 
 def gen_occ_map(pcap_path,out_path,thred_map,T):
     aggregated_map = []
-    # pcap_path = r'D:\LiDAR_Data\ASWS\MtRose\Thomas_asws2nd\2022-04-07-04-30-31.pcap'
     end_frame = 18000
     lidar_reader = TDmapLoader(pcap_path)
     frame_gen = lidar_reader.frame_gen()
@@ -87,72 +60,79 @@ def gen_occ_map(pcap_path,out_path,thred_map,T):
         Td_map,Int_map = Frame
         aggregated_map.append(Td_map)
     aggregated_map = np.array(aggregated_map)
-    Parking_coord = np.array([[15,496],[11,537],[14,564]])
-    for pc_i,pc in enumerate(Parking_coord):
-        row_ind,col_ind = [],[]
-        occupancies = []
-        starts = []
-        ends = []
-        points = []
-        laser_id = pc[0]
-        azimuth_id = pc[1]
 
-        temp = aggregated_map[:,laser_id,azimuth_id].copy()
-        thred = thred_map[:,laser_id,azimuth_id]
-        thred_max = thred.max()
-        bck_inds = ((np.abs((temp - thred_max)) < 2))
-        temp[bck_inds] = 0
-        time_window = 600
-        parking_label  = []
-        for i in range(time_window,len(temp)):
-            past_dis = temp[i - time_window:i]
-            past_dis = past_dis[past_dis!=0]
-            if len(past_dis) == 0:
-                parking_label.append(False)
-            else:
-                if np.abs(temp[i] - np.median(past_dis)) < 0.6:
-                    parking_label.append(True)
+    XYZs = []
+    dises = []
+    Laser_IDs = []
+    End = []
+    Start = [] 
+    for laser_id in range(aggregated_map.shape[1]):
+        for azimuth_channel in range(aggregated_map.shape[2]):
+
+            temp = aggregated_map[:,laser_id,azimuth_channel].copy()
+            bck_dis = thred_map[:,laser_id,azimuth_channel].max()
+
+            Parking_ind = []
+            Sampled_ind = []
+            for i in range(1,len(sampled_inds)):
+                cur_dis = temp[sampled_inds[i]]
+                if cur_dis == 0:
+                    Parking_ind.append(False)
                 else:
-                    parking_label.append(False)
-        parking_label = time_window*[parking_label[0]] + parking_label
-        parking_label = np.array(parking_label)
-        counts,appears = count(~parking_label)
-        for i,a in enumerate(appears):
-            c = counts[i]
-            if c < time_window:
-                parking_label[a:a+c+1] = True
-        counts,appears = count(parking_label)
-        for i,a in enumerate(appears):
-            c = counts[i]
-            if c < time_window:
-                parking_label[a:a+c+1] = False
-        counts,appears = count(parking_label) 
+                    if (bck_dis - cur_dis) > 1.5:
+                        past_dis = temp[sampled_inds[i] - window_size:sampled_inds[i]]
+                        past_dis = past_dis[past_dis != 0]
+                        if len(past_dis) == 0:
+                            Parking_ind.append(False)
+                        else:
+                            if np.abs(cur_dis - np.median(past_dis)) < 1:
+                                Parking_ind.append(True)
+                            else:
+                                Parking_ind.append(False)
+                    else:
+                        Parking_ind.append(False)
+                Sampled_ind.append(i)
 
-        for l,a in enumerate(appears):
-            parking_dis = temp[a:a+counts[l]]
-            parking_dis = parking_dis[parking_dis!=0]
-            dis =  np.median(parking_dis)
-            XYZ = gen_xyz(dis,i,j)
-            points.append(XYZ)
-            occupancy = counts[l]
-            occupancies.append(occupancy)
-            row_ind.append(i)
-            col_ind.append(j)
-            starts.append(a)
-            ends.append(a + counts[l])
+            Parking_ind = np.array([Parking_ind[0]] + Parking_ind)
+            counts,appears = count(~Parking_ind)
+            if len(counts) > 0:
+                for i,a in enumerate(appears):
+                    if counts[i] < 6: # if the parking is less than 60 sec will not be recorded
+                        Parking_ind[a: a + counts[i]] = True
+                counts,appears = count(Parking_ind)
 
-        points = np.array(points)
-        occupancies = np.array(occupancies)
-        col_ind = np.array(col_ind)
-        row_ind = np.array(row_ind)
-        starts = np.array(starts)
-        ends = np.array(ends)
-        
-        LLH = convert_LLH(points.astype(np.float64),T)
-        resultGram = pd.DataFrame(np.concatenate([points,LLH,occupancies.reshape(-1,1),starts.reshape(-1,1),ends.reshape(-1,1),row_ind.reshape(-1,1),col_ind.reshape(-1,1)],axis =1 ),columns=['X','Y','Z','Longitude','Latitude','Elevation','Occupancy','Starts','Ends','LaserID','AzimuthID'])
-        out_path = out_path + '_{}'.format(pc_i) + '.csv'
-        resultGram.to_csv(out_path,index = False)
+                for i,a in enumerate(appears):
+                    c = counts[i]
+                    dis = temp[sampled_inds[a]]
+                    Laser_IDs.append(Laser_ID[laser_id,azimuth_channel])
+                    XYZ = gen_xyz(dis,laser_id,azimuth_channel)
+                    XYZs.append(XYZ)
+                    Start.append(sampled_inds[a])
+                    End.append(sampled_inds[a + c - 1])
+    XYZs = np.array(XYZs)
+    Laser_IDs = np.array(Laser_IDs).reshape(-1,1)
+    Start = np.array(Start).reshape(-1,1)
+    End = np.array(End).reshape(-1,1)
+    LLH = convert_LLH(XYZs.astype(np.float64),T)
+    ts_arr = f_name.split('.')[0].split('-')
+    f_name = '2022-1-22-12-0-0.pcap'
+    ts_arr = f_name.split('.')[0].split('-')
+    Day = pd.Timestamp(eval(ts_arr[0]),eval(ts_arr[1]),eval(ts_arr[2]),0,0,0)
+    try:
+        sec = eval(ts_arr[5])
+    except:
+        sec = eval(ts_arr[5][:-1])
+    f_time = pd.Timestamp(eval(ts_arr[0]),eval(ts_arr[1]),eval(ts_arr[2]),eval(ts_arr[3]),eval(ts_arr[4]),sec)
+    Start_ts = f_time + pd.Series([pd.Timedelta(seconds = Start[i][0]/10) for i in range(len(Start))])
+    End_ts = f_time + pd.Series([pd.Timedelta(seconds = End[i][0]/10) for i in range(len(End))])
+    
+    Result_info = np.concatenate([Laser_IDs,LLH,XYZs,Start,End],axis = 1)
+    Result_info = pd.DataFrame(Result_info, columns = ['LaserBeamID','Lon','Lat','Elev','X','Y','Z','Start_frame','End_frame'])
+    Result_info.insert(column= 'End_ts', value = End_ts, loc = 0)
+    Result_info.insert(column= 'Start_ts', value = Start_ts, loc = 0)
 
+    out_path = out_path + '.csv'
+    Result_info.to_csv(out_path,index = False)
 
 
 if __name__ == "__main__":
