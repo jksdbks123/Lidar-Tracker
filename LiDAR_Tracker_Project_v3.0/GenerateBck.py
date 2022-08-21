@@ -125,4 +125,4 @@ if __name__ == "__main__":
         os.mkdir(output_traj_path)
     
     thred_map = gen_bckmap(aggregated_maps, N = 20,d_thred = 0.12,bck_n = 5)
-    np.save(os.path.join(output_file_path,'bck_map.npy'),thred_map)
+    np.save(os.path.join(output_traj_path,'bck_map.npy'),thred_map)
