@@ -48,7 +48,7 @@ window_size = 100 # 900 frames -> 9 secs
 sampled_inds = np.arange(0, len(18000), window_size)
 Laser_ID = np.arange(57600).reshape((32,1800))
 
-def gen_occ_map(pcap_path,out_path,thred_map,T):
+def GenParkingEvents(pcap_path,out_path,thred_map,T,pcap_name):
     aggregated_map = []
     end_frame = 18000
     lidar_reader = TDmapLoader(pcap_path)
@@ -115,9 +115,8 @@ def gen_occ_map(pcap_path,out_path,thred_map,T):
     End = np.array(End).reshape(-1,1)
     LLH = convert_LLH(XYZs.astype(np.float64),T)
     ts_arr = f_name.split('.')[0].split('-')
-    f_name = '2022-1-22-12-0-0.pcap'
+    f_name = pcap_name
     ts_arr = f_name.split('.')[0].split('-')
-    Day = pd.Timestamp(eval(ts_arr[0]),eval(ts_arr[1]),eval(ts_arr[2]),0,0,0)
     try:
         sec = eval(ts_arr[5])
     except:
@@ -136,19 +135,18 @@ def gen_occ_map(pcap_path,out_path,thred_map,T):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='This is a program generating occupancy map from .pcap files')
-    parser.add_argument('-i','--input', help='path to the folder contains .pcap files', required=True)
+    parser = argparse.ArgumentParser(description='This is a program generating Parking Events from .pcap files')
+    parser.add_argument('-i','--input', help='path to the folder contains .pcap files and Calibration folder', required=True)
     parser.add_argument('-o','--output', help='specified output path', required=True)
     parser.add_argument('-c','--n_cpu', help='specified CPU number', default = 20 , required=False, type=int)
     args = parser.parse_args()
 
     input_path = args.input
     calibration_path = os.path.join(input_path,'Calibration')
-    thred_map = np.load(os.path.join(calibration_path,'bck_larue.npy'))
-
+    thred_map = np.load(os.path.join(calibration_path,'bck_map.npy'))
     dir_lis = os.listdir(input_path)
     output_file_path = args.output
-    output_traj_path = os.path.join(output_file_path,'Trajectories')
+    output_traj_path = os.path.join(output_file_path,'Result')
     if not os.path.exists(output_traj_path):
         os.mkdir(output_traj_path)
     traj_list = os.listdir(output_traj_path)
@@ -182,7 +180,6 @@ if __name__ == "__main__":
         out_path = os.path.join(output_traj_path, f_name)
         out_paths.append(out_path)
         print(out_path)
-
     n_cpu = args.n_cpu
     print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
-    p_umap(partial(gen_occ_map,thred_map = thred_map,T = T), pcap_paths,out_paths,num_cpus = n_cpu)
+    p_umap(partial(GenParkingEvents,thred_map = thred_map,T = T), pcap_paths,out_paths,num_cpus = n_cpu)

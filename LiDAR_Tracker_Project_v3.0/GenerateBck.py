@@ -59,9 +59,14 @@ def gen_agg_map(pcap_path,out_path):
         Td_map,Int_map = Frame
         aggregated_map.append(Td_map)
     aggregated_map = np.array(aggregated_map)
-    selected_inds = np.random.choice(np.arange(len(aggregated_map)),2000)
-    selected_maps = aggregated_map[selected_inds]
-    np.save(out_path,selected_maps)
+    if len(aggregated_map) >= 2000:
+        selected_length = 2000
+    else:
+        selected_length = len(aggregated_map)
+    if selected_length != 0:
+        selected_inds = np.random.choice(np.arange(len(aggregated_map)),selected_length,replace = False)
+        selected_maps = aggregated_map[selected_inds]
+        np.save(out_path,selected_maps)
 
 
 if __name__ == "__main__":
