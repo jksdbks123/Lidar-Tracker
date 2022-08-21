@@ -114,8 +114,8 @@ def GenParkingEvents(pcap_path,out_path,thred_map,T,pcap_name):
     Start = np.array(Start).reshape(-1,1)
     End = np.array(End).reshape(-1,1)
     LLH = convert_LLH(XYZs.astype(np.float64),T)
-    ts_arr = f_name.split('.')[0].split('-')
     f_name = pcap_name
+    ts_arr = f_name.split('.')[0].split('-')
     ts_arr = f_name.split('.')[0].split('-')
     try:
         sec = eval(ts_arr[5])
