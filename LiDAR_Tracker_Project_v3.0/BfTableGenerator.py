@@ -192,38 +192,33 @@ class TDmapLoader():
                             azimuth = self.calc_precise_azimuth(azimuth_per_block) # 32 x 12
 
                             if ts > next_ts:
-                                
-                                # culmulative_azimuth_values.append(azimuth[:,:flag])
-                                # culmulative_laser_ids.append(self.laser_id[:,:flag])
-                                # culmulative_distances.append(distances[:,:flag])
-                                # culmulative_intensities.append(intensities[:,:flag])
-                                
-                                culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
-                                culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
-                                culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
-                                culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
-                                culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
-                                culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
-                                culmulative_azimuth_inds[culmulative_azimuth_inds > 1799] -= 1800
-                                culmulative_azimuth_inds[culmulative_azimuth_inds < 0 ] += 1800
-                                
-                                Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
-                                Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
+                                if len(culmulative_azimuth_values) > 0:                             
+                                    culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
+                                    culmulative_azimuth_values += self.Data_order[:,1].reshape(-1,1)
+                                    culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
+                                    culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
+                                    culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
+                                    culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
+                                    culmulative_azimuth_inds[culmulative_azimuth_inds > 1799] -= 1800
+                                    culmulative_azimuth_inds[culmulative_azimuth_inds < 0 ] += 1800
+                                    
+                                    Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
+                                    Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
 
-                                yield Td_map[self.arg_omega,:],Intens_map[self.arg_omega,:] #32*1800
+                                    yield Td_map[self.arg_omega,:],Intens_map[self.arg_omega,:] #32*1800
+                                else:
+                                    yield Td_map,Intens_map #32*1800
 
                                 culmulative_azimuth_values = []
                                 culmulative_laser_ids = []
                                 culmulative_distances = []
                                 culmulative_intensities = []
-                                # culmulative_azimuth_values.append(azimuth[:,flag:])
-                                # culmulative_laser_ids.append(self.laser_id[:,flag:])
-                                # culmulative_distances.append(distances[:,flag:])
-                                # culmulative_intensities.append(intensities[:,flag:])
+
                                 Td_map = np.zeros((32,1800))
                                 Intens_map = np.zeros((32,1800))
                                 next_ts += 0.1
                                 break
+                                
                             else:
                                 culmulative_azimuth_values.append(azimuth)
                                 culmulative_laser_ids.append(self.laser_id)

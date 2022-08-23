@@ -7,7 +7,6 @@ from p_tqdm import p_umap
 from functools import partial
 from BfTableGenerator import TDmapLoader
 from DDBSCAN import Raster_DBSCAN
-from sklearn.cluster import DBSCAN
 from VisulizerTools import *
 from Utils import *
 
@@ -45,10 +44,10 @@ def gen_xyz(dis,i,j):
 
 
 window_size = 100 # 900 frames -> 9 secs 
-sampled_inds = np.arange(0, len(18000), window_size)
+# sampled_inds = np.arange(0, 18000, window_size)
 Laser_ID = np.arange(57600).reshape((32,1800))
 
-def GenParkingEvents(pcap_path,out_path,thred_map,T,pcap_name):
+def GenParkingEvents(pcap_path,out_path,pcap_name,thred_map,T):
     aggregated_map = []
     end_frame = 18000
     lidar_reader = TDmapLoader(pcap_path)
@@ -60,78 +59,79 @@ def GenParkingEvents(pcap_path,out_path,thred_map,T,pcap_name):
         Td_map,Int_map = Frame
         aggregated_map.append(Td_map)
     aggregated_map = np.array(aggregated_map)
+    sampled_inds = np.arange(0, len(aggregated_map), window_size)
+    if len(sampled_inds) > 2:
+        
+        XYZs = []
+        Laser_IDs = []
+        End = []
+        Start = [] 
+        for laser_id in range(aggregated_map.shape[1]):
+            for azimuth_channel in range(aggregated_map.shape[2]):
 
-    XYZs = []
-    dises = []
-    Laser_IDs = []
-    End = []
-    Start = [] 
-    for laser_id in range(aggregated_map.shape[1]):
-        for azimuth_channel in range(aggregated_map.shape[2]):
+                temp = aggregated_map[:,laser_id,azimuth_channel].copy()
+                bck_dis = thred_map[:,laser_id,azimuth_channel].max()
 
-            temp = aggregated_map[:,laser_id,azimuth_channel].copy()
-            bck_dis = thred_map[:,laser_id,azimuth_channel].max()
-
-            Parking_ind = []
-            Sampled_ind = []
-            for i in range(1,len(sampled_inds)):
-                cur_dis = temp[sampled_inds[i]]
-                if cur_dis == 0:
-                    Parking_ind.append(False)
-                else:
-                    if (bck_dis - cur_dis) > 1.5:
-                        past_dis = temp[sampled_inds[i] - window_size:sampled_inds[i]]
-                        past_dis = past_dis[past_dis != 0]
-                        if len(past_dis) == 0:
-                            Parking_ind.append(False)
-                        else:
-                            if np.abs(cur_dis - np.median(past_dis)) < 1:
-                                Parking_ind.append(True)
-                            else:
-                                Parking_ind.append(False)
-                    else:
+                Parking_ind = []
+                Sampled_ind = []
+                for i in range(1,len(sampled_inds)):
+                    cur_dis = temp[sampled_inds[i]]
+                    if cur_dis == 0:
                         Parking_ind.append(False)
-                Sampled_ind.append(i)
+                    else:
+                        if (bck_dis - cur_dis) > 1.5:
+                            past_dis = temp[sampled_inds[i] - window_size:sampled_inds[i]]
+                            past_dis = past_dis[past_dis != 0]
+                            if len(past_dis) == 0:
+                                Parking_ind.append(False)
+                            else:
+                                if np.abs(cur_dis - np.median(past_dis)) < 1:
+                                    Parking_ind.append(True)
+                                else:
+                                    Parking_ind.append(False)
+                        else:
+                            Parking_ind.append(False)
+                    Sampled_ind.append(i)
+                    
+                Parking_ind = np.array([Parking_ind[0]] + Parking_ind)
+                counts,appears = count(~Parking_ind)
+                if len(counts) > 0:
+                    for i,a in enumerate(appears):
+                        if counts[i] < 6: # if the parking is less than 60 sec will not be recorded
+                            Parking_ind[a: a + counts[i]] = True
+                    counts,appears = count(Parking_ind)
 
-            Parking_ind = np.array([Parking_ind[0]] + Parking_ind)
-            counts,appears = count(~Parking_ind)
-            if len(counts) > 0:
-                for i,a in enumerate(appears):
-                    if counts[i] < 6: # if the parking is less than 60 sec will not be recorded
-                        Parking_ind[a: a + counts[i]] = True
-                counts,appears = count(Parking_ind)
+                    for i,a in enumerate(appears):
+                        c = counts[i]
+                        dis = temp[sampled_inds[a]]
+                        Laser_IDs.append(Laser_ID[laser_id,azimuth_channel])
+                        XYZ = gen_xyz(dis,laser_id,azimuth_channel)
+                        XYZs.append(XYZ)
+                        Start.append(sampled_inds[a])
+                        End.append(sampled_inds[a + c - 1])
+        XYZs = np.array(XYZs)
+        Laser_IDs = np.array(Laser_IDs).reshape(-1,1)
+        Start = np.array(Start).reshape(-1,1)
+        End = np.array(End).reshape(-1,1)
+        LLH = convert_LLH(XYZs.astype(np.float64),T)
+        f_name = pcap_name
+        ts_arr = f_name.split('.')[0].split('-')
+        ts_arr = f_name.split('.')[0].split('-')
+        try:
+            sec = eval(ts_arr[5])
+        except:
+            sec = eval(ts_arr[5][:-1])
+        f_time = pd.Timestamp(eval(ts_arr[0]),eval(ts_arr[1]),eval(ts_arr[2]),eval(ts_arr[3]),eval(ts_arr[4]),sec)
+        Start_ts = f_time + pd.Series([pd.Timedelta(seconds = Start[i][0]/10) for i in range(len(Start))])
+        End_ts = f_time + pd.Series([pd.Timedelta(seconds = End[i][0]/10) for i in range(len(End))])
+        
+        Result_info = np.concatenate([Laser_IDs,LLH,XYZs,Start,End],axis = 1)
+        Result_info = pd.DataFrame(Result_info, columns = ['LaserBeamID','Lon','Lat','Elev','X','Y','Z','Start_frame','End_frame'])
+        Result_info.insert(column= 'End_ts', value = End_ts, loc = 0)
+        Result_info.insert(column= 'Start_ts', value = Start_ts, loc = 0)
 
-                for i,a in enumerate(appears):
-                    c = counts[i]
-                    dis = temp[sampled_inds[a]]
-                    Laser_IDs.append(Laser_ID[laser_id,azimuth_channel])
-                    XYZ = gen_xyz(dis,laser_id,azimuth_channel)
-                    XYZs.append(XYZ)
-                    Start.append(sampled_inds[a])
-                    End.append(sampled_inds[a + c - 1])
-    XYZs = np.array(XYZs)
-    Laser_IDs = np.array(Laser_IDs).reshape(-1,1)
-    Start = np.array(Start).reshape(-1,1)
-    End = np.array(End).reshape(-1,1)
-    LLH = convert_LLH(XYZs.astype(np.float64),T)
-    f_name = pcap_name
-    ts_arr = f_name.split('.')[0].split('-')
-    ts_arr = f_name.split('.')[0].split('-')
-    try:
-        sec = eval(ts_arr[5])
-    except:
-        sec = eval(ts_arr[5][:-1])
-    f_time = pd.Timestamp(eval(ts_arr[0]),eval(ts_arr[1]),eval(ts_arr[2]),eval(ts_arr[3]),eval(ts_arr[4]),sec)
-    Start_ts = f_time + pd.Series([pd.Timedelta(seconds = Start[i][0]/10) for i in range(len(Start))])
-    End_ts = f_time + pd.Series([pd.Timedelta(seconds = End[i][0]/10) for i in range(len(End))])
-    
-    Result_info = np.concatenate([Laser_IDs,LLH,XYZs,Start,End],axis = 1)
-    Result_info = pd.DataFrame(Result_info, columns = ['LaserBeamID','Lon','Lat','Elev','X','Y','Z','Start_frame','End_frame'])
-    Result_info.insert(column= 'End_ts', value = End_ts, loc = 0)
-    Result_info.insert(column= 'Start_ts', value = Start_ts, loc = 0)
-
-    out_path = out_path + '.csv'
-    Result_info.to_csv(out_path,index = False)
+        out_path = out_path + '.csv'
+        Result_info.to_csv(out_path,index = False)
 
 
 if __name__ == "__main__":
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     thred_map = np.load(os.path.join(calibration_path,'bck_map.npy'))
     dir_lis = os.listdir(input_path)
     output_file_path = args.output
-    output_traj_path = os.path.join(output_file_path,'Result')
+    output_traj_path = os.path.join(output_file_path,'ParkingEventResult')
     if not os.path.exists(output_traj_path):
         os.mkdir(output_traj_path)
     traj_list = os.listdir(output_traj_path)
@@ -173,13 +173,15 @@ if __name__ == "__main__":
     ref_LLH[:,2] = ref_LLH[:,2]/3.2808
     T = generate_T(ref_LLH,ref_xyz)
     out_paths = []
+
     for i,p in enumerate(pcap_paths):
         f_name = pcap_names[i].split('.')[0] 
         if f_name in traj_list:
             continue
         out_path = os.path.join(output_traj_path, f_name)
+       
         out_paths.append(out_path)
         print(out_path)
     n_cpu = args.n_cpu
     print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
-    p_umap(partial(GenParkingEvents,thred_map = thred_map,T = T), pcap_paths,out_paths,num_cpus = n_cpu)
+    p_umap(partial(GenParkingEvents,thred_map = thred_map,T = T), pcap_paths,out_paths,pcap_names,num_cpus = n_cpu)
