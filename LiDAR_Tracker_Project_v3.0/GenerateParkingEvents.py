@@ -92,7 +92,7 @@ def GenParkingEvents(pcap_path,out_path,pcap_name,thred_map,T):
                         else:
                             Parking_ind.append(False)
                     Sampled_ind.append(i)
-                    
+                
                 Parking_ind = np.array([Parking_ind[0]] + Parking_ind)
                 counts,appears = count(~Parking_ind)
                 if len(counts) > 0:
