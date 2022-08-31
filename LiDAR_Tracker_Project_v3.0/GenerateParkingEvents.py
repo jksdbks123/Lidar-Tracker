@@ -149,7 +149,7 @@ if __name__ == "__main__":
     output_traj_path = os.path.join(output_file_path,'ParkingEventResult')
     if not os.path.exists(output_traj_path):
         os.mkdir(output_traj_path)
-    traj_list = os.listdir(output_traj_path)
+    traj_list = os.listdir(output_traj_path) 
     pcap_paths = []
     pcap_names = []
     for f in dir_lis:
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     out_paths = []
 
     for i,p in enumerate(pcap_paths):
-        f_name = pcap_names[i].split('.')[0] 
+        f_name = pcap_names[i].split('.')[0] + '.csv'
         if f_name in traj_list:
             continue
         out_path = os.path.join(output_traj_path, f_name)
