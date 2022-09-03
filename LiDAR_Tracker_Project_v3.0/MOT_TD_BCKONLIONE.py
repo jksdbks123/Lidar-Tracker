@@ -59,7 +59,7 @@ class MOT():
                         data = eth.data.data.data
                         packet_status = eth.data.data.sport
                         if packet_status == 2368:
-                            if len(data) != 1206:
+                            if len(data) == 1206:
                                 self.start_timestamp = ts
                                 break
         aggregated_maps = []
