@@ -199,8 +199,8 @@ class TDmapLoader():
                                     culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
                                     culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
                                     culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
-                                    culmulative_azimuth_inds[culmulative_azimuth_inds > 1799] -= 1800
-                                    culmulative_azimuth_inds[culmulative_azimuth_inds < 0 ] += 1800
+                                    culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)] = culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)]%1799
+
                                     
                                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                                     Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
