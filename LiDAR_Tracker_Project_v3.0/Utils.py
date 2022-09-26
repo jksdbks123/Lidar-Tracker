@@ -466,7 +466,7 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,pred_state,T,star
     for i in range(len(temp)):
         f = i + start_frame
         frame_ind.append('%06.0f'%f)
-        timestamps.append(start_ts + i*0.1)
+        timestamps.append(start_ts + start_frame + i*0.1)
     frame_ind = np.array(frame_ind).reshape(-1,1)
     timestamps = pd.to_datetime(timestamps,unit='s')
     timestamps = timestamps + pd.Timedelta(time_zone2utc, unit = 'hour')
