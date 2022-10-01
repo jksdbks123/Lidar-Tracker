@@ -116,12 +116,11 @@ def GenParkingEvents(pcap_path,out_path,pcap_name,thred_map,T):
         LLH = convert_LLH(XYZs.astype(np.float64),T)
         f_name = pcap_name
         ts_arr = f_name.split('.')[0].split('-')
-        ts_arr = f_name.split('.')[0].split('-')
         try:
-            sec = eval(ts_arr[5])
+            sec = int(ts_arr[5])
         except:
-            sec = eval(ts_arr[5][:-1])
-        f_time = pd.Timestamp(eval(ts_arr[0]),eval(ts_arr[1]),eval(ts_arr[2]),eval(ts_arr[3]),eval(ts_arr[4]),sec)
+            sec = int(ts_arr[5][:-1])
+        f_time = pd.Timestamp(int(ts_arr[0]),int(ts_arr[1]),int(ts_arr[2]),int(ts_arr[3]),int(ts_arr[4]),sec)
         Start_ts = f_time + pd.Series([pd.Timedelta(seconds = Start[i][0]/10) for i in range(len(Start))])
         End_ts = f_time + pd.Series([pd.Timedelta(seconds = End[i][0]/10) for i in range(len(End))])
         
