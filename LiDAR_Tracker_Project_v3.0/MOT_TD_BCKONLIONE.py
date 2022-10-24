@@ -17,7 +17,7 @@ class MOT():
         self.input_file_path = input_file_path
         self.traj_path = output_file_path
         self.if_vis = if_vis
-        
+        self.if_pcap_valid = True # if no data in pcap, then it's False
         # params for clustering 
         self.win_size = win_size
         self.eps = eps 
@@ -47,42 +47,46 @@ class MOT():
     def initialization(self):    
         # record start unix timestamp 
         with open(self.input_file_path, 'rb') as fpcap:
-            lidar_reader = dpkt.pcap.Reader(fpcap)
-            while True:
-                try:
-                    ts,buf = next(lidar_reader)
-                    eth = dpkt.ethernet.Ethernet(buf)
-                except:
-                    break
-                if eth.type == 2048: # for ipv4
-                    if type(eth.data.data) == dpkt.udp.UDP:
-                        data = eth.data.data.data
-                        packet_status = eth.data.data.sport
-                        if packet_status == 2368:
-                            if len(data) == 1206:
-                                self.start_timestamp = ts
-                                break
-        aggregated_maps = []
-        frame_gen = TDmapLoader(self.input_file_path).frame_gen()
-        for i in tqdm(range(self.bck_update_frame)):
-            Frame = next(frame_gen)
-            if Frame is None:
-                break 
-            Td_map,Int_map = Frame
-            aggregated_maps.append(Td_map)
-        aggregated_maps = np.array(aggregated_maps)
-        if len(aggregated_maps.shape) == 3:
-            thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n)
-            self.thred_map = thred_map
-            self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
-            print('Initialization Done')
+            try:
+                lidar_reader = dpkt.pcap.Reader(fpcap)
+            except dpkt.dpkt.NeedData:
+                self.if_pcap_valid = False
+            if self.if_pcap_valid:
+                while True:
+                    try:
+                        ts,buf = next(lidar_reader)
+                        eth = dpkt.ethernet.Ethernet(buf)
+                    except:
+                        break
+                    if eth.type == 2048: # for ipv4
+                        if type(eth.data.data) == dpkt.udp.UDP:
+                            data = eth.data.data.data
+                            packet_status = eth.data.data.sport
+                            if packet_status == 2368:
+                                if len(data) == 1206:
+                                    self.start_timestamp = ts
+                                    break
+                aggregated_maps = []
+                frame_gen = TDmapLoader(self.input_file_path).frame_gen()
+                for i in tqdm(range(self.bck_update_frame)):
+                    Frame = next(frame_gen)
+                    if Frame is None:
+                        break 
+                    Td_map,Int_map = Frame
+                    aggregated_maps.append(Td_map)
+                aggregated_maps = np.array(aggregated_maps)
+                if len(aggregated_maps.shape) == 3:
+                    thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n)
+                    self.thred_map = thred_map
+                    self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
+                    print('Initialization Done')
 
     def mot_tracking(self): 
 
         if self.if_vis:
             self.vis = op3.visualization.Visualizer()
             self.vis.create_window()
-            
+        
         Frame_ind = 0
         frame_gen = TDmapLoader(self.input_file_path).frame_gen()
         # begin_time = time.time()
