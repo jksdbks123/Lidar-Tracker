@@ -56,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument('-i','--input', help='path to the folder contains .pcap files and Calibration folder', required=True)
     parser.add_argument('-o','--output', help='specified output path', required=True)
     parser.add_argument('-t','--timetable', help='time tables' , required=True)
-
+    
     input_path = 'D:\Test\TEST'
     time_interval = 30 # time interval to show
     TimeTable = pd.read_csv(os.path.join(input_path,'TimeTable.csv'))
