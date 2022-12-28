@@ -42,6 +42,9 @@ class MOT():
         ### Online holder
         if self.if_vis:
             self.vis = None
+            self.play_flag = True
+            self.pause_flag = False
+
 
         
     def initialization(self):    
@@ -81,11 +84,22 @@ class MOT():
                     self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
                     print('Initialization Done')
 
+    def exit_callback(self,vis):
+        print('Exit')
+        self.play_flag = False
+    def pause_callback(self,vis):
+        print('Pause')
+        self.pause_flag = ~self.pause_flag
+
     def mot_tracking(self): 
 
         if self.if_vis:
-            self.vis = op3.visualization.Visualizer()
+            # self.vis = op3.visualization.Visualizer()
+            self.vis = op3.visualization.VisualizerWithKeyCallback()
             self.vis.create_window()
+            self.vis.register_key_callback(81, self.exit_callback)
+            self.vis.register_key_callback(83, self.pause_callback)
+            
         
         Frame_ind = 0
         frame_gen = TDmapLoader(self.input_file_path).frame_gen()
@@ -137,7 +151,6 @@ class MOT():
             """
             Frame = next(frame_gen)
             if Frame is None:
-
                 break 
             Td_map,Intensity_map = Frame
             aggregated_maps.append(Td_map)
@@ -255,16 +268,23 @@ class MOT():
             self.Labeling_map_cur = Labeling_map
             self.Td_map_cur = Td_map
             Frame_ind += 1 
+
+
             time_c = time.time()
             if self.if_vis:
+                
                 pcd = self.cur_pcd(Td_map,Labeling_map,self.Tracking_pool)
                 source.points = pcd.points
                 source.colors = pcd.colors
-                
                 self.vis.update_geometry(source)
                 self.vis.poll_events()
                 # self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
-                self.vis.update_renderer()   
+                self.vis.update_renderer() 
+                if not self.play_flag:
+                      break
+                while True:
+                    if not self.pause_flag:
+                        break
             time_d = time.time()
             if self.if_vis:
                 sys.stdout.write('\rProcessing Time: {}, Frame: {}'.format(round((time_c - time_b) * 1000,2),Frame_ind))
@@ -329,7 +349,7 @@ if __name__ == "__main__":
                 "win_size": [7, 13], 
                 "eps": 1.5,
                 "min_samples": 5,
-                "bck_update_frame":2000,
+                "bck_update_frame":500,
                 "N":20,
                 "d_thred":0.056,
                 "bck_n" : 3,
