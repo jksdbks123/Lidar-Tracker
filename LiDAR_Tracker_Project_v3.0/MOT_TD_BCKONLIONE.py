@@ -42,8 +42,7 @@ class MOT():
         ### Online holder
         if self.if_vis:
             self.vis = None
-            self.play_flag = True
-            self.pause_flag = False
+
 
 
         
@@ -94,11 +93,9 @@ class MOT():
     def mot_tracking(self): 
 
         if self.if_vis:
-            # self.vis = op3.visualization.Visualizer()
-            self.vis = op3.visualization.VisualizerWithKeyCallback()
+            self.vis = op3.visualization.Visualizer()
             self.vis.create_window()
-            self.vis.register_key_callback(81, self.exit_callback)
-            self.vis.register_key_callback(83, self.pause_callback)
+
             
         
         Frame_ind = 0
@@ -280,11 +277,7 @@ class MOT():
                 self.vis.poll_events()
                 # self.vis.capture_screen_image(f'D:\Test\Figs\{Frame_ind}.png')
                 self.vis.update_renderer() 
-                if not self.play_flag:
-                      break
-                while True:
-                    if not self.pause_flag:
-                        break
+
             time_d = time.time()
             if self.if_vis:
                 sys.stdout.write('\rProcessing Time: {}, Frame: {}'.format(round((time_c - time_b) * 1000,2),Frame_ind))

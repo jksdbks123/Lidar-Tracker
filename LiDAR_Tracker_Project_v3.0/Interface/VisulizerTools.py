@@ -2,6 +2,7 @@ import numpy as np
 from Utils import *
 
 np.random.seed(412)
+
 color_map = np.random.random((100,3))
 color_map = np.concatenate([color_map,np.array([[1,1,1]])])
 
