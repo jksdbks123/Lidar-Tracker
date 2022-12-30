@@ -17,8 +17,9 @@ class MOT():
         self.input_file_path = input_file_path
         self.traj_path = output_file_path
         self.if_vis = if_vis
-        self.if_pcap_valid = True # if no data in pcap, then it's False
-        # params for clustering 
+        # if no data in pcap, then it's False
+        self.if_pcap_valid = True 
+        # params for clustering and background sampling
         self.win_size = win_size
         self.eps = eps 
         self.min_samples = min_samples
@@ -28,7 +29,6 @@ class MOT():
         self.bck_n = bck_n
         self.bck_radius = bck_radius
         self.db = None
-
         ###
         self.thred_map = None     
         self.start_timestamp = 0    
@@ -40,6 +40,7 @@ class MOT():
         self.Labeling_map_cur = None
         self.missing_thred = missing_thred
         ### Online holder
+        self.frame_gen = None
         if self.if_vis:
             self.vis = None
 
@@ -82,22 +83,14 @@ class MOT():
                     self.thred_map = thred_map
                     self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
                     print('Initialization Done')
+                self.frame_gen = TDmapLoader(self.input_file_path).frame_gen()
 
-    def exit_callback(self,vis):
-        print('Exit')
-        self.play_flag = False
-    def pause_callback(self,vis):
-        print('Pause')
-        self.pause_flag = ~self.pause_flag
 
     def mot_tracking(self): 
 
         if self.if_vis:
             self.vis = op3.visualization.Visualizer()
             self.vis.create_window()
-
-            
-        
         Frame_ind = 0
         frame_gen = TDmapLoader(self.input_file_path).frame_gen()
         # begin_time = time.time()
