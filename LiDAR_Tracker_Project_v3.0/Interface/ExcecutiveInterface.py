@@ -217,7 +217,7 @@ class Interface():
             # self.VisulizationThread.start()
             frame_gen = TDmapLoader(self.PcapPathEntry_Tab1.get()).frame_gen()
             while True:
-                Frame = next(frame_gen)
+                Frame = next(frame_gen) 
                 if (Frame is None):
                     break 
                 if event.is_set(): 
