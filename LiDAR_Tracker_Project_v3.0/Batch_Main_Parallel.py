@@ -12,7 +12,7 @@ import time
 def run_mot(mot,ref_LLH,ref_xyz,utc_diff):
     mot.initialization()
     if mot.thred_map is not None:
-        mot.mot_tracking()
+        mot.mot_tracking(mot.frame_gen)
         if mot.if_pcap_valid:
             save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.start_timestamp, utc_diff)
             print(mot.traj_path)
@@ -29,7 +29,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     timer = args.timer
     time.sleep(timer * 3600)
-
     input_path = args.input
     calibration_path = os.path.join(input_path,'Calibration')
     dir_lis = os.listdir(input_path)

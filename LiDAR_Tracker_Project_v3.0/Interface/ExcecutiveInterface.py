@@ -11,6 +11,7 @@ from multiprocessing import Process
 from multiprocessing import Queue, Value
 import time
 from BfTableGenerator import TDmapLoader
+from MOTLite import MOT
 from tqdm import tqdm
 import open3d as op3
 from VisulizerTools import *
@@ -27,8 +28,8 @@ class Interface():
         self.tab3 = ttk.Frame(self.tabControl)
 
         self.tabControl.add(self.tab1, text='Tracking Visulization')
-        self.tabControl.add(self.tab2, text='Single Generation')
-        self.tabControl.add(self.tab3, text='Batch Generation')
+        self.tabControl.add(self.tab2, text='Batch Generation')
+        self.tabControl.add(self.tab3, text='Geometry Referencing')
         
         # Visulization Tab 1
         ttk.Label(self.tab1, text= "Tracking Visulization").grid(column=0, row=0, padx=30, pady=10)
@@ -56,25 +57,43 @@ class Interface():
         self.missing_thred =  tk.IntVar()
         self.missing_thredEntry = None
         self.LoadPcapThread = None
+        self.TrackingThread = None
         self.ClearEvent_Tab1 = None
+        self.TrackingTerminateEvent_Tab1 = None
         self.StopVisEvent_Tab1 = None
         self.isAllFrameLoaded = False
         self.LoadedFrame = 0
-        self.FrameStatus = tk.StringVar()
+        self.TrackedFrame = 0
+        self.FrameStatus = tk.StringVar() # loaded frame status
         self.FrameStatus.set("Loaded Frames:{LoadedFrame}".format(LoadedFrame = self.LoadedFrame))
         self.FrameStatusLabel =  ttk.Label(self.tab1, textvariable= self.FrameStatus)
-        self.FrameStatusLabel.grid(column=0, row=7, padx=0, pady=0)
-        # Visulization Tab 1 
-        ttk.Label(self.tab2, text="Generate Trajectories From Single Pcap File").grid(column=0, row=0, padx=30, pady=30)
-        # Visulization Tab 1 
-        ttk.Label(self.tab3, text="Batch Trajectories Generation").grid(column=0, row=0, padx=30, pady=30)
+        self.FrameStatusLabel.grid(column=0, row=9, padx=0, pady=0)
+        self.TrackingStatus = tk.StringVar() # loaded frame status
+        self.TrackingStatus.set("Tracked Frames:{TrackedFrame}".format(TrackedFrame = self.TrackedFrame))
+        self.TrackingStatusLabel =  ttk.Label(self.tab1, textvariable= self.TrackingStatus)
+        self.TrackingStatusLabel.grid(column=0, row=8, padx=0, pady=0)
+        # Visulization Tab 3 
+        ttk.Label(self.tab3, text="Geometry Referencing").grid(column=0, row=0, padx=30, pady=30)
         self.tabControl.pack(expand = 1, fill ="both")
-        self.CreateTab1()
+        
         #Memory
-        self.Off_tracking_pool = {}
+        self.mot = None
         self.aggregated_maps = [] 
-
-
+        self.start_timestamp = 0
+        self.if_pcap_valid = True
+        self.CreateTab1()
+        """
+        Tab2
+        """
+        self.cpu_nEntry = None
+        self.cpu_n = tk.IntVar()
+        self.UTC_diffEntry = None
+        self.UTC_diff = tk.IntVar()
+        self.PcapPathEntry_Tab2 = None
+        self.RefXyzEntry_Tab2 = None
+        self.RefLlhEntry_Tab2 = None
+        self.OutputEntry_Tab2 = None
+        self.CreateTab2()
 
     def CreateTab1(self):
         """
@@ -152,57 +171,127 @@ class Interface():
             command=self.LoadPcap
         )
         LoadButton.grid(column=0, row=3, padx=0, pady=0)
-
+        TrackButton = ttk.Button(
+            self.tab1,
+            text='Track',
+            command=self.Tracking
+        )
+        TrackButton.grid(column=0, row=4, padx=0, pady=0)
         VisButton = ttk.Button(
             self.tab1,
             text='Preview',
             command=self.CreateAni
         )
-        VisButton.grid(column=0, row=4, padx=0, pady=0)
+        VisButton.grid(column=0, row=5, padx=0, pady=0)
 
-        StopVisButtom = ttk.Button(
-            self.tab1,
-            text='Stop',
-            command=self.TerminateTab1
-        )
-        StopVisButtom.grid(column=0, row=5, padx=0, pady=0)  
-
-        TerminateButton = ttk.Button(
+        ClearTempButton = ttk.Button(
             self.tab1,
             text='Clear Temp',
-            command=self.TerminateTab1
+            command=self.ClearUp # clear up temps
         )
-        TerminateButton.grid(column=0, row=6, padx=0, pady=0)    
+        ClearTempButton.grid(column=0, row=6, padx=0, pady=0)
+        TrackTerminateButton = ttk.Button(
+        self.tab1,
+        text='Terminate Tracking',
+        command=self.TrackerTerminate
+        )
+        TrackTerminateButton.grid(column=0, row=7, padx=0, pady=0)   
         """
         Buttoms
         """
+    def CreateTab2(self):
+        ttk.Label(self.tab2, text= "Input Pcap Folder").grid(column=1, row=0, padx=0, pady=0)
+        ttk.Label(self.tab2, text= "Output Folder").grid(column=4, row=0, padx=0, pady=0)
+        self.PcapPathEntry_Tab2 = ttk.Entry(self.tab2,text = "Select Pcap Folder")
+        self.PcapPathEntry_Tab2.grid(column=1, row=1, padx=0, pady=0)
+        self.OutputEntry_Tab2 = ttk.Entry(self.tab2,text = "Select Output Folder")
+        self.OutputEntry_Tab2.grid(column=4, row=1, padx=0, pady=0)
+        self.RefXyzEntry_Tab2 = ttk.Entry(self.tab2,text = "Select xyz ref")
+        self.RefXyzEntry_Tab2.grid(column=1, row=2, padx=0, pady=0)
+        self.RefLlhEntry_Tab2 = ttk.Entry(self.tab2,text = "Select llh ref")
+        self.RefLlhEntry_Tab2.grid(column=1, row=3, padx=0, pady=0)
+        selectInputButton = ttk.Button(
+            self.tab2,
+            text='Select Pcap Folder',
+            command = self.selectInputDirectory
+        )
+        selectInputButton.grid(column=0, row=1, padx=0, pady=0)
+        ttk.Label(self.tab2, text= "CPUs").grid(column=2, row=0, padx=0, pady=0)
+        self.cpu_nEntry = ttk.Entry(self.tab2,textvariable = self.cpu_n,width=5)
+        self.cpu_nEntry.grid(column=2, row=1, padx=0, pady=0)
+        self.cpu_n.set(1)
+        ttk.Label(self.tab2, text= "UTC Diff").grid(column=2, row=2, padx=0, pady=0)
+        self.UTC_diffEntry = ttk.Entry(self.tab2,textvariable = self.UTC_diff,width=5)
+        self.UTC_diffEntry.grid(column=2, row=3, padx=0, pady=0)
+        self.UTC_diff.set(-8)
+
+        Select_xyzRef = ttk.Button(
+        self.tab2,
+        text='SelectRefXyz',
+        command=self.selectRefXyz
+        )
+        Select_xyzRef.grid(column=0, row=2, padx=0, pady=0) 
+
+        Select_llhRef = ttk.Button(
+        self.tab2,
+        text='SelectRefLlh',
+        command=self.selectRefLlh
+        )
+        Select_llhRef.grid(column=0, row=3, padx=0, pady=0) 
+        SelectOutputPath = ttk.Button(
+        self.tab2,
+        text='Select Output Path',
+        command=self.selectOutputDirectory
+        )
+        SelectOutputPath.grid(column=3, row=1, padx=0, pady=0) 
+        BatchProcess = ttk.Button(
+        self.tab2,
+        text='Batch Process',
+        command=self.CreateBatch
+        )
+        BatchProcess.grid(column=0, row=4, padx=0, pady=0)   
 
     def LoadPcap(self):
         self.ClearEvent_Tab1 = Event()
-        self.LoadPcapThread = Thread(target=self.Loading,args=(self.ClearEvent_Tab1,))
+        self.LoadPcapThread = Thread(target=self.Loading_Tab1,args=(self.ClearEvent_Tab1,))
         self.LoadPcapThread.start()
         
-    def TerminateTab1(self): # kill all thread
+    def ClearUp(self): # kill all thread
         self.ClearEvent_Tab1.set()
         self.FrameStatus.set("Loaded Frames:0")
-    
+        self.LoadedFrame = 0
+        self.aggregated_maps = []
 
-    def PlayForward(self):
-        pass
-    def PlayForward_(self):
-        pass
-    def PlayBackward(self):
-        pass
-    def PlayBackward_(self):
-        pass
-    def Stop(self):
-        pass
+    def TrackerTerminate(self): # kill all thread
+        self.TrackingTerminateEvent_Tab1.set()
+        self.FrameStatus.set("Loaded Frames:0")
+        self.TrackingStatus.set("Tracked Frames:0")
+
+    def selectInputDirectory(self):
+        filename = filedialog.askdirectory(
+            title='Open a folder',
+            initialdir='/',
+            )
+        folder_content = os.listdir(filename)
+        file_types = [f.split('.')[-1] for f in folder_content]
+        if 'pcap' in file_types:
+            self.PcapPathEntry_Tab2.delete(0,'end')
+            self.PcapPathEntry_Tab2.insert(0,filename)
+        else:
+            print('No Pcap in the folder')
+
+    def selectOutputDirectory(self):
+        filename = filedialog.askdirectory(
+            title='Open a folder',
+            initialdir='/',
+            )
+        self.OutputEntry_Tab2.delete(0,'end')
+        self.OutputEntry_Tab2.insert(0,filename)
 
     def selectPcap(self):
         filetypes = (
             ('pcap files', '*.pcap'),
         )
-
         filename = filedialog.askopenfilenames(
             title='Open a pcap file',
             initialdir='/',
@@ -210,18 +299,66 @@ class Interface():
 
         self.PcapPathEntry_Tab1.delete(0,'end')
         self.PcapPathEntry_Tab1.insert(0,filename)
+    def selectRefXyz(self):
+        filetypes = (
+            ('csv files', '*.csv'),
+        )
 
-    def Loading(self,event):
+        filename = filedialog.askopenfilenames(
+            title='Open a .csv file',
+            initialdir='/',
+            filetypes=filetypes)
+
+        self.RefXyzEntry_Tab2.delete(0,'end')
+        self.RefXyzEntry_Tab2.insert(0,filename)
+
+    def selectRefLlh(self):
+        filetypes = (
+            ('csv files', '*.csv'),
+        )
+
+        filename = filedialog.askopenfilenames(
+            title='Open a .csv file',
+            initialdir='/',
+            filetypes=filetypes)
+
+        self.RefLlhEntry_Tab2.delete(0,'end')
+        self.RefLlhEntry_Tab2.insert(0,filename)
+
+    def Loading_Tab1(self,event):
+        """
+        Test Validity
+        """
         if os.path.exists(self.PcapPathEntry_Tab1.get()):
-            # self.VisulizationThread = Thread(target=self.Visulization,args=(self.TerminateEvent_Tab1,))
-            # self.VisulizationThread.start()
+            self.if_pcap_valid = True
+            with open(self.PcapPathEntry_Tab1.get(), 'rb') as fpcap:
+                try:
+                    lidar_reader = dpkt.pcap.Reader(fpcap)
+                except dpkt.dpkt.NeedData:
+                    self.if_pcap_valid = False
+
+                if self.if_pcap_valid:
+                    while True:
+                        try:
+                            ts,buf = next(lidar_reader)
+                            eth = dpkt.ethernet.Ethernet(buf)
+                        except:
+                            break
+                        if eth.type == 2048: # for ipv4
+                            if type(eth.data.data) == dpkt.udp.UDP:
+                                data = eth.data.data.data
+                                packet_status = eth.data.data.sport
+                                if packet_status == 2368:
+                                    if len(data) == 1206:
+                                        self.start_timestamp = ts
+                                        break
+            # Loading Frames
             frame_gen = TDmapLoader(self.PcapPathEntry_Tab1.get()).frame_gen()
             while True:
                 Frame = next(frame_gen) 
                 if (Frame is None):
                     break 
                 if event.is_set(): 
-                    self.CurrentFrame = 0 
                     self.LoadedFrame = 0
                     self.aggregated_maps = []
                 Td_map,Int_map = Frame
@@ -230,8 +367,28 @@ class Interface():
                 self.aggregated_maps.append(Td_map)
         else:
             print('Path not exists')
+
+        
     def Tracking(self):
-        pass
+        self.TrackingTerminateEvent_Tab1 = Event()
+        self.TrackingThread = Thread(target=self.createTracker,args=(self.TrackingTerminateEvent_Tab1,))
+        self.TrackingThread.start()
+
+    def createTracker(self,event):
+        self.mot = MOT(input_file_path='.',output_file_path='.',win_size=[self.win_size_x.get(),self.win_size_y.get()],eps = self.eps.get(),
+        min_samples=self.min_samples.get(),bck_update_frame = self.bck_update_frame.get(),
+        N = self.N.get(), d_thred=self.d_thred.get(),bck_n=self.bck_n.get(),
+        missing_thred=self.missing_thred.get(),bck_radius = self.bck_radius.get())
+        print('ss',len(self.aggregated_maps))
+        self.mot.initialization(self.aggregated_maps)
+        self.mot.mot_tracking(self.aggregated_maps,event,self.TrackingStatus)
+        # while True:
+        #     if event.is_set():
+        #         break
+        #     time.sleep(1)
+        #     print(len(self.aggregated_maps))
+        
+        
     def CreateAni(self):
         vis = op3.visualization.Visualizer()
         vis.create_window()
@@ -258,32 +415,24 @@ class Interface():
             time.sleep(0.1)
 
         vis.destroy_window()
+
+    def run_mot(self,ref_LLH,ref_xyz,utc_diff):
+        pass
+    def CreateBatch(self):
+        mots = []
+        for i,p in enumerate(pcap_paths):
+            f_name = pcap_names[i].split('.')[0] + '.csv'
+            if f_name in traj_list:
+                continue
+            out_path = os.path.join(output_traj_path, f_name)
+            mots.append(MOT(p,out_path,**params,if_vis=False))
+            print(out_path)
             
+        n_cpu = args.n_cpu
+        print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
+        p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
         
         
-class Visulizer():
-    def __init__(self,Q):
-        self.vis = op3.visualization.Visualizer()
-        self.FrameQueue = Q
-        # self.vis.create_window()
-        # pcd = op3.io.read_point_cloud('./000006.pcd')
-        # pcd.points = op3.utility.Vector3dVector(np.zeros((57600,3)))
-        # pcd.colors = op3.utility.Vector3dVector(255*np.ones((57600,3)))
-        # self.source = pcd
-        # self.vis.add_geometry(self.source)
-    def run(self):
-        self.vis.create_window()
-        # Td_map = self.aggregated_maps[self.InputFrameInd_Tab1.get()]
-        # pcd = get_pcd_colored(Td_map,np.ones((32,1800)))
-        # self.source.points = pcd.points
-        # self.source.colors = pcd.colors
-        # print(np.asarray(self.source.points))
-        while True:
-            # self.vis.update_geometry(self.source)
-            # self.vis.poll_events()
-            # self.vis.update_renderer()
-            # print(np.asarray(self.source.points))
-            print(self.FrameQueue.qsize())
 
 
 

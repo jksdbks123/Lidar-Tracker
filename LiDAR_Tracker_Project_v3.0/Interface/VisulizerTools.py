@@ -33,7 +33,7 @@ def get_pcd_uncolored(Td_map):
 
 def get_pcd_colored(Td_map,Labeling_map):
 
-    
+
     Xs = []
     Ys = []
     Zs = []
