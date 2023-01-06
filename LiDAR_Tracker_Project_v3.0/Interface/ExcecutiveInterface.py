@@ -6,7 +6,7 @@ import pandas as pd
 import dpkt
 import numpy as np
 import os
-from threading import *
+from threading import Thread,Event
 from multiprocessing import Process
 from multiprocessing import Queue, Value
 import time
@@ -19,6 +19,15 @@ from VisulizerTools import *
 from p_tqdm import p_umap
 from functools import partial
 import pandas as pd
+
+def run_mot(mot,ref_LLH,ref_xyz,utc_diff):
+    mot.initialization()
+    if mot.thred_map is not None:
+        mot.mot_tracking(mot.frame_gen)
+        if mot.if_pcap_valid:
+            save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.start_timestamp, utc_diff)
+            print(mot.traj_path)
+
 class Interface():
     def __init__(self):
         self.root = tk.Tk()
@@ -99,7 +108,11 @@ class Interface():
         self.RefLlhEntry_Tab2 = None
         self.OutputEntry_Tab2 = None
         self.CreateTab2()
+        
+        """
+        Tab3
 
+        """
     def CreateTab1(self):
         """
         Path Input
@@ -252,10 +265,11 @@ class Interface():
         BatchProcess = ttk.Button(
         self.tab2,
         text='Batch Process',
-        command=self.StartBatchTracking
+        command=self.StartBatch
         )
         BatchProcess.grid(column=0, row=4, padx=0, pady=0)   
-
+    def CreateTab3(self):
+        
     def LoadPcap(self):
         self.ClearEvent_Tab1 = Event()
         self.LoadPcapThread = Thread(target=self.Loading_Tab1,args=(self.ClearEvent_Tab1,))
@@ -421,28 +435,24 @@ class Interface():
 
         vis.destroy_window()
 
-    def run_mot(self,mot,ref_LLH,ref_xyz,utc_diff):
-        mot.initialization()
-        if mot.thred_map is not None:
-            mot.mot_tracking(mot.frame_gen)
-            if mot.if_pcap_valid:
-                save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.start_timestamp, utc_diff)
-                print(mot.traj_path)
+    def StartBatch(self):
+        self.BatchTrackingThread = Thread(target=self.CreateBatch)
+        self.BatchTrackingThread.start()
+
     def CreateBatch(self):
         input_path = self.PcapPathEntry_Tab2.get()
         output_traj_path = self.OutputEntry_Tab2.get()
         params = { 
-                "win_size": [self.win_size_xEntry.get(), self.win_size_yEntry.get()], 
-                "eps": self.epsEntry.get(),
-                "min_samples": self.min_samplesEntry.get(),
-                "bck_update_frame":self.bck_update_frameEntry.get(),
-                "N":self.NEntry.get(),
-                "d_thred":self.d_thredEntry.get(),
-                "bck_n" : self.bck_nEntry.get(),
-                "bck_radius":self.bck_radiusEntry.get(),
-                "missing_thred":self.missing_thredEntry.get(),
-                "if_save_pcd" : False,
-                "if_vis" : False}
+                "win_size": [self.win_size_x.get(), self.win_size_y.get()], 
+                "eps": self.eps.get(),
+                "min_samples": self.min_samples.get(),
+                "bck_update_frame":self.bck_update_frame.get(),
+                "N":self.N.get(),
+                "d_thred":self.d_thred.get(),
+                "bck_n" : self.bck_n.get(),
+                "bck_radius":self.bck_radius.get(),
+                "missing_thred":self.missing_thred.get(),
+                "if_save_pcd" : False}
 
         ref_LLH_path,ref_xyz_path = self.RefLlhEntry_Tab2.get(),self.RefXyzEntry_Tab2.get()
         ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
@@ -462,23 +472,21 @@ class Interface():
                 pcap_names.append(f)
                 pcap_path = os.path.join(input_path,f)
                 pcap_paths.append(pcap_path)
+        print(pcap_paths)
         mots = []
         for i,p in enumerate(pcap_paths):
             f_name = pcap_names[i].split('.')[0] + '.csv'
             if f_name in traj_list:
                 continue
             out_path = os.path.join(output_traj_path, f_name)
-            mots.append(MOT(p,out_path,**params,if_vis=False))
+            mots.append(MOT(p,out_path,**params))
             print(out_path)
-        utc_diff = self.UTC_diffEntry.get()
-        n_cpu = self.cpu_nEntry.get()
+        utc_diff = self.UTC_diff.get()
+        n_cpu = self.cpu_n.get()
         print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
-        p_umap(partial(self.run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
+        p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
     
-    def StartBatchTracking(self):
-        self.BatchTrackingThread = Thread(target=self.CreateBatch)
-        print('Batch Processing Start')
-        self.BatchTrackingThread.start()
+
         
 
 
