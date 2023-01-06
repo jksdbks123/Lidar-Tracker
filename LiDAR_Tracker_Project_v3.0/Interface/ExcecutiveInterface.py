@@ -11,10 +11,14 @@ from multiprocessing import Process
 from multiprocessing import Queue, Value
 import time
 from BfTableGenerator import TDmapLoader
-from MOTLite import MOT
+import MOTLite 
+from MOT_TD_BCKONLIONE import MOT
 from tqdm import tqdm
 import open3d as op3
 from VisulizerTools import *
+from p_tqdm import p_umap
+from functools import partial
+import pandas as pd
 class Interface():
     def __init__(self):
         self.root = tk.Tk()
@@ -58,6 +62,7 @@ class Interface():
         self.missing_thredEntry = None
         self.LoadPcapThread = None
         self.TrackingThread = None
+        self.BatchTrackingThread = None
         self.ClearEvent_Tab1 = None
         self.TrackingTerminateEvent_Tab1 = None
         self.StopVisEvent_Tab1 = None
@@ -247,7 +252,7 @@ class Interface():
         BatchProcess = ttk.Button(
         self.tab2,
         text='Batch Process',
-        command=self.CreateBatch
+        command=self.StartBatchTracking
         )
         BatchProcess.grid(column=0, row=4, padx=0, pady=0)   
 
@@ -375,7 +380,7 @@ class Interface():
         self.TrackingThread.start()
 
     def createTracker(self,event):
-        self.mot = MOT(input_file_path='.',output_file_path='.',win_size=[self.win_size_x.get(),self.win_size_y.get()],eps = self.eps.get(),
+        self.mot = MOTLite(input_file_path='.',output_file_path='.',win_size=[self.win_size_x.get(),self.win_size_y.get()],eps = self.eps.get(),
         min_samples=self.min_samples.get(),bck_update_frame = self.bck_update_frame.get(),
         N = self.N.get(), d_thred=self.d_thred.get(),bck_n=self.bck_n.get(),
         missing_thred=self.missing_thred.get(),bck_radius = self.bck_radius.get())
@@ -416,9 +421,47 @@ class Interface():
 
         vis.destroy_window()
 
-    def run_mot(self,ref_LLH,ref_xyz,utc_diff):
-        pass
+    def run_mot(self,mot,ref_LLH,ref_xyz,utc_diff):
+        mot.initialization()
+        if mot.thred_map is not None:
+            mot.mot_tracking(mot.frame_gen)
+            if mot.if_pcap_valid:
+                save_result(mot.Off_tracking_pool,ref_LLH,ref_xyz,mot.traj_path,mot.start_timestamp, utc_diff)
+                print(mot.traj_path)
     def CreateBatch(self):
+        input_path = self.PcapPathEntry_Tab2.get()
+        output_traj_path = self.OutputEntry_Tab2.get()
+        params = { 
+                "win_size": [self.win_size_xEntry.get(), self.win_size_yEntry.get()], 
+                "eps": self.epsEntry.get(),
+                "min_samples": self.min_samplesEntry.get(),
+                "bck_update_frame":self.bck_update_frameEntry.get(),
+                "N":self.NEntry.get(),
+                "d_thred":self.d_thredEntry.get(),
+                "bck_n" : self.bck_nEntry.get(),
+                "bck_radius":self.bck_radiusEntry.get(),
+                "missing_thred":self.missing_thredEntry.get(),
+                "if_save_pcd" : False,
+                "if_vis" : False}
+
+        ref_LLH_path,ref_xyz_path = self.RefLlhEntry_Tab2.get(),self.RefXyzEntry_Tab2.get()
+        ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
+        if len(np.unique(ref_xyz[:,2])) == 1:
+            np.random.seed(1)
+            offset = np.random.normal(-0.521,3.28,len(ref_LLH))
+            ref_xyz[:,2] += offset
+            ref_LLH[:,2] += offset * 3.2808
+        ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
+        ref_LLH[:,2] = ref_LLH[:,2]/3.2808
+        dir_lis = os.listdir(input_path)
+        traj_list = os.listdir(output_traj_path)
+        pcap_names = []
+        pcap_paths = []
+        for f in dir_lis:
+            if 'pcap' in f.split('.'):
+                pcap_names.append(f)
+                pcap_path = os.path.join(input_path,f)
+                pcap_paths.append(pcap_path)
         mots = []
         for i,p in enumerate(pcap_paths):
             f_name = pcap_names[i].split('.')[0] + '.csv'
@@ -427,11 +470,15 @@ class Interface():
             out_path = os.path.join(output_traj_path, f_name)
             mots.append(MOT(p,out_path,**params,if_vis=False))
             print(out_path)
-            
-        n_cpu = args.n_cpu
+        utc_diff = self.UTC_diffEntry.get()
+        n_cpu = self.cpu_nEntry.get()
         print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
-        p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
-        
+        p_umap(partial(self.run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
+    
+    def StartBatchTracking(self):
+        self.BatchTrackingThread = Thread(target=self.CreateBatch)
+        print('Batch Processing Start')
+        self.BatchTrackingThread.start()
         
 
 
