@@ -72,6 +72,7 @@ class Interface():
         self.LoadPcapThread = None
         self.TrackingThread = None
         self.BatchTrackingThread = None
+        self.GeoRefThread = None
         self.ClearEvent_Tab1 = None
         self.TrackingTerminateEvent_Tab1 = None
         self.StopVisEvent_Tab1 = None
@@ -86,10 +87,9 @@ class Interface():
         self.TrackingStatus.set("Tracked Frames:{TrackedFrame}".format(TrackedFrame = self.TrackedFrame))
         self.TrackingStatusLabel =  ttk.Label(self.tab1, textvariable= self.TrackingStatus)
         self.TrackingStatusLabel.grid(column=0, row=8, padx=0, pady=0)
-        # Visulization Tab 3 
-        ttk.Label(self.tab3, text="Geometry Referencing").grid(column=0, row=0, padx=30, pady=30)
-        self.tabControl.pack(expand = 1, fill ="both")
         
+        # Visulization Tab 3 
+        self.tabControl.pack(expand = 1, fill ="both")
         #Memory
         self.mot = None
         self.aggregated_maps = [] 
@@ -99,8 +99,8 @@ class Interface():
         """
         Tab2
         """
-        self.cpu_nEntry = None
-        self.cpu_n = tk.IntVar()
+        self.cpu_nEntryTab2 = None
+        self.cpu_nTab2 = tk.IntVar()
         self.UTC_diffEntry = None
         self.UTC_diff = tk.IntVar()
         self.PcapPathEntry_Tab2 = None
@@ -111,8 +111,15 @@ class Interface():
         
         """
         Tab3
-
         """
+        self.cpu_nEntryTab3 = None
+        self.cpu_nTab3 = tk.IntVar()
+        self.TrajPathEntry_Tab3 = None
+        self.RefXyzEntry_Tab3 = None
+        self.RefLlhEntry_Tab3 = None
+        self.OutputEntry_Tab3 = None
+        self.CreateTab3()
+
     def CreateTab1(self):
         """
         Path Input
@@ -235,9 +242,9 @@ class Interface():
         )
         selectInputButton.grid(column=0, row=1, padx=0, pady=0)
         ttk.Label(self.tab2, text= "CPUs").grid(column=2, row=0, padx=0, pady=0)
-        self.cpu_nEntry = ttk.Entry(self.tab2,textvariable = self.cpu_n,width=5)
-        self.cpu_nEntry.grid(column=2, row=1, padx=0, pady=0)
-        self.cpu_n.set(1)
+        self.cpu_nEntryTab2 = ttk.Entry(self.tab2,textvariable = self.cpu_nTab2,width=5)
+        self.cpu_nEntryTab2.grid(column=2, row=1, padx=0, pady=0)
+        self.cpu_nTab2.set(1)
         ttk.Label(self.tab2, text= "UTC Diff").grid(column=2, row=2, padx=0, pady=0)
         self.UTC_diffEntry = ttk.Entry(self.tab2,textvariable = self.UTC_diff,width=5)
         self.UTC_diffEntry.grid(column=2, row=3, padx=0, pady=0)
@@ -246,20 +253,20 @@ class Interface():
         Select_xyzRef = ttk.Button(
         self.tab2,
         text='SelectRefXyz',
-        command=self.selectRefXyz
+        command=self.selectRefXyzTab2
         )
         Select_xyzRef.grid(column=0, row=2, padx=0, pady=0) 
 
         Select_llhRef = ttk.Button(
         self.tab2,
         text='SelectRefLlh',
-        command=self.selectRefLlh
+        command=self.selectRefLlhTab2
         )
         Select_llhRef.grid(column=0, row=3, padx=0, pady=0) 
         SelectOutputPath = ttk.Button(
         self.tab2,
         text='Select Output Path',
-        command=self.selectOutputDirectory
+        command=self.selectOutputDirectoryTab2
         )
         SelectOutputPath.grid(column=3, row=1, padx=0, pady=0) 
         BatchProcess = ttk.Button(
@@ -268,8 +275,53 @@ class Interface():
         command=self.StartBatch
         )
         BatchProcess.grid(column=0, row=4, padx=0, pady=0)   
+
     def CreateTab3(self):
-        
+        ttk.Label(self.tab3, text= "Input Trajectories Folder").grid(column=1, row=0, padx=0, pady=0)
+        ttk.Label(self.tab3, text= "Output Folder").grid(column=4, row=0, padx=0, pady=0)
+        self.TrajPathEntry_Tab3 = ttk.Entry(self.tab3,text = "Select Pcap Folder")
+        self.TrajPathEntry_Tab3.grid(column=1, row=1, padx=0, pady=0)
+        self.OutputEntry_Tab3 = ttk.Entry(self.tab3,text = "Select Output Folder")
+        self.OutputEntry_Tab3.grid(column=4, row=1, padx=0, pady=0)
+        self.RefXyzEntry_Tab3 = ttk.Entry(self.tab3,text = "Select xyz ref")
+        self.RefXyzEntry_Tab3.grid(column=1, row=2, padx=0, pady=0)
+        self.RefLlhEntry_Tab3 = ttk.Entry(self.tab3,text = "Select llh ref")
+        self.RefLlhEntry_Tab3.grid(column=1, row=3, padx=0, pady=0)
+        ttk.Label(self.tab3, text= "CPUs").grid(column=2, row=0, padx=0, pady=0)
+        self.cpu_nEntryTab3 = ttk.Entry(self.tab3,textvariable = self.cpu_nTab3,width=5)
+        self.cpu_nEntryTab3.grid(column=2, row=1, padx=0, pady=0)
+        self.cpu_nTab3.set(1)
+        selectTrajFolderButton = ttk.Button(
+            self.tab3,
+            text='Select Folder',
+            command = self.selectTrajDirectory
+        )
+        selectTrajFolderButton.grid(column=0, row=1, padx=0, pady=0)
+        Select_xyzRef = ttk.Button(
+        self.tab3,
+        text='SelectRefXyz',
+        command=self.selectRefXyzTab3
+        )
+        Select_xyzRef.grid(column=0, row=2, padx=0, pady=0) 
+
+        Select_llhRef = ttk.Button(
+        self.tab3,
+        text='SelectRefLlh',
+        command=self.selectRefLlhTab3
+        )
+        Select_llhRef.grid(column=0, row=3, padx=0, pady=0) 
+        SelectOutputPath = ttk.Button(
+        self.tab3,
+        text='Select Output Path',
+        command=self.selectOutputDirectoryTab3
+        )
+        SelectOutputPath.grid(column=3, row=1, padx=0, pady=0) 
+        BatchProcess = ttk.Button(
+        self.tab3,
+        text='Batch Process',
+        command=self.StartGeoRef
+        )
+        BatchProcess.grid(column=0, row=4, padx=0, pady=0)
     def LoadPcap(self):
         self.ClearEvent_Tab1 = Event()
         self.LoadPcapThread = Thread(target=self.Loading_Tab1,args=(self.ClearEvent_Tab1,))
@@ -299,14 +351,33 @@ class Interface():
         else:
             print('No Pcap in the folder')
 
-    def selectOutputDirectory(self):
+    def selectTrajDirectory(self):
+        filename = filedialog.askdirectory(
+            title='Open a folder',
+            initialdir='/',
+            )
+        folder_content = os.listdir(filename)
+        file_types = [f.split('.')[-1] for f in folder_content]
+        if 'csv' in file_types:
+            self.TrajPathEntry_Tab3.delete(0,'end')
+            self.TrajPathEntry_Tab3.insert(0,filename)
+        else:
+            print('No .csv in the folder')
+
+    def selectOutputDirectoryTab2(self):
         filename = filedialog.askdirectory(
             title='Open a folder',
             initialdir='/',
             )
         self.OutputEntry_Tab2.delete(0,'end')
         self.OutputEntry_Tab2.insert(0,filename)
-
+    def selectOutputDirectoryTab3(self):
+        filename = filedialog.askdirectory(
+            title='Open a folder',
+            initialdir='/',
+            )
+        self.OutputEntry_Tab3.delete(0,'end')
+        self.OutputEntry_Tab3.insert(0,filename)
     def selectPcap(self):
         filetypes = (
             ('pcap files', '*.pcap'),
@@ -318,7 +389,7 @@ class Interface():
 
         self.PcapPathEntry_Tab1.delete(0,'end')
         self.PcapPathEntry_Tab1.insert(0,filename)
-    def selectRefXyz(self):
+    def selectRefXyzTab2(self):
         filetypes = (
             ('csv files', '*.csv'),
         )
@@ -330,8 +401,19 @@ class Interface():
 
         self.RefXyzEntry_Tab2.delete(0,'end')
         self.RefXyzEntry_Tab2.insert(0,filename)
+    def selectRefXyzTab3(self):
+        filetypes = (
+            ('csv files', '*.csv'),
+        )
 
-    def selectRefLlh(self):
+        filename = filedialog.askopenfilenames(
+            title='Open a .csv file',
+            initialdir='/',
+            filetypes=filetypes)
+
+        self.RefXyzEntry_Tab3.delete(0,'end')
+        self.RefXyzEntry_Tab3.insert(0,filename)
+    def selectRefLlhTab2(self):
         filetypes = (
             ('csv files', '*.csv'),
         )
@@ -343,7 +425,18 @@ class Interface():
 
         self.RefLlhEntry_Tab2.delete(0,'end')
         self.RefLlhEntry_Tab2.insert(0,filename)
+    def selectRefLlhTab3(self):
+        filetypes = (
+            ('csv files', '*.csv'),
+        )
 
+        filename = filedialog.askopenfilenames(
+            title='Open a .csv file',
+            initialdir='/',
+            filetypes=filetypes)
+
+        self.RefLlhEntry_Tab3.delete(0,'end')
+        self.RefLlhEntry_Tab3.insert(0,filename)
     def Loading_Tab1(self,event):
         """
         Test Validity
@@ -436,10 +529,13 @@ class Interface():
         vis.destroy_window()
 
     def StartBatch(self):
-        self.BatchTrackingThread = Thread(target=self.CreateBatch)
+        self.BatchTrackingThread = Thread(target=self.CreateBatchTracking)
         self.BatchTrackingThread.start()
+    def StartGeoRef(self):
+        self.GeoRefThread = Thread(target=self.CreateBatchGeoRef)
+        self.GeoRefThread.start()
 
-    def CreateBatch(self):
+    def CreateBatchTracking(self):
         input_path = self.PcapPathEntry_Tab2.get()
         output_traj_path = self.OutputEntry_Tab2.get()
         params = { 
@@ -482,11 +578,12 @@ class Interface():
             mots.append(MOT(p,out_path,**params))
             print(out_path)
         utc_diff = self.UTC_diff.get()
-        n_cpu = self.cpu_n.get()
+        n_cpu = self.cpu_nTab2.get()
         print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
         p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
     
-
+    def CreateBatchGeoRef(self):
+        
         
 
 
