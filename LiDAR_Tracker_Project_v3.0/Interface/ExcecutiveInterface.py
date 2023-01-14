@@ -20,6 +20,52 @@ from p_tqdm import p_umap
 from functools import partial
 import pandas as pd
 
+def run_clipping(pcap_path,output_path,frame_index):
+    # load packets from pcap until the last frame in the end_frames
+    # frame_index: a 2 x 2 np.array, with first colume start frame and second colume end frame
+    # result_folder_path = os.path.join(output_path,pcap_name)
+    if not os.path.exists(output_path):
+        os.mkdir(output_path) 
+    packets = []
+    tses = []
+    frame_index = []
+    cur_ind = 0
+    print('Processing', pcap_path)
+    with open(pcap_path, 'rb') as fpcap:
+        lidar_reader = dpkt.pcap.Reader(fpcap)
+        try:
+            ts,buf = next(lidar_reader)
+            eth = dpkt.ethernet.Ethernet(buf)
+            next_ts = ts + 0.1
+            packets.append(eth)
+            tses.append(ts)
+            frame_index.append(cur_ind)
+        except:
+            pass
+        
+        while True:
+            if cur_ind > max(frame_index[:,1].max()):
+                break
+            try:
+                frame_index.append(cur_ind)
+                ts,buf = next(lidar_reader)
+                eth = dpkt.ethernet.Ethernet(buf)
+                packets.append(eth)
+                tses.append(ts)
+                if ts > next_ts:
+                    cur_ind += 1
+                    next_ts += 0.1
+            except:
+                break
+    # save the snippets to specified folder
+
+    for i in range(len(start_frames)):
+        with open(os.path.join(result_folder_path,'{}_{}.pcap'.format(start_frames[i],end_frames[i])),'wb') as wpcap:
+            lidar_writer = dpkt.pcap.Writer(wpcap)
+            start_ind = np.where(np.array(frame_index) == start_frames[i])[0][0]
+            end_ind = np.where(np.array(frame_index) == end_frames[i])[0][-1]
+            for f_ind in range(start_ind,end_ind):
+                lidar_writer.writepkt(packets[f_ind],ts = tses[f_ind])
 def run_mot(mot,ref_LLH,ref_xyz,utc_diff):
     mot.initialization()
     if mot.thred_map is not None:
@@ -49,16 +95,18 @@ class Interface():
         self.root = tk.Tk()
         self.root.title('Super Tracker Toolbox -- powered by czh')
         self.root.resizable(True,True)
-        self.root.geometry('700x300')
+        self.root.geometry('1000x500')
         # Tab1: Visulization; Tab2: Generate trajectories from single pcap file; Tab3: Batch Trajs generation 
         self.tabControl = ttk.Notebook(self.root)
         self.tab1 = ttk.Frame(self.tabControl)
         self.tab2 = ttk.Frame(self.tabControl)
         self.tab3 = ttk.Frame(self.tabControl)
+        self.tab4 = ttk.Frame(self.tabControl)
 
         self.tabControl.add(self.tab1, text='Tracking Visulization')
         self.tabControl.add(self.tab2, text='Batch Generation')
         self.tabControl.add(self.tab3, text='Geometry Referencing')
+        self.tabControl.add(self.tab4, text='Pcap Clipping')
         
         # Visulization Tab 1
         ttk.Label(self.tab1, text= "Tracking Visulization").grid(column=0, row=0, padx=30, pady=10)
@@ -89,6 +137,7 @@ class Interface():
         self.TrackingThread = None
         self.BatchTrackingThread = None
         self.GeoRefThread = None
+        self.PcapClippingThread = None
         self.ClearEvent_Tab1 = None
         self.TrackingTerminateEvent_Tab1 = None
         self.StopVisEvent_Tab1 = None
@@ -134,8 +183,17 @@ class Interface():
         self.RefXyzEntry_Tab3 = None
         self.RefLlhEntry_Tab3 = None
         self.OutputEntry_Tab3 = None
-        
         self.CreateTab3()
+        """
+        Tab4
+        """
+        self.cpu_nEntryTab4 = None
+        self.cpu_nTab4 = tk.IntVar()
+        self.PcapPathEntry_Tab4 = None
+        self.TimeStampKey_Tab4 = tk.StringVar()
+        self.TimeStampKeyEntry_Tab4 = None
+        self.OutputEntry_Tab4 = None
+        self.CreateTab4()
 
     def CreateTab1(self):
         """
@@ -339,6 +397,42 @@ class Interface():
         command=self.StartGeoRef
         )
         BatchProcess.grid(column=0, row=4, padx=0, pady=0)
+    def CreateTab4(self):
+        ttk.Label(self.tab4, text= "Input Pcap Folder").grid(column=1, row=0, padx=0, pady=0)
+        ttk.Label(self.tab4, text= "Output Folder").grid(column=4, row=0, padx=0, pady=0)
+        self.PcapPathEntry_Tab4 = ttk.Entry(self.tab4,text = "Select Pcap Folder")
+        self.PcapPathEntry_Tab4.grid(column=1, row=1, padx=0, pady=0)
+        self.OutputEntry_Tab4 = ttk.Entry(self.tab4,text = "Select Output Folder")
+        self.OutputEntry_Tab4.grid(column=4, row=1, padx=0, pady=0)
+        ttk.Label(self.tab4, text= "CPUs").grid(column=2, row=0, padx=0, pady=0)
+        self.cpu_nEntryTab4 = ttk.Entry(self.tab4,textvariable = self.cpu_nTab4,width=5)
+        self.cpu_nEntryTab4.grid(column=2, row=1, padx=0, pady=0)
+        self.cpu_nTab4.set(1)
+        selectPcapFolderButton = ttk.Button(
+            self.tab4,
+            text='Select Folder',
+            command = self.selectInputDirectoryTab4
+        )
+        selectPcapFolderButton.grid(column=0, row=1, padx=0, pady=0)
+        SelectOutputPath = ttk.Button(
+        self.tab4,
+        text='Select Output Path',
+        command=self.selectOutputDirectoryTab4
+        )
+        
+        SelectOutputPath.grid(column=3, row=1, padx=0, pady=0) 
+        BatchProcess = ttk.Button(
+        self.tab4,
+        text='Batch Process',
+        command=self.StartClipping
+        )
+        BatchProcess.grid(column=0, row=4, padx=0, pady=0)
+        ttk.Label(self.tab4, text= "Timestamp Key").grid(column=1, row=2, padx=0, pady=0)
+        self.TimeStampKeyEntry_Tab4 = ttk.Entry(self.tab4,textvariable = self.TimeStampKey_Tab4,width=15)
+        self.TimeStampKeyEntry_Tab4.grid(column=1, row=3, padx=0, pady=0)
+        self.TimeStampKey_Tab4.set('Timestamp')
+
+
     def LoadPcap(self):
         self.ClearEvent_Tab1 = Event()
         self.LoadPcapThread = Thread(target=self.Loading_Tab1,args=(self.ClearEvent_Tab1,))
@@ -356,6 +450,18 @@ class Interface():
         self.TrackingStatus.set("Tracked Frames:0")
 
     def selectInputDirectory(self):
+        filename = filedialog.askdirectory(
+            title='Open a folder',
+            initialdir='/',
+            )
+        folder_content = os.listdir(filename)
+        file_types = [f.split('.')[-1] for f in folder_content]
+        if 'pcap' in file_types:
+            self.PcapPathEntry_Tab2.delete(0,'end')
+            self.PcapPathEntry_Tab2.insert(0,filename)
+        else:
+            print('No Pcap in the folder')
+    def selectInputDirectoryTab4(self):
         filename = filedialog.askdirectory(
             title='Open a folder',
             initialdir='/',
@@ -395,6 +501,13 @@ class Interface():
             )
         self.OutputEntry_Tab3.delete(0,'end')
         self.OutputEntry_Tab3.insert(0,filename)
+    def selectOutputDirectoryTab4(self):
+        filename = filedialog.askdirectory(
+            title='Open a folder',
+            initialdir='/',
+            )
+        self.OutputEntry_Tab4.delete(0,'end')
+        self.OutputEntry_Tab4.insert(0,filename)
     def selectPcap(self):
         filetypes = (
             ('pcap files', '*.pcap'),
@@ -454,6 +567,7 @@ class Interface():
 
         self.RefLlhEntry_Tab3.delete(0,'end')
         self.RefLlhEntry_Tab3.insert(0,filename)
+    # def selectOutput
     def Loading_Tab1(self,event):
         """
         Test Validity
@@ -497,12 +611,6 @@ class Interface():
         else:
             print('Path not exists')
 
-        
-    def Tracking(self):
-        self.TrackingTerminateEvent_Tab1 = Event()
-        self.TrackingThread = Thread(target=self.createTracker,args=(self.TrackingTerminateEvent_Tab1,))
-        self.TrackingThread.start()
-
     def createTracker(self,event):
         self.mot = MOTLite(input_file_path='.',output_file_path='.',win_size=[self.win_size_x.get(),self.win_size_y.get()],eps = self.eps.get(),
         min_samples=self.min_samples.get(),bck_update_frame = self.bck_update_frame.get(),
@@ -544,14 +652,18 @@ class Interface():
             time.sleep(0.1)
 
         vis.destroy_window()
-
+    def Tracking(self):
+        self.TrackingTerminateEvent_Tab1 = Event()
+        self.TrackingThread = Thread(target=self.createTracker,args=(self.TrackingTerminateEvent_Tab1,))
+        self.TrackingThread.start()
     def StartBatch(self):
         self.BatchTrackingThread = Thread(target=self.CreateBatchTracking)
         self.BatchTrackingThread.start()
     def StartGeoRef(self):
         self.GeoRefThread = Thread(target=self.CreateBatchGeoRef)
         self.GeoRefThread.start()
-
+    def StartClipping(self):
+        pass 
     def CreateBatchTracking(self):
         input_path = self.PcapPathEntry_Tab2.get()
         output_traj_path = self.OutputEntry_Tab2.get()
