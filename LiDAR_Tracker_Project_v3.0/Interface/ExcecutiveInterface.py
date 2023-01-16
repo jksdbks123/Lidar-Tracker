@@ -20,10 +20,9 @@ from p_tqdm import p_umap
 from functools import partial
 import pandas as pd
 
-def run_clipping(pcap_path,output_path,frame_index):
+def run_clipping(pcap_path,output_path,target_frame):
     # load packets from pcap until the last frame in the end_frames
-    # frame_index: a 2 x 2 np.array, with first colume start frame and second colume end frame
-    # result_folder_path = os.path.join(output_path,pcap_name)
+    # target_frame: a 2 x 2 np.array, with first colume start frame and second colume end frame
     if not os.path.exists(output_path):
         os.mkdir(output_path) 
     packets = []
@@ -42,9 +41,8 @@ def run_clipping(pcap_path,output_path,frame_index):
             frame_index.append(cur_ind)
         except:
             pass
-        
         while True:
-            if cur_ind > max(frame_index[:,1].max()):
+            if cur_ind > max(target_frame[:,1].max()):
                 break
             try:
                 frame_index.append(cur_ind)
@@ -58,14 +56,15 @@ def run_clipping(pcap_path,output_path,frame_index):
             except:
                 break
     # save the snippets to specified folder
-
-    for i in range(len(start_frames)):
-        with open(os.path.join(result_folder_path,'{}_{}.pcap'.format(start_frames[i],end_frames[i])),'wb') as wpcap:
+    frame_index = np.array(frame_index)
+    for i in range(len(target_frame)):
+        with open(os.path.join(output_path,'{}_{}.pcap'.format(target_frame[i,0],target_frame[i,1])),'wb') as wpcap:
             lidar_writer = dpkt.pcap.Writer(wpcap)
-            start_ind = np.where(np.array(frame_index) == start_frames[i])[0][0]
-            end_ind = np.where(np.array(frame_index) == end_frames[i])[0][-1]
+            start_ind = np.where(frame_index == target_frame[i,0])[0][0]
+            end_ind = np.where(frame_index == target_frame[i,0])[0][-1]
             for f_ind in range(start_ind,end_ind):
                 lidar_writer.writepkt(packets[f_ind],ts = tses[f_ind])
+
 def run_mot(mot,ref_LLH,ref_xyz,utc_diff):
     mot.initialization()
     if mot.thred_map is not None:
@@ -192,7 +191,10 @@ class Interface():
         self.PcapPathEntry_Tab4 = None
         self.TimeStampKey_Tab4 = tk.StringVar()
         self.TimeStampKeyEntry_Tab4 = None
+        self.FrameKey_Tab4 = tk.StringVar()
+        self.FrameKeyEntry_Tab4 = None
         self.OutputEntry_Tab4 = None
+
         self.CreateTab4()
 
     def CreateTab1(self):
@@ -426,11 +428,17 @@ class Interface():
         text='Batch Process',
         command=self.StartClipping
         )
-        BatchProcess.grid(column=0, row=4, padx=0, pady=0)
+        BatchProcess.grid(column=0, row=3, padx=0, pady=0)
         ttk.Label(self.tab4, text= "Timestamp Key").grid(column=1, row=2, padx=0, pady=0)
         self.TimeStampKeyEntry_Tab4 = ttk.Entry(self.tab4,textvariable = self.TimeStampKey_Tab4,width=15)
         self.TimeStampKeyEntry_Tab4.grid(column=1, row=3, padx=0, pady=0)
         self.TimeStampKey_Tab4.set('Timestamp')
+        ttk.Label(self.tab4, text= "Timestamp Key").grid(column=1, row=2, padx=0, pady=0)
+        self.FrameKeyEntry_Tab4 = ttk.Entry(self.tab4,textvariable = self.FrameKey_Tab4,width=15)
+        self.FrameKeyEntry_Tab4.grid(column=2, row=3, padx=0, pady=0)
+        self.FrameKey_Tab4.set('FrameIndex')
+        ttk.Label(self.tab4, text= "FrameIndex").grid(column=2, row=2, padx=0, pady=0)
+
 
 
     def LoadPcap(self):
