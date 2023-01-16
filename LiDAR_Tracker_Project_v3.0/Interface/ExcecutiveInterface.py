@@ -20,11 +20,13 @@ from p_tqdm import p_umap
 from functools import partial
 import pandas as pd
 
-def run_clipping(pcap_path,output_path,target_frame):
+def run_clipping(pcap_path,target_frame,output_path):
     # load packets from pcap until the last frame in the end_frames
     # target_frame: a 2 x 2 np.array, with first colume start frame and second colume end frame
-    if not os.path.exists(output_path):
-        os.mkdir(output_path) 
+    outfolder = os.path.join(output_path,pcap_path.split('.')[0])
+    if not os.path.exists(outfolder):
+        os.mkdir(outfolder)
+    
     packets = []
     tses = []
     frame_index = []
@@ -58,7 +60,7 @@ def run_clipping(pcap_path,output_path,target_frame):
     # save the snippets to specified folder
     frame_index = np.array(frame_index)
     for i in range(len(target_frame)):
-        with open(os.path.join(output_path,'{}_{}.pcap'.format(target_frame[i,0],target_frame[i,1])),'wb') as wpcap:
+        with open(os.path.join(outfolder,'{}_{}.pcap'.format(target_frame[i,0],target_frame[i,1])),'wb') as wpcap:
             lidar_writer = dpkt.pcap.Writer(wpcap)
             start_ind = np.where(frame_index == target_frame[i,0])[0][0]
             end_ind = np.where(frame_index == target_frame[i,0])[0][-1]
@@ -194,7 +196,11 @@ class Interface():
         self.FrameKey_Tab4 = tk.StringVar()
         self.FrameKeyEntry_Tab4 = None
         self.OutputEntry_Tab4 = None
-
+        self.TimeRefFile = tk.StringVar()
+        self.TimeRefFileEntry_Tab4 = None
+        self.TimeInterval_Tab4 = tk.IntVar() #sec
+        self.TimeIntervalEntry_Tab4 = None
+        
         self.CreateTab4()
 
     def CreateTab1(self):
@@ -401,11 +407,11 @@ class Interface():
         BatchProcess.grid(column=0, row=4, padx=0, pady=0)
     def CreateTab4(self):
         ttk.Label(self.tab4, text= "Input Pcap Folder").grid(column=1, row=0, padx=0, pady=0)
-        ttk.Label(self.tab4, text= "Output Folder").grid(column=4, row=0, padx=0, pady=0)
+        ttk.Label(self.tab4, text= "Output Folder").grid(column=5, row=0, padx=0, pady=0)
         self.PcapPathEntry_Tab4 = ttk.Entry(self.tab4,text = "Select Pcap Folder")
         self.PcapPathEntry_Tab4.grid(column=1, row=1, padx=0, pady=0)
         self.OutputEntry_Tab4 = ttk.Entry(self.tab4,text = "Select Output Folder")
-        self.OutputEntry_Tab4.grid(column=4, row=1, padx=0, pady=0)
+        self.OutputEntry_Tab4.grid(column=5, row=1, padx=0, pady=0)
         ttk.Label(self.tab4, text= "CPUs").grid(column=2, row=0, padx=0, pady=0)
         self.cpu_nEntryTab4 = ttk.Entry(self.tab4,textvariable = self.cpu_nTab4,width=5)
         self.cpu_nEntryTab4.grid(column=2, row=1, padx=0, pady=0)
@@ -416,13 +422,26 @@ class Interface():
             command = self.selectInputDirectoryTab4
         )
         selectPcapFolderButton.grid(column=0, row=1, padx=0, pady=0)
+        ttk.Label(self.tab4, text= "TimeIntv (sec)").grid(column=3, row=0, padx=0, pady=0)
+        self.TimeIntervalEntry_Tab4 = ttk.Entry(self.tab4,textvariable=self.TimeInterval_Tab4,width=5)
+        self.TimeIntervalEntry_Tab4.grid(column=3, row=1, padx=0, pady=0)
+        self.TimeInterval_Tab4.set(30)
         SelectOutputPath = ttk.Button(
         self.tab4,
         text='Select Output Path',
         command=self.selectOutputDirectoryTab4
         )
-        
-        SelectOutputPath.grid(column=3, row=1, padx=0, pady=0) 
+        SelectOutputPath.grid(column=4, row=1, padx=0, pady=0) 
+
+        SelectTimeRefFile = ttk.Button(
+        self.tab4,
+        text='Select TimeRef',
+        command=self.selectTimeRefTab4
+        )
+        SelectTimeRefFile.grid(column=3, row=3, padx=0, pady=0) 
+        self.TimeRefFileEntry_Tab4 = ttk.Entry(self.tab4,text = "Select Time Ref File")
+        self.TimeRefFileEntry_Tab4.grid(column=4, row=3, padx=0, pady=0)
+        ttk.Label(self.tab4, text= "Time Ref File").grid(column=4, row=2, padx=0, pady=0)
         BatchProcess = ttk.Button(
         self.tab4,
         text='Batch Process',
@@ -438,6 +457,7 @@ class Interface():
         self.FrameKeyEntry_Tab4.grid(column=2, row=3, padx=0, pady=0)
         self.FrameKey_Tab4.set('FrameIndex')
         ttk.Label(self.tab4, text= "FrameIndex").grid(column=2, row=2, padx=0, pady=0)
+        
 
 
 
@@ -469,6 +489,7 @@ class Interface():
             self.PcapPathEntry_Tab2.insert(0,filename)
         else:
             print('No Pcap in the folder')
+
     def selectInputDirectoryTab4(self):
         filename = filedialog.askdirectory(
             title='Open a folder',
@@ -477,8 +498,8 @@ class Interface():
         folder_content = os.listdir(filename)
         file_types = [f.split('.')[-1] for f in folder_content]
         if 'pcap' in file_types:
-            self.PcapPathEntry_Tab2.delete(0,'end')
-            self.PcapPathEntry_Tab2.insert(0,filename)
+            self.PcapPathEntry_Tab4.delete(0,'end')
+            self.PcapPathEntry_Tab4.insert(0,filename)
         else:
             print('No Pcap in the folder')
 
@@ -575,6 +596,18 @@ class Interface():
 
         self.RefLlhEntry_Tab3.delete(0,'end')
         self.RefLlhEntry_Tab3.insert(0,filename)
+    def selectTimeRefTab4(self):
+        filetypes = (
+            ('csv files', '*.csv'),
+        )
+
+        filename = filedialog.askopenfilenames(
+            title='Open a .csv file',
+            initialdir='/',
+            filetypes=filetypes)
+
+        self.TimeRefFileEntry_Tab4.delete(0,'end')
+        self.TimeRefFileEntry_Tab4.insert(0,filename)
     # def selectOutput
     def Loading_Tab1(self,event):
         """
@@ -671,7 +704,8 @@ class Interface():
         self.GeoRefThread = Thread(target=self.CreateBatchGeoRef)
         self.GeoRefThread.start()
     def StartClipping(self):
-        pass 
+        self.PcapClippingThread = Thread(target=self.CreateClipping)
+        self.PcapClippingThread.start() 
     def CreateBatchTracking(self):
         input_path = self.PcapPathEntry_Tab2.get()
         output_traj_path = self.OutputEntry_Tab2.get()
@@ -750,9 +784,53 @@ class Interface():
         print('Begin Geo Referencing')
         p_umap(partial(run_georef,T = T), traj_paths,out_paths,num_cpus = n_cpu)
 
-        
+    def CreateClipping(self):
+        input_path = self.PcapPathEntry_Tab4.get()
+        output_path = self.OutputEntry_Tab4.get()
+        timeRef = pd.read_csv(self.TimeIntervalEntry_Tab4.get())
+        ts_key,frameInd_key = self.TimeStampKeyEntry_Tab4.get(),self.FrameKeyEntry_Tab4.get()
+        timeintv = self.TimeInterval_Tab4.get()
+        filelist = os.listdir(input_path)
+        filelist_ = []
+        for f in filelist:
+            if len(f.split('.')) > 1:
+                if f.split('.')[1] == 'pcap':
+                    filelist_.append(f)
+        date = [f.split('.')[0] for f in filelist_]
+        date_ = []
+        for d in date:
+            if d[-1] == 'R':
+                date_.append(d[:-2])
+            else:
+                date_.append(d)
+        date_ = pd.to_datetime(pd.Series(date_),format=('%Y-%m-%d-%H-%M-%S'))
+        Ts_records = pd.to_datetime(timeRef.loc[:,ts_key],format=('%Y-%m-%d %H:%M:%S'))
+        Pcap_inds = []
+        for i in range(len(Ts_records)):
+            
+            TimeDiff = (Ts_records.iloc[i] - date_)
+            within30 = ((Ts_records.iloc[i] - date_) < pd.Timedelta(30,unit='Minute')) & (((Ts_records.iloc[i] - date_) > pd.Timedelta(0,unit='Minute')))
+            if within30.sum() == 0:
+                Pcap_ind = -1
+            else:
+                Pcap_ind = TimeDiff.loc[within30].argmin()
+            Pcap_inds.append(Pcap_ind)
+        Pcap_inds = np.array(Pcap_inds)
+        uni_ind = np.unique(Pcap_inds)
+        target_frames = []
+        for i in uni_ind:
+            if i == -1:
+                continue
+            start_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] - timeintv).reshape(-1,1)
+            end_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] + timeintv).reshape(-1,1)
+            start_frames[start_frames < 0] = 0
+            end_frames[end_frames > 17999] = 17999
+            target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
+        n_cpu = self.cpu_nTab4.get()
+        pcap_paths = [os.path.join(input_path,f) for f in filelist_]
+        print('Begin Pcap Clipping')
+        p_umap(partial(run_clipping,output_path = output_path), pcap_paths,target_frames,num_cpus = n_cpu)
 
-        
 
         
 
