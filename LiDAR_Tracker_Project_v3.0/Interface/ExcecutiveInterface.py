@@ -118,7 +118,7 @@ def run_georef(traj_path,output_path,T):
 class Interface():
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('A Bad Bad Tracker')
+        self.root.title('A Bad Bad Tracker --- powered by Zhihui')
         self.root.resizable(True,True)
         self.root.geometry('1000x500')
         # Tab1: Visulization; Tab2: Generate trajectories from single pcap file; Tab3: Batch Trajs generation 
