@@ -19,19 +19,43 @@ from VisulizerTools import *
 from p_tqdm import p_umap
 from functools import partial
 import pandas as pd
+def get_pcap_time(input_file_path,time_label):
+    with open(input_file_path, 'rb') as fpcap:
+        try:
+            lidar_reader = dpkt.pcap.Reader(fpcap)
+            while True:
+                try:
+                    ts,buf = next(lidar_reader)
+                    eth = dpkt.ethernet.Ethernet(buf)
+                except:
+                    break
+                if eth.type == 2048: # for ipv4
+                    if type(eth.data.data) == dpkt.udp.UDP:
+                        data = eth.data.data.data
+                        packet_status = eth.data.data.sport
+                        if packet_status == 2368:
+                            if len(data) == 1206:
+                                start_timestamp = ts
+                                break
+        except dpkt.dpkt.NeedData:
+            print('Invalid')
+    
+    time_label.set(str(pd.to_datetime(start_timestamp,unit='s')))
 
-def run_clipping(pcap_path,target_frame,output_path):
+def run_clipping(pcap_path,target_frame,pcap_name, output_path):
     # load packets from pcap until the last frame in the end_frames
     # target_frame: a 2 x 2 np.array, with first colume start frame and second colume end frame
-    outfolder = os.path.join(output_path,pcap_path.split('.')[0])
+    print('o:',output_path)
+    # outfolder = os.path.join(output_path,pcap_path.split('.')[0])
+    folder_name = pcap_name.split('.')[0]
+    outfolder = os.path.join(output_path,folder_name)
     if not os.path.exists(outfolder):
         os.mkdir(outfolder)
-    
     packets = []
     tses = []
     frame_index = []
     cur_ind = 0
-    print('Processing', pcap_path)
+    print('Processing', outfolder)
     with open(pcap_path, 'rb') as fpcap:
         lidar_reader = dpkt.pcap.Reader(fpcap)
         try:
@@ -44,7 +68,7 @@ def run_clipping(pcap_path,target_frame,output_path):
         except:
             pass
         while True:
-            if cur_ind > max(target_frame[:,1].max()):
+            if cur_ind > target_frame[:,1].max():
                 break
             try:
                 frame_index.append(cur_ind)
@@ -63,7 +87,7 @@ def run_clipping(pcap_path,target_frame,output_path):
         with open(os.path.join(outfolder,'{}_{}.pcap'.format(target_frame[i,0],target_frame[i,1])),'wb') as wpcap:
             lidar_writer = dpkt.pcap.Writer(wpcap)
             start_ind = np.where(frame_index == target_frame[i,0])[0][0]
-            end_ind = np.where(frame_index == target_frame[i,0])[0][-1]
+            end_ind = np.where(frame_index == target_frame[i,1])[0][0]
             for f_ind in range(start_ind,end_ind):
                 lidar_writer.writepkt(packets[f_ind],ts = tses[f_ind])
 
@@ -94,7 +118,7 @@ def run_georef(traj_path,output_path,T):
 class Interface():
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('Super Tracker Toolbox -- powered by czh')
+        self.root.title('A Bad Bad Tracker')
         self.root.resizable(True,True)
         self.root.geometry('1000x500')
         # Tab1: Visulization; Tab2: Generate trajectories from single pcap file; Tab3: Batch Trajs generation 
@@ -116,6 +140,7 @@ class Interface():
         self.EndFrameIndEntry_Tab1 = None
         self.StartFrameInd_Tab1 = tk.IntVar()
         self.EndFrameInd_Tab1 = tk.IntVar()
+        self.PcapTime_Tab1 = tk.StringVar()
         self.win_size_x,self.win_size_y = tk.IntVar(),tk.IntVar()
         self.win_size_xEntry,self.win_size_yEntry = None,None
         self.eps = tk.DoubleVar()
@@ -270,6 +295,9 @@ class Interface():
         self.missing_thredEntry = ttk.Entry(self.tab1,textvariable = self.missing_thred,width=5)
         self.missing_thredEntry.grid(column=4, row=7, padx=0, pady=0)
         self.missing_thred.set(10)
+        ttk.Label(self.tab1, text='Pcap Time').grid(column=4, row=0, padx=0, pady=0)
+        ttk.Label(self.tab1, textvariable= self.PcapTime_Tab1).grid(column=4, row=1, padx=0, pady=0)
+        self.PcapTime_Tab1.set('0')
         """
         Buttoms
         """
@@ -303,7 +331,9 @@ class Interface():
         text='Terminate Tracking',
         command=self.TrackerTerminate
         )
-        TrackTerminateButton.grid(column=0, row=7, padx=0, pady=0)   
+        TrackTerminateButton.grid(column=0, row=7, padx=0, pady=0)
+
+
         """
         Buttoms
         """
@@ -548,6 +578,8 @@ class Interface():
 
         self.PcapPathEntry_Tab1.delete(0,'end')
         self.PcapPathEntry_Tab1.insert(0,filename)
+        if len(filename) != 0:
+            get_pcap_time(filename[0],self.PcapTime_Tab1)
     def selectRefXyzTab2(self):
         filetypes = (
             ('csv files', '*.csv'),
@@ -572,6 +604,7 @@ class Interface():
 
         self.RefXyzEntry_Tab3.delete(0,'end')
         self.RefXyzEntry_Tab3.insert(0,filename)
+
     def selectRefLlhTab2(self):
         filetypes = (
             ('csv files', '*.csv'),
@@ -707,6 +740,7 @@ class Interface():
         self.PcapClippingThread = Thread(target=self.CreateClipping)
         self.PcapClippingThread.start() 
     def CreateBatchTracking(self):
+
         input_path = self.PcapPathEntry_Tab2.get()
         output_traj_path = self.OutputEntry_Tab2.get()
         params = { 
@@ -751,6 +785,7 @@ class Interface():
         utc_diff = self.UTC_diff.get()
         n_cpu = self.cpu_nTab2.get()
         print(f'Parallel Processing Begin with {n_cpu} Cpu(s)')
+        print('Params:',params)
         p_umap(partial(run_mot,ref_LLH = ref_LLH, ref_xyz = ref_xyz, utc_diff = utc_diff), mots,num_cpus = n_cpu)
     
     def CreateBatchGeoRef(self):
@@ -787,7 +822,7 @@ class Interface():
     def CreateClipping(self):
         input_path = self.PcapPathEntry_Tab4.get()
         output_path = self.OutputEntry_Tab4.get()
-        timeRef = pd.read_csv(self.TimeIntervalEntry_Tab4.get())
+        timeRef = pd.read_csv(self.TimeRefFileEntry_Tab4.get())
         ts_key,frameInd_key = self.TimeStampKeyEntry_Tab4.get(),self.FrameKeyEntry_Tab4.get()
         timeintv = self.TimeInterval_Tab4.get()
         filelist = os.listdir(input_path)
@@ -804,32 +839,35 @@ class Interface():
             else:
                 date_.append(d)
         date_ = pd.to_datetime(pd.Series(date_),format=('%Y-%m-%d-%H-%M-%S'))
-        Ts_records = pd.to_datetime(timeRef.loc[:,ts_key],format=('%Y-%m-%d %H:%M:%S'))
+        Ts_records = pd.to_datetime(timeRef.loc[:,ts_key],format=('%Y-%m-%d-%H-%M-%S'))
         Pcap_inds = []
         for i in range(len(Ts_records)):
-            
             TimeDiff = (Ts_records.iloc[i] - date_)
-            within30 = ((Ts_records.iloc[i] - date_) < pd.Timedelta(30,unit='Minute')) & (((Ts_records.iloc[i] - date_) > pd.Timedelta(0,unit='Minute')))
+            within30 = (TimeDiff < pd.Timedelta(30,unit='Minute')) & ((TimeDiff >= pd.Timedelta(0,unit='Minute')))
             if within30.sum() == 0:
                 Pcap_ind = -1
             else:
-                Pcap_ind = TimeDiff.loc[within30].argmin()
+                Pcap_ind = TimeDiff.loc[within30].argsort().index[0]
             Pcap_inds.append(Pcap_ind)
         Pcap_inds = np.array(Pcap_inds)
         uni_ind = np.unique(Pcap_inds)
         target_frames = []
+        pcap_paths = []
+        pcap_names = []
         for i in uni_ind:
             if i == -1:
                 continue
-            start_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] - timeintv).reshape(-1,1)
-            end_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] + timeintv).reshape(-1,1)
+            start_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] - timeintv*10).reshape(-1,1)
+            end_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] + timeintv*10).reshape(-1,1)
             start_frames[start_frames < 0] = 0
             end_frames[end_frames > 17999] = 17999
             target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
+            pcap_paths.append(os.path.join(input_path,filelist_[i]))
+            pcap_names.append(filelist_[i])
         n_cpu = self.cpu_nTab4.get()
-        pcap_paths = [os.path.join(input_path,f) for f in filelist_]
-        print('Begin Pcap Clipping')
-        p_umap(partial(run_clipping,output_path = output_path), pcap_paths,target_frames,num_cpus = n_cpu)
+
+        print('Begin Pcap Clipping with {} Cpus'.format(n_cpu))
+        p_umap(partial(run_clipping,output_path = output_path), pcap_paths,target_frames,pcap_names,num_cpus = n_cpu)
 
 
         
