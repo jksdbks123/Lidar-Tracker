@@ -11,6 +11,19 @@ import sys
 import cv2
 from VisulizerTools import *
 from DDBSCAN import Raster_DBSCAN
+
+theta_raw = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
+                            [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
+                            [-7.254,1.4],[0.333,-4.2],[-0.333,1.4],[-6.148,-1.4],
+                            [-5.333,4.2],[1.333,-1.4],[0.667,4.2],[-4,-1.4],
+                            [-4.667,1.4],[1.667,-4.2],[1,1.4],[-3.667,-4.2],
+                            [-3.333,4.2],[3.333,-1.4],[2.333,1.4],[-2.667,-1.4],
+                            [-3,1.4],[7,-1.4],[4.667,1.4],[-2.333,-4.2],
+                            [-2,4.2],[15,-1.4],[10.333,1.4],[-1.333,-1.4]
+                            ])[:,0]
+theta = np.sort(theta_raw)
+azimuths = np.arange(0,360,0.2)
+
 class TDmapLoader():
     def __init__(self,file_path): 
         self.Data_order = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
@@ -26,7 +39,7 @@ class TDmapLoader():
         self.timing_offset = self.calc_timing_offsets()
         self.omega = self.Data_order[:,0]
         self.arg_omega = np.argsort(self.omega)
-        self.lidar_reader = 0
+        self.lidar_reader = None
         self.end_time = 0
         self.file_path = file_path
         self.load_reader()
