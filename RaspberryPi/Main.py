@@ -4,26 +4,16 @@ from multiprocessing import set_start_method
 from Utils import *
 from GenBckFile import *
 from LiDARBase import *
+from MOT_TD_BCKONLIONE import MOT
 """
 raw_data_queue: UDP packets from LiDAR snesor 
 LidarVisualizer.point_cloud_queue: parsed point cloud frames 
 
 """
-
-
-
-
-def toggle_catch_background(state):
-    print('Test_toggle_bck')
-def toggle_tracking_mode(state):
-    print('Test_track')
-def toggle_foreground(state):
-    print('Show Foreground Points')
 def generate_and_save_background(background_data):
     thred_map = gen_bckmap(np.array(background_data), N = 10,d_thred = 0.1,bck_n = 3)
     np.save('./thred_map.npy',thred_map)
     print('Generate Bck')
-
 
 class LidarVisualizer:
     def __init__(self,point_cloud_queue, width=800, height=600, title='LiDAR Data Visualization'):
@@ -39,6 +29,8 @@ class LidarVisualizer:
         self.thred_map = None
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
+        self.mot = None
+
         self.zoom = 1.0
         self.offset = np.array([0, 0])
         self.dragging = False
@@ -48,12 +40,12 @@ class LidarVisualizer:
         # Badgets
         self.color_intensity_slider = Slider(self.screen, (50, 550, 200, 20), "eps", default_value=0.5)
         self.density_slider = Slider(self.screen, (300, 550, 200, 20), "min_points", default_value=0.5)
-        self.switch_bck_recording_mode = ToggleButton(self.screen, (20, 20, 100, 50), 'Record Frames', 'Generating Backgroud', toggle_catch_background)
-        self.switch_tracking_mode = ToggleButton(self.screen, (20, 100, 100, 50), 'Track Off', 'Track On', toggle_tracking_mode)
-        self.switch_foreground_mode = ToggleButton(self.screen, (20, 180, 100, 50), 'Raw Point Cloud', 'Foreground Points', toggle_foreground)
+        self.switch_bck_recording_mode = ToggleButton(self.screen, (20, 20, 100, 50), 'Record Frames', 'Generating Backgroud', self.toggle_catch_background)
+        self.switch_tracking_mode = ToggleButton(self.screen, (20, 100, 100, 50), 'Track Off', 'Track On', self.toggle_tracking_mode)
+        self.switch_foreground_mode = ToggleButton(self.screen, (20, 180, 100, 50), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
         self.bck_length_info = InfoBox(self.screen,(650,20,100,50),'No bck info')
         self.gen_bck_bottom = Button(self.screen,(650,100,100,50),'Gen Bck',self.start_background_generation)
-
+        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
         self.bck_radius = 0.9
 
     def handle_events(self):
@@ -117,7 +109,24 @@ class LidarVisualizer:
         self.gen_bck_bottom.draw()
         pygame.display.flip()
     
-    
+    def deactivate_other_toggles(self,activate_button):
+        for button in self.toggle_buttons:
+            if button != activate_button:
+                button.set_state()
+
+    def toggle_catch_background(self,state):
+        if state:
+            self.deactivate_other_toggles(self.switch_bck_recording_mode)
+        print('Test_toggle_bck')
+    def toggle_tracking_mode(self,state):
+        if state:
+            self.deactivate_other_toggles(self.switch_tracking_mode)
+        print('Test_track')
+    def toggle_foreground(self,state):
+        if state:
+            self.deactivate_other_toggles(self.switch_foreground_mode)
+        print('Show Foreground Points')
+
     def start_background_generation(self):
         if self.background_data:
             # Ensure there's no active background process running
@@ -141,16 +150,35 @@ class LidarVisualizer:
             return np.array([[0], [0]])
 
     def run(self):
+        # tracking_initilized_flag = False
+        # first_time_flag = False
         while self.running:
             self.handle_events()
-            self.catch_background
-
+        
             if not self.point_cloud_queue.empty():
                 Td_map = self.point_cloud_queue.get()
+
+
                 if self.switch_bck_recording_mode.state:
                     self.background_data.append(Td_map)
                     self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
+
+                # if self.switch_tracking_mode.state & (~tracking_initilized_flag): # if tracklets are initialized 
+
+                #     self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
+                #     while True:
+                #         first_time_flag = self.mot.initialization(Td_map)
+                #         if first_time_flag:
+                #             break
+                # if self.switch_tracking_mode.state & tracking_initilized_flag:
+                #     self.mot.mot_tracking(Td_map)
+                #     """
+                #     Now starts to track
+                #     """
+                #     self.mot.Tracking_pool
+                    # labels # eventually get some labels
                 # point_cloud_data = get_pcd_uncolored(Td_map)
+                    
                 density = self.density_slider.value
                 if self.switch_foreground_mode.state:
                     Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
@@ -164,12 +192,17 @@ class LidarVisualizer:
                     ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
                     point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
                 
-                self.screen.fill((0, 0, 0))  # Clear screen
+
+                self.screen.fill((0, 0, 0))  
+                # Clear screen
 
                 if self.switch_foreground_mode.state:
                     self.draw(point_cloud_data,labels)
                 else:
                     self.draw(point_cloud_data)
+
+                # if first_time_flag:
+                #     tracking_initilized_flag = True
 
     def quit(self):
         self.running = False
@@ -178,7 +211,7 @@ class LidarVisualizer:
         pygame.quit()
 
 def main(pcap_file_path):
-    
+
     try:
         set_start_method('fork')
         raw_data_queue = Queue() # Packet Queue

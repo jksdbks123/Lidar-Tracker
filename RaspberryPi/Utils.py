@@ -1,7 +1,9 @@
 import pygame
 import numpy as np
 import os
-
+from scipy.optimize import linear_sum_assignment
+import cv2
+import dpkt
 
 class Slider:
     def __init__(self, screen, position, label, default_value=0.5):
@@ -46,7 +48,11 @@ class ToggleButton:
         self.state = False  # False = off, True = on
         self.color_off = (200, 200, 200)
         self.color_on = (100, 200, 100)
-    
+
+    def set_state(self):
+        self.state = False
+        self.callback(self.state)  # Call the callback function when toggled
+
     def draw(self):
         # Draw the button with different colors/text based on its state
         color = self.color_on if self.state else self.color_off

@@ -1,17 +1,34 @@
 from tkinter import SEL
-from BfTableGenerator import *
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
-import time
-import sys
-from datetime import datetime
+from LiDARBase import *
+
+
+A = np.array([ # x,y,x',y'
+    [1,0,1,0],
+    [0,1,0,1],
+    [0,0,1,0],
+    [0,0,0,1],
+])
+Q = np.diag([1,1,0.1,0.1])
+R = np.diag([1,1])
+P_em = np.diag([1.53,1.53,2.2,2.2])
+
+H = np.array([
+    [1,0,0,0],
+    [0,1,0,0]
+])
+
+"""
+When we click on the tracking mode, it creates a MOT object, and trying to initialize the tracking operation by detecting the first frame that some objects exist.
+Once some objects are detected, just forward. 
+"""
 
 class MOT():
-    def __init__(self, win_size, eps, min_samples):
+    def __init__(self, win_size, eps, min_samples, thred_map, missing_thred, db):
         """
         background_update_time : background update time (sec)
         """
-
         
         # if no data in pcap, then it's False
         self.if_pcap_valid = True 
@@ -19,113 +36,60 @@ class MOT():
         self.win_size = win_size
         self.eps = eps 
         self.min_samples = min_samples
-        self.bck_update_frame = bck_update_frame
-        self.d_thred = d_thred 
-        self.N = N
-        self.bck_n = bck_n
-        self.bck_radius = bck_radius
-        self.db = None
+        self.missing_thred = missing_thred
+        self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
         ###
-        self.thred_map = None     
+        self.thred_map = thred_map     
         self.start_timestamp = 0    
         ###
         self.Tracking_pool = {}
         self.Off_tracking_pool = {}
         self.Global_id = 0
-        self.Td_map_cur = None
-        self.Labeling_map_cur = None
-        self.missing_thred = missing_thred
-        ### Online holder
-        self.frame_gen = None
-        if self.if_vis:
-            self.vis = None
-
         
-    def initialization(self):    
-        # record start unix timestamp 
-        with open(self.input_file_path, 'rb') as fpcap:
-            try:
-                lidar_reader = dpkt.pcap.Reader(fpcap)
-            except dpkt.dpkt.NeedData:
-                self.if_pcap_valid = False
-            if self.if_pcap_valid:
-                while True:
-                    try:
-                        ts,buf = next(lidar_reader)
-                        eth = dpkt.ethernet.Ethernet(buf)
-                    except:
-                        break
-                    if eth.type == 2048: # for ipv4
-                        if type(eth.data.data) == dpkt.udp.UDP:
-                            data = eth.data.data.data
-                            packet_status = eth.data.data.sport
-                            if packet_status == 2368:
-                                if len(data) == 1206:
-                                    self.start_timestamp = ts
-                                    break
-                aggregated_maps = []
-                frame_gen = TDmapLoader(self.input_file_path).frame_gen()
-                for i in tqdm(range(self.bck_update_frame)):
-                    Frame = next(frame_gen)
-                    if Frame is None:
-                        break 
-                    Td_map,Int_map = Frame
-                    aggregated_maps.append(Td_map)
-                aggregated_maps = np.array(aggregated_maps)
-                if len(aggregated_maps.shape) == 3:
-                    thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n)
-                    self.thred_map = thred_map
-                    self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
-                    print('Initialization Done')
-                self.frame_gen = TDmapLoader(self.input_file_path).frame_gen()
-
-
-    def mot_tracking(self,frame_gen): 
-
-        if self.if_vis:
-            self.vis = op3.visualization.Visualizer()
-            self.vis.create_window()
-        Frame_ind = 0
-        # frame_gen = TDmapLoader(self.input_file_path).frame_gen()
-        # begin_time = time.time()
+        self.CurFrame = 0
+        self.cur_mea = None
+        self.cur_app = None
+        self.cur_unique_label = None
+        self.cur_Td_map = None
+        self.cur_Labeling_map = None
         
-        while True: #Iterate Until a frame with one or more targets are detected 
-
-            Frame = next(frame_gen)
-            if Frame is None:
-                break 
-            Td_map,Intensity_map = Frame
-            Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
-            Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            #mea_init : n x 2 x 2 x 1
-            mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)            
-            # label here does't necessarily to be sequential from 0 - n  
-            Frame_ind += 1
-            if len(unique_label_init)>0:
-                self.Td_map_cur = Td_map
-                self.Labeling_map_cur = Labeling_map
-                if self.if_vis:
-                    source = self.cur_pcd(Td_map,Labeling_map,self.Tracking_pool)
-                    self.vis.add_geometry(source)
-                break
+    def initialization(self,Frame):
+        # you should set up some initial status, we should code the logic in the main loop. 
         
-
+        self.Td_map_cur = Frame
+        Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
+        Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
+        mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)
+        if len(unique_label_init) == 0:
+        # No object in initial frame
+            return False
+        self.cur_Labeling_map = Labeling_map
+        self.cur_Td_map = Td_map
+        self.cur_mea = mea_init
+        self.cur_app = app_init 
+        # some appearance feature 
+        self.cur_unique_label = unique_label_init
         # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
-        n_observed = mea_init.shape[0]
-        n_repr = mea_init.shape[1]
-        n_offset_dim = A.shape[0] - mea_init.shape[2]
-        state_init = np.concatenate([mea_init,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
-        P_init = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
+        n_observed = self.cur_mea.shape[0]
+        n_repr = self.cur_mea.shape[1]
+        n_offset_dim = A.shape[0] - self.cur_mea.shape[2]
+        state_cur = np.concatenate([self.cur_mea,np.zeros((n_observed,n_repr,n_offset_dim,1))],axis = 2)
+        P_cur = np.full((n_observed,2,P_em.shape[0],P_em.shape[1]),P_em)
 
         # s: n x 2 x 4 x 1: x,y,vx,vy
-                
-        for i,label in enumerate(unique_label_init):
-            create_new_detection(self.Tracking_pool,self.Global_id,state_init[i],
-            app_init[i],label,mea_init[i],P_init[i],Frame_ind)
+        """
+        Create initial detections
+        """        
+        for i,label in enumerate(self.cur_unique_label):
+            create_new_detection(self.Tracking_pool,self.Global_id,state_cur[i],
+            self.cur_app[i],label,self.cur_mea[i],P_cur[i],self.CurFrame)
             self.Global_id += 1
-                        
-        state_cur,P_cur = state_init,P_init 
-        aggregated_maps = []
+        # Found objects in initial frame
+        return True
+
+
+    def mot_tracking(self, Frame): 
+        
 
         while True:
 
@@ -133,17 +97,11 @@ class MOT():
             Extract Matrix P and State of each tracklet in Current Tracking Pool
             
             """
-            Frame = next(frame_gen)
+            # Frame = next(frame_gen)
             if Frame is None:
                 break 
-            Td_map,Intensity_map = Frame
-            aggregated_maps.append(Td_map)
-            if Frame_ind%self.bck_update_frame == 0:
-                aggregated_maps = np.array(aggregated_maps)
-                self.thred_map = gen_bckmap(aggregated_maps, N = self.N, d_thred = self.d_thred, bck_n = self.bck_n )
-                aggregated_maps = []
-
-            time_b = time.time()
+            Td_map = Frame
+            
             glb_ids,state_cur,app_cur,unique_label_cur,P_cur = [],[],[],[],[]
             for glb_id in self.Tracking_pool.keys():
                 glb_ids.append(glb_id)
@@ -160,7 +118,6 @@ class MOT():
             unique_label_cur = np.array(unique_label_cur)
             P_cur = np.array(P_cur)
             # state_cur: n x 2 x 4 x 1
-
             # Foreground_map = (Td_map < self.thred_map)&(Td_map != 0)
             Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
             Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)

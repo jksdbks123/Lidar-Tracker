@@ -1,10 +1,21 @@
-import dpkt
-import numpy as np
+from Utils import *
 
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
 color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
 
+class detected_obj():
+    def __init__(self):
+        self.glb_id = None
+        self.start_frame = None
+        self.missing_count = 0 # frame count of out of detection
+        self.P = None
+        self.state = None 
+        self.apperance = None 
+        self.label_seq = [] # represented labels at each frame 
+        self.mea_seq = []
+        self.post_seq = []
+        self.app_seq = []
 
 def calc_timing_offsets():
     timing_offsets = np.zeros((32,12))  # Init matrix
@@ -42,6 +53,7 @@ def load_pcap(file_path):
         eth_reader = dpkt.pcap.Reader(fpcap)
     except Exception as ex:
         print(str(ex))
+        return None
     return eth_reader
 
 def parse_one_packet(data):
@@ -255,3 +267,213 @@ def parse_packets(raw_data_queue, point_cloud_queue):
                     culmulative_laser_ids.append(laser_id)
                     culmulative_distances.append(distances)
                     # culmulative_intensities.append(intensities)
+
+def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
+    
+    Tracking_pool[glb_id].state = state
+    Tracking_pool[glb_id].apperance = app
+    Tracking_pool[glb_id].P = P
+    Tracking_pool[glb_id].label_seq.append(next_label)
+    Tracking_pool[glb_id].mea_seq.append(mea_next)
+    Tracking_pool[glb_id].post_seq.append(state)
+    Tracking_pool[glb_id].app_seq.append(app)
+    Tracking_pool[glb_id].missing_count = 0
+
+def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
+    Tracking_pool[glb_id].missing_count += 1
+    fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
+    # dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
+    if  fail_condition1:
+        Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+    else:
+        Tracking_pool[glb_id].state = state_cur_
+        Tracking_pool[glb_id].P = P_cur_
+        Tracking_pool[glb_id].label_seq.append(-1)
+        Tracking_pool[glb_id].mea_seq.append(-1)
+        Tracking_pool[glb_id].app_seq.append(-1)
+        Tracking_pool[glb_id].post_seq.append(state_cur_)
+
+def state_update(A,H,state_,P_,R,mea):
+    """
+    mea: m_k (m x 5 x 1)
+    
+    """
+    K = np.matmul(np.matmul(P_,H.transpose()),np.linalg.inv(np.matmul(np.matmul(H,P_),H.transpose()) + R))
+    P = np.matmul((np.eye(A.shape[0]) - np.matmul(K,H)),P_)
+    residual = mea - np.matmul(H,state_) # n x 5 x 1
+    state = state_ + np.matmul(K,residual)
+    
+    return state, P 
+
+def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,label_init,mea_init,start_frame):
+
+    dis = np.sqrt(np.sum(state_init[0][:2]**2))
+
+    if dis > 7:
+        new_detection = detected_obj()
+        new_detection.glb_id = Global_id
+        new_detection.P = P_init
+        new_detection.state = state_init
+        new_detection.apperance = app_init
+        new_detection.label_seq.append(label_init)
+        new_detection.start_frame = start_frame
+        new_detection.mea_seq.append(mea_init)
+        new_detection.post_seq.append(state_init)
+        new_detection.app_seq.append(app_init)
+        Tracking_pool[Global_id] = new_detection
+
+def if_bck(rows,cols,Td_map,Plane_model):
+    # check if an object is background
+    # car: 2.6m 
+    td_freq_map = Td_map
+    longitudes = theta[rows]*np.pi / 180
+    latitudes = azimuths[cols] * np.pi / 180 
+    hypotenuses = td_freq_map[rows,cols] * np.cos(longitudes)
+    X = hypotenuses * np.sin(latitudes)
+    Y = hypotenuses * np.cos(latitudes)
+    Z = td_freq_map[rows,cols] * np.sin(longitudes)
+    Height_from_ground = Plane_model[0] * X + Plane_model[1] * Y  + Plane_model[2] * Z + Plane_model[3] 
+    Max_Height = Height_from_ground.max()
+    if (Max_Height > 3)|(Max_Height < 0.3):
+        return True
+    else:
+        return False
+    
+def get_appearance_features(rows,cols,Td_map): #obtain length height and width
+    
+    # 1.dis 2. point cnt 3.Dir(x) 4.dir(y) 5.Height 6.Len 7.Width 8.2Darea
+
+    td_freq_map = Td_map
+    dis = td_freq_map[rows,cols]
+    longitudes = theta[rows]*np.pi / 180
+    latitudes = azimuths[cols] * np.pi / 180 
+    hypotenuses = dis * np.cos(longitudes)
+    X = hypotenuses * np.sin(latitudes)
+    Y = hypotenuses * np.cos(latitudes)
+    Z = dis * np.sin(longitudes)
+    points = np.array([X,Y]).T
+    points_num = len(points)
+    rect = cv2.minAreaRect(points.astype('float32'))
+    box = cv2.boxPoints(rect)
+    # box = cv2.boxPoints(rect)
+    b1 = np.sqrt(np.sum((box[1] - box[0])**2))
+    b2 = np.sqrt(np.sum((box[2] - box[1])**2))
+    length = b1
+    width = b2
+    dir_vec = box[1] - box[0]
+    if b1 < b2:
+        length = b2
+        width = b1
+        dir_vec = box[2] - box[1]
+    modility = np.sqrt(np.sum(dir_vec**2))
+    if modility == 0:
+        dir_vec = np.array([0,0])
+    else:
+        dir_vec = dir_vec/modility
+    height = Z.max() - Z.min()
+    area = b1 * b2
+    vec = np.array([points_num,dir_vec[0],dir_vec[1],height,length,width,area,dis.mean()]).reshape(-1,1)
+    # vec = np.full((2,8,1),vec) # status vec for two representative points 
+    return vec #1 x 8 x 1  
+
+def get_representative_point(ref_rows,ref_cols,Td_map): 
+    td_freq_map = Td_map
+    longitudes = theta[ref_rows]*np.pi / 180
+    latitudes = azimuths[ref_cols] * np.pi / 180 
+    hypotenuses = td_freq_map[ref_rows,ref_cols] * np.cos(longitudes)
+    X = hypotenuses * np.sin(latitudes)
+    Y = hypotenuses * np.cos(latitudes)
+    # Z = td_freq_map[ref_rows,ref_cols] * np.sin(longitudes)
+    
+    return np.array([
+        [X[0],Y[0]],
+        [X[1],Y[1]]
+    ]).reshape(2,2,1) # n_repr x xy_dim x 1 
+
+def extract_xy(Labeling_map,Td_map,Plane_model):
+        
+    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
+    new_uni_labels = np.unique(Labeling_map)
+        #Only Background contains 
+    if -1 in new_uni_labels:
+        new_uni_labels = new_uni_labels[1:]
+    xy_set = [] # xy position and apperance features
+    apperance_set = []
+    for label in new_uni_labels:
+        rows,cols = np.where(Labeling_map == label)
+        if if_bck(rows,cols,Td_map,Plane_model):
+            Labeling_map[rows,cols] = -1
+        else:
+            rows_temp,cols_temp = rows.copy(),cols.copy()
+            sort_ind = np.argsort(cols)
+            refer_cols = cols[sort_ind[[0,-1]]]
+            # this is being said, the first place is for less azimuth id 
+            refer_rows = rows[sort_ind[[0,-1]]]
+            if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
+                cols[cols <= 900] += 1800
+                sort_ind = np.argsort(cols)
+                refer_cols = cols[sort_ind[[0,-1]]]
+                refer_cols[refer_cols >= 1800] -= 1800
+                refer_rows = rows[sort_ind[[0,-1]]]
+            apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
+            xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
+            xy_set.append(xy)
+            apperance_set.append(apperance)
+    # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
+    # x , y is 2 x 2 x 1
+    xy_set = np.array(xy_set)
+    apperance_set = np.array(apperance_set)
+    new_uni_labels = np.unique(Labeling_map)
+    return xy_set,apperance_set,new_uni_labels,Labeling_map
+
+def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labeling_map_cur,Labeling_map_next):
+    # Union: only A or B 
+    # Intersect : only A and B 
+    
+    Fore_next = Labeling_map_next != -1
+    Fore_cur = Labeling_map_cur != -1
+    Union = Fore_cur|Fore_next
+    Intersect = Fore_cur & Fore_next
+    Union[Intersect] = False
+    
+    labels_next_union,labels_cur_union = Labeling_map_next[Union],Labeling_map_cur[Union]
+    pairs_union,counts_union = np.unique(np.array([labels_cur_union,labels_next_union]).T,return_counts=True,axis = 0)
+    
+    labels_next_intersect,labels_cur_intersect = Labeling_map_next[Intersect],Labeling_map_cur[Intersect]
+    pairs_intersect,counts_intersect = np.unique(np.array([labels_cur_intersect,labels_next_intersect]).T,return_counts=True,axis = 0)
+
+    IoU_matrix = np.zeros((unique_label_cur.shape[0],unique_label_next.shape[0]))
+    dis_matrix = np.ones((unique_label_cur.shape[0],unique_label_next.shape[0]))
+
+    for i,pair in enumerate(pairs_intersect):
+        cur_label,next_label = pair[0],pair[1]
+        Intersection_p = counts_intersect[i]
+        A_p = counts_union[(pairs_union[:,0] == cur_label)]
+        if A_p.size == 0:
+            A_p = 0
+        B_p = counts_union[(pairs_union[:,1] == next_label)]
+        if B_p.size == 0:
+            B_p = 0
+        Union_p = Intersection_p + A_p + B_p
+        cur_ind = unique_label_cur == cur_label
+        next_ind = unique_label_next == next_label
+        IoU_matrix[cur_ind,next_ind] = Intersection_p/Union_p
+        dis = np.abs(app_next[next_ind,-1,0] - app_cur[cur_ind,-1,0])
+        if dis > 2:
+            IoU_matrix[cur_ind,next_ind] = 0
+            continue
+        dis_matrix[cur_ind,next_ind] = dis/2
+
+    return 0.7*IoU_matrix + 0.3*(1 - dis_matrix)
+ 
+def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next,P_cur_):
+    State_affinity =  1.5*np.ones((len(failed_tracked_ind),len(new_detection_ind)))
+    for i,glb_ind in enumerate(failed_tracked_ind):
+        state_pred = state_cur_[glb_ind].copy().reshape(2,-1)[:,:2]
+        for j,label_ind in enumerate(new_detection_ind):
+            mea = mea_next[label_ind].copy().reshape(2,-1)
+            for k in range(state_pred.shape[0]):
+                mal_dis = distance.mahalanobis(mea[k],state_pred[k],np.linalg.inv(P_cur_[i][k][:2,:2]))
+                if mal_dis < State_affinity[i,j]:
+                    State_affinity[i,j] = mal_dis
+    return State_affinity
