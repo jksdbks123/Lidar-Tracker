@@ -7,16 +7,12 @@ import sys
 from datetime import datetime
 
 class MOT():
-    def __init__(self,input_file_path,output_file_path, win_size, eps, min_samples,bck_update_frame,N = 10,d_thred = 0.08,bck_n = 3,missing_thred = 10,bck_radius = 0.9
-                 ,if_vis = False,if_save_pcd = False ):
+    def __init__(self, win_size, eps, min_samples):
         """
         background_update_time : background update time (sec)
         """
 
-        # self.output_path = output_file_path
-        self.input_file_path = input_file_path
-        self.traj_path = output_file_path
-        self.if_vis = if_vis
+        
         # if no data in pcap, then it's False
         self.if_pcap_valid = True 
         # params for clustering and background sampling
@@ -43,8 +39,6 @@ class MOT():
         self.frame_gen = None
         if self.if_vis:
             self.vis = None
-
-        self.bck_radius = 0.9
 
         
     def initialization(self):    
