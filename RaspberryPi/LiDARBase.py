@@ -214,11 +214,9 @@ def parse_packets(raw_data_queue, point_cloud_queue):
     Td_map = np.zeros((32,1800))
     # Intens_map = np.zeros((32,1800))
     next_ts = 0
-    if not raw_data_queue.empty():
-        
-        while True:
+    while True:
+        if not raw_data_queue.empty():
             ts,raw_packet = raw_data_queue.get()
-            
             distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
             next_ts = ts + 0.1
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
@@ -226,6 +224,7 @@ def parse_packets(raw_data_queue, point_cloud_queue):
             culmulative_laser_ids.append(laser_id)
             culmulative_distances.append(distances)
             break
+
     while True:
         while True:
             if not raw_data_queue.empty():
@@ -234,9 +233,11 @@ def parse_packets(raw_data_queue, point_cloud_queue):
                 distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
                 # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
                 azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
-
+                
                 if ts > next_ts:
-                    if len(culmulative_azimuth_values) > 0:                             
+                    
+                    if len(culmulative_azimuth_values) > 0:
+                        
                         culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
                         culmulative_azimuth_values += Data_order[:,1].reshape(-1,1)
                         culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
@@ -245,12 +246,12 @@ def parse_packets(raw_data_queue, point_cloud_queue):
                         culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
                         culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)] = culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)]%1799
 
-                        
                         Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                         # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
-
+                        
                         point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
                     else:
+                        
                         point_cloud_queue.put(Td_map) #32*1800
 
                     culmulative_azimuth_values = []

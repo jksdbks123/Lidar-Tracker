@@ -56,7 +56,8 @@ class MOT():
     def initialization(self,Frame):
         # you should set up some initial status, we should code the logic in the main loop. 
         
-        self.Td_map_cur = Frame
+        # self.Td_map_cur = Frame
+        Td_map = Frame
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
         Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
         mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)
