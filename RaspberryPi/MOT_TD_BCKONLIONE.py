@@ -106,7 +106,6 @@ class MOT():
         # mea_cur = np.array(mea_cur)
         glb_ids = np.array(glb_ids)
         state_cur = np.array(state_cur)
-        print(state_cur.shape)
         app_cur = np.array(app_cur)
         unique_label_cur = np.array(unique_label_cur)
         P_cur = np.array(P_cur)

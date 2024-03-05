@@ -133,7 +133,6 @@ def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool):
     td_freq_map = Td_map
     Xs = []
     Ys = []
-    Zs = []
 
     Labels = []
     for i in range(Td_map.shape[0]):
@@ -142,30 +141,23 @@ def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool):
         hypotenuses = Td_map[i] * np.cos(longitudes)
         X = hypotenuses * np.sin(latitudes)
         Y = hypotenuses * np.cos(latitudes)
-        Z = Td_map[i] * np.sin(longitudes)
         Valid_ind = Td_map[i] != 0 
         Xs.append(X[Valid_ind])
         Ys.append(Y[Valid_ind])
-        Zs.append(Z[Valid_ind])
         Labels.append(Labeling_map[i][Valid_ind])
 
     Xs = np.concatenate(Xs)
     Ys = np.concatenate(Ys)
-    Zs = np.concatenate(Zs)
         
     Labels = np.concatenate(Labels).astype('int')
-    Colors = np.full((len(Labels),3),np.array([[153,153,153]])/256)
+    # Colors = np.full((len(Labels),3),np.array([[153,153,153]])/256)
     for key in Tracking_pool:
         label_cur_frame = Tracking_pool[key].label_seq[-1]
         if label_cur_frame != -1:
-            Colors[Labels == label_cur_frame] = color_map[key%len(color_map)]
-                
-    pcd = op3.geometry.PointCloud()
-    XYZ = np.concatenate([Xs.reshape(-1,1),Ys.reshape(-1,1),Zs.reshape(-1,1)],axis = 1)
-    pcd.points = op3.utility.Vector3dVector(XYZ)
-    pcd.colors = op3.utility.Vector3dVector(Colors)
-
-    return pcd
+            # Colors[Labels == label_cur_frame] = color_map[key%len(color_map)]
+            Labels[Labels == label_cur_frame] = key
+    XYZ = np.c_[Xs,Ys]
+    return XYZ,Labels
 
 def get_pcd_uncolored(Td_map):
 

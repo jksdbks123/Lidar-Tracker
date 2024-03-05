@@ -31,7 +31,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue):
                 Tracking_pool = mot.Tracking_pool
                 Labeling_map = mot.cur_Labeling_map
 
-            result_queue.put((Tracking_pool,Td_map))
+            result_queue.put((Tracking_pool,Labeling_map,Td_map))
             # print('tracking now...',result_queue.empty(), point_cloud_queue.empty())
             # time.sleep(0.5)
 
@@ -121,7 +121,7 @@ class LidarVisualizer:
         if color_label is not None:
             for coord,l in zip(data,color_label):
                 x,y = coord
-                color_vec = color_map[l]
+                color_vec = color_map[l%len(color_map)]
                 pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 2)
         else:
             color = int(self.color_intensity_slider.value * 255)  # Using the slider value for RGB intensity
@@ -213,7 +213,6 @@ class LidarVisualizer:
 
             if not self.point_cloud_queue.empty():
                 
-
                 if self.switch_bck_recording_mode.state:
                     Td_map = self.point_cloud_queue.get()
                     self.background_data.append(Td_map)
@@ -230,10 +229,10 @@ class LidarVisualizer:
                     # Td_map = self.point_cloud_queue.get()
                     while True:
                         if not self.tracking_result_queue.empty():
-                            Tracking_pool,Td_map = self.tracking_result_queue.get()
-                            point_cloud_data,labels = self.get_foreground_point_cloud(Td_map,density)
+                            Tracking_pool,Labeling_map,Td_map = self.tracking_result_queue.get()
+                            point_cloud_data,labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool)
                             break
-
+                            
                 else: # default
                     Td_map = self.point_cloud_queue.get()
                     point_cloud_data,labels = self.get_ordinary_point_cloud(Td_map,density)
