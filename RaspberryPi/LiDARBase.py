@@ -129,6 +129,44 @@ def calc_cart_coord(distances, azimuth):# distance: 12*32 azimuth: 12*32
     Z = distances * np.sin(longitudes)
     return X, Y, Z
 
+def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool):
+    td_freq_map = Td_map
+    Xs = []
+    Ys = []
+    Zs = []
+
+    Labels = []
+    for i in range(Td_map.shape[0]):
+        longitudes = theta[i] * np.pi / 180
+        latitudes = azimuths * np.pi / 180 
+        hypotenuses = Td_map[i] * np.cos(longitudes)
+        X = hypotenuses * np.sin(latitudes)
+        Y = hypotenuses * np.cos(latitudes)
+        Z = Td_map[i] * np.sin(longitudes)
+        Valid_ind = Td_map[i] != 0 
+        Xs.append(X[Valid_ind])
+        Ys.append(Y[Valid_ind])
+        Zs.append(Z[Valid_ind])
+        Labels.append(Labeling_map[i][Valid_ind])
+
+    Xs = np.concatenate(Xs)
+    Ys = np.concatenate(Ys)
+    Zs = np.concatenate(Zs)
+        
+    Labels = np.concatenate(Labels).astype('int')
+    Colors = np.full((len(Labels),3),np.array([[153,153,153]])/256)
+    for key in Tracking_pool:
+        label_cur_frame = Tracking_pool[key].label_seq[-1]
+        if label_cur_frame != -1:
+            Colors[Labels == label_cur_frame] = color_map[key%len(color_map)]
+                
+    pcd = op3.geometry.PointCloud()
+    XYZ = np.concatenate([Xs.reshape(-1,1),Ys.reshape(-1,1),Zs.reshape(-1,1)],axis = 1)
+    pcd.points = op3.utility.Vector3dVector(XYZ)
+    pcd.colors = op3.utility.Vector3dVector(Colors)
+
+    return pcd
+
 def get_pcd_uncolored(Td_map):
 
     Xs = []
@@ -294,6 +332,17 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
         Tracking_pool[glb_id].app_seq.append(-1)
         Tracking_pool[glb_id].post_seq.append(state_cur_)
 
+def state_predict(A,Q,state,P):
+    """
+    state: s_k-1, (n x 10 x 1)
+    Cov: P_k-1 (n x 10 x 10)
+    """
+    # print(A.shape,state.shape)
+    state_ = np.matmul(A,state)
+    
+    P_ = np.matmul(np.matmul(A,P),A.transpose()) + Q
+    return state_,P_
+
 def state_update(A,H,state_,P_,R,mea):
     """
     mea: m_k (m x 5 x 1)
@@ -310,7 +359,7 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
 
     dis = np.sqrt(np.sum(state_init[0][:2]**2))
 
-    if dis > 7:
+    if dis > 5:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init
@@ -391,41 +440,59 @@ def get_representative_point(ref_rows,ref_cols,Td_map):
         [X[1],Y[1]]
     ]).reshape(2,2,1) # n_repr x xy_dim x 1 
 
-def extract_xy(Labeling_map,Td_map,Plane_model):
-        
-    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
-    new_uni_labels = np.unique(Labeling_map)
-        #Only Background contains 
-    if -1 in new_uni_labels:
-        new_uni_labels = new_uni_labels[1:]
+def get_xy_set(new_uni_labels,Labeling_map,Td_map,if_app):
     xy_set = [] # xy position and apperance features
-    apperance_set = []
+    if if_app:
+        apperance_set = []
     for label in new_uni_labels:
         rows,cols = np.where(Labeling_map == label)
-        if if_bck(rows,cols,Td_map,Plane_model):
-            Labeling_map[rows,cols] = -1
-        else:
-            rows_temp,cols_temp = rows.copy(),cols.copy()
+        rows_temp,cols_temp = rows.copy(),cols.copy()
+        sort_ind = np.argsort(cols)
+        refer_cols = cols[sort_ind[[0,-1]]]
+        # this is being said, the first place is for less azimuth id 
+        refer_rows = rows[sort_ind[[0,-1]]]
+        if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
+            cols[cols <= 900] += 1800
             sort_ind = np.argsort(cols)
             refer_cols = cols[sort_ind[[0,-1]]]
-            # this is being said, the first place is for less azimuth id 
+            refer_cols[refer_cols >= 1800] -= 1800
             refer_rows = rows[sort_ind[[0,-1]]]
-            if np.abs(refer_cols[0] - refer_cols[1]) >= 900:
-                cols[cols <= 900] += 1800
-                sort_ind = np.argsort(cols)
-                refer_cols = cols[sort_ind[[0,-1]]]
-                refer_cols[refer_cols >= 1800] -= 1800
-                refer_rows = rows[sort_ind[[0,-1]]]
+        if if_app:
             apperance = get_appearance_features(rows_temp,cols_temp,Td_map)
-            xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
-            xy_set.append(xy)
             apperance_set.append(apperance)
-    # apperance is a 1 x 8 x 1 vec including:  dis, point_cnt, dir_vec_x, dir_vec_y, height, length, width 
-    # x , y is 2 x 2 x 1
+        xy = get_representative_point(refer_rows,refer_cols,Td_map) # x,y vec for two representatives 
+        xy_set.append(xy)
     xy_set = np.array(xy_set)
-    apperance_set = np.array(apperance_set)
-    new_uni_labels = np.unique(Labeling_map)
-    return xy_set,apperance_set,new_uni_labels,Labeling_map
+    if if_app:
+        apperance_set = np.array(apperance_set)
+        return xy_set,apperance_set
+    else:
+        return xy_set
+    
+db_merge = DBSCAN(eps = 1.8, min_samples = 2)
+
+def extract_xy(Labeling_map,Td_map):
+        
+    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
+    new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
+
+    xy_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,False)
+    if len(xy_set) > 0:
+        total_labels = np.concatenate([new_uni_labels,new_uni_labels])
+        edge_points = np.concatenate([xy_set[:,1,:,0],xy_set[:,0,:,0]])
+        merge_labels = db_merge.fit_predict(edge_points)
+        unique_merge_labels = np.unique(merge_labels[merge_labels != -1])
+        merge_pairs = [total_labels[merge_labels == l] for l in unique_merge_labels]
+        for p in merge_pairs:
+            merging_p = np.unique(p)
+            if len(merging_p) > 1:
+                for i in range(1,len(merging_p)):
+                    Labeling_map[Labeling_map == merging_p[i]] = merging_p[0]
+        new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
+        xy_set,apperance_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,True)
+        return xy_set,apperance_set,new_uni_labels,Labeling_map
+    else:
+        return xy_set,[],new_uni_labels,Labeling_map
 
 def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labeling_map_cur,Labeling_map_next):
     # Union: only A or B 
@@ -478,3 +545,27 @@ def get_affinity_kalman(failed_tracked_ind,new_detection_ind,state_cur_,mea_next
                 if mal_dis < State_affinity[i,j]:
                     State_affinity[i,j] = mal_dis
     return State_affinity
+
+def linear_assignment(State_affinity):
+
+    associated_ind_cur,associated_ind_next = [],[]
+    associated_ind_cur_extend_,associated_ind_next_extend_= linear_sum_assignment(State_affinity,maximize = True)
+    for i in range(len(associated_ind_cur_extend_)):
+        if State_affinity[associated_ind_cur_extend_[i],associated_ind_next_extend_[i]] != 0:
+            associated_ind_cur.append(associated_ind_cur_extend_[i])
+            associated_ind_next.append(associated_ind_next_extend_[i])
+    associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
+
+    return associated_ind_cur,associated_ind_next
+
+def linear_assignment_kalman(State_affinity):
+
+    associated_ind_cur,associated_ind_next = [],[]
+    associated_ind_cur_extend_,associated_ind_next_extend_= linear_sum_assignment(State_affinity,maximize = False)
+    for i in range(len(associated_ind_cur_extend_)):
+        if State_affinity[associated_ind_cur_extend_[i],associated_ind_next_extend_[i]] < 1.5:
+            associated_ind_cur.append(associated_ind_cur_extend_[i])
+            associated_ind_next.append(associated_ind_next_extend_[i])
+    associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
+
+    return associated_ind_cur,associated_ind_next

@@ -6,39 +6,47 @@ from Utils import *
 from GenBckFile import *
 from LiDARBase import *
 from MOT_TD_BCKONLIONE import MOT
+
 """
 raw_data_queue: UDP packets from LiDAR snesor 
 LidarVisualizer.point_cloud_queue: parsed point cloud frames 
-
 """
+
 def generate_and_save_background(background_data):
     thred_map = gen_bckmap(np.array(background_data), N = 10,d_thred = 0.1,bck_n = 3)
     np.save('./thred_map.npy',thred_map)
     print('Generate Bck')
 
-def track_point_clouds(stop_event,tracking_params, bck_map, point_cloud_queue4track,result_queue):
+def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue):
     while not stop_event.is_set():
-        if not point_cloud_queue4track.empty():
-            Td_map =  point_cloud_queue4track.get()
+        if not point_cloud_queue.empty():
+            Td_map =  point_cloud_queue.get()
             # some steps
-            tracking_result = (Td_map,1,np.array([1,2,3]))
-            result_queue.put(tracking_result)
-            print('tracking now...',result_queue.empty(), point_cloud_queue4track.empty())
-            time.sleep(0.5)
-        else:
-            time.sleep(0.01)
+            if not mot.if_initialized:
+                mot.initialization(Td_map)
+                Tracking_pool = mot.Tracking_pool
+                Labeling_map = mot.cur_Labeling_map
+            else:
+                mot.mot_tracking_step(Td_map)
+                Tracking_pool = mot.Tracking_pool
+                Labeling_map = mot.cur_Labeling_map
+
+            result_queue.put((Tracking_pool,Td_map))
+            # print('tracking now...',result_queue.empty(), point_cloud_queue.empty())
+            # time.sleep(0.5)
+
 
     print('Terminated tracking process')
 
 class LidarVisualizer:
-    def __init__(self,point_cloud_queue,point_cloud_queue_4track, tracking_result_queue,width=800, height=600, title='LiDAR Data Visualization'):
+    def __init__(self,point_cloud_queue, tracking_result_queue,width=800, height=600, title='LiDAR Data Visualization'):
         pygame.init()
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
 
         self.running = True
         self.point_cloud_queue = point_cloud_queue # point cloud queue
-        self.point_cloud_queue_4track = point_cloud_queue_4track
+        # self.point_cloud_queue_4track = point_cloud_queue_4track
         self.tracking_result_queue = tracking_result_queue
         self.catch_background = False
         self.background_data = [] 
@@ -48,7 +56,9 @@ class LidarVisualizer:
         self.thred_map = None
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
-        self.mot = None
+        self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
+
+        
 
         self.zoom = 1.0
         self.offset = np.array([0, 0])
@@ -143,14 +153,14 @@ class LidarVisualizer:
             self.deactivate_other_toggles(self.switch_tracking_mode)
             if self.tracking_prcess is None or not self.tracking_prcess.is_alive():
                 self.tracking_process_stop_event = Event()
-                self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,0,self.thred_map,self.point_cloud_queue_4track,self.tracking_result_queue))
+                self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue))
                 self.tracking_prcess.start()
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
                 self.tracking_process_stop_event.set()
                 self.tracking_prcess.join()
                 self.tracking_prcess = None
-                print('Tracking Terminated')
+                print('Tracking Terminated...')
         print('Test_track')
 
     def toggle_foreground(self,state):
@@ -179,56 +189,59 @@ class LidarVisualizer:
         else:
             # Return some default data if the queue is empty to avoid errors
             return np.array([[0], [0]])
-
+        
+    def get_ordinary_point_cloud(self,Td_map,density):
+        point_cloud_data = get_pcd_uncolored(Td_map)
+        ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
+        point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
+        return point_cloud_data,None
+    
+    def get_foreground_point_cloud(self,Td_map,density):
+        Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
+        Foreground_map = Foreground_map.astype(int)
+        point_cloud_data,labels = get_pcd_colored(Td_map,Foreground_map)                    
+        ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
+        point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
+        labels = labels[ds_point_cloud_data_ind]
+        return point_cloud_data,labels
+    
     def run(self):
-        # tracking_initilized_flag = False
-        # first_time_flag = False
+
         while self.running:
             self.handle_events()
             density = self.density_slider.value
+
             if not self.point_cloud_queue.empty():
-                Td_map = self.point_cloud_queue.get()
-                self.point_cloud_queue_4track.put(Td_map)
+                
+
                 if self.switch_bck_recording_mode.state:
+                    Td_map = self.point_cloud_queue.get()
                     self.background_data.append(Td_map)
                     self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
-                if self.switch_foreground_mode.state:
-                    Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
-                    Foreground_map = Foreground_map.astype(int)
-                    point_cloud_data,labels = get_pcd_colored(Td_map,Foreground_map)                    
-                    ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
-                    point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
-                    labels = labels[ds_point_cloud_data_ind]
-                
-                # if self.switch_tracking_mode.state & (~tracking_initilized_flag): # if tracklets are initialized 
+                    point_cloud_data,labels = self.get_ordinary_point_cloud(Td_map,density)
+                    
+                elif self.switch_foreground_mode.state:
+                    Td_map = self.point_cloud_queue.get()
+                    point_cloud_data,labels = self.get_foreground_point_cloud(Td_map,density)
 
-                #     self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
-                #     while True:
-                #         first_time_flag = self.mot.initialization(Td_map)
-                #         if first_time_flag:
-                #             break
-                # if self.switch_tracking_mode.state & tracking_initilized_flag:
-                #     self.mot.mot_tracking(Td_map)
-                #     """
-                #     Now starts to track
-                #     """
-                #     self.mot.Tracking_pool
-                    # labels # eventually get some labels
-                # point_cloud_data = get_pcd_uncolored(Td_map)                
-                point_cloud_data = get_pcd_uncolored(Td_map)
-                ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
-                point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
+                elif self.switch_tracking_mode.state:
+                    # self.point_cloud_queue_4track.put(Td_map)
+                    # labels = something
+                    # Td_map = self.point_cloud_queue.get()
+                    while True:
+                        if not self.tracking_result_queue.empty():
+                            Tracking_pool,Td_map = self.tracking_result_queue.get()
+                            point_cloud_data,labels = self.get_foreground_point_cloud(Td_map,density)
+                            break
 
-                self.screen.fill((0, 0, 0))  
-                # Clear screen
+                else: # default
+                    Td_map = self.point_cloud_queue.get()
+                    point_cloud_data,labels = self.get_ordinary_point_cloud(Td_map,density)
+                    
+                self.screen.fill((0, 0, 0))
+                self.draw(point_cloud_data,labels)  
 
-                if self.switch_foreground_mode.state:
-                    self.draw(point_cloud_data,labels)
-                else:
-                    self.draw(point_cloud_data)
-
-                # if first_time_flag:
-                #     tracking_initilized_flag = True
+                      
 
     def quit(self):
         self.running = False
@@ -237,8 +250,10 @@ class LidarVisualizer:
         if self.tracking_prcess and self.tracking_prcess.is_alive():
             self.tracking_process_stop_event.set()
             self.tracking_prcess.join()
-        pygame.quit()
+            self.tracking_prcess = None
+            print('Tracking Terminated...')
 
+        pygame.quit()
 
 
 if __name__ == '__main__':
@@ -248,7 +263,7 @@ if __name__ == '__main__':
             set_start_method('fork',force=True)
             raw_data_queue = manger.Queue() # Packet Queue
             point_cloud_queue = manger.Queue()
-            point_cloud_queue_4track = manger.Queue()
+            # point_cloud_queue_4track = manger.Queue()
             tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
             # Creating processes for Core 2 and Core 3 tasks
             
@@ -261,24 +276,31 @@ if __name__ == '__main__':
 
 
             # Running the visualization (Core 1 task) in the main process
-            visualizer = LidarVisualizer(point_cloud_queue,point_cloud_queue_4track,tracking_result_queue)
+            
+            visualizer = LidarVisualizer(point_cloud_queue,tracking_result_queue)
             visualizer.run()
             
             # Cleanup
             packet_reader_process.terminate()
             packet_parser_process.terminate()
-            visualizer.tracking_prcess.terminate()
+            
             packet_reader_process.join()
             packet_parser_process.join()
-            visualizer.tracking_prcess.join()
+
             visualizer.quit()
 
     except KeyboardInterrupt :
         packet_reader_process.terminate()
         packet_parser_process.terminate()
+        visualizer.tracking_process_stop_event.set()
         visualizer.tracking_prcess.terminate()
         packet_reader_process.join()
         packet_parser_process.join()
+        if visualizer.tracking_prcess and visualizer.tracking_prcess.is_alive():
+            visualizer.tracking_process_stop_event.set()
+            visualizer.tracking_prcess.join()
+            visualizer.tracking_prcess = None
+            print('Tracking Terminated...')
         visualizer.tracking_prcess.join()
         visualizer.quit()
 
