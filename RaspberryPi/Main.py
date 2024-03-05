@@ -56,7 +56,8 @@ class LidarVisualizer:
         self.thred_map = None
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
-        self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
+        # self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
+        self.mot = None
 
         
 
@@ -151,15 +152,20 @@ class LidarVisualizer:
     def toggle_tracking_mode(self,state):
         if state:
             self.deactivate_other_toggles(self.switch_tracking_mode)
+            
             if self.tracking_prcess is None or not self.tracking_prcess.is_alive():
                 self.tracking_process_stop_event = Event()
+                self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
                 self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue))
                 self.tracking_prcess.start()
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
+                self.mot = None
                 self.tracking_process_stop_event.set()
                 self.tracking_prcess.join()
                 self.tracking_prcess = None
+                while not self.tracking_result_queue.empty():
+                    self.tracking_result_queue.get()
                 print('Tracking Terminated...')
         print('Test_track')
 
@@ -272,7 +278,6 @@ if __name__ == '__main__':
             packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
             packet_reader_process.start()
             packet_parser_process.start()
-
 
             # Running the visualization (Core 1 task) in the main process
             
