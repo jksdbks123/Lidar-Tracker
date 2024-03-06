@@ -41,12 +41,13 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue):
 class LidarVisualizer:
     def __init__(self,point_cloud_queue, tracking_result_queue,width=800, height=600, title='LiDAR Data Visualization'):
         pygame.init()
+        pygame.font.init() 
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
-
+        pygame.font.init()  # Initialize the font module
+        self.object_label_font = pygame.font.SysFont('Comic Sans MS', 20) 
         self.running = True
         self.point_cloud_queue = point_cloud_queue # point cloud queue
-        # self.point_cloud_queue_4track = point_cloud_queue_4track
         self.tracking_result_queue = tracking_result_queue
         self.catch_background = False
         self.background_data = [] 
@@ -56,7 +57,6 @@ class LidarVisualizer:
         self.thred_map = None
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
-        # self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
         self.mot = None
 
         
@@ -76,7 +76,9 @@ class LidarVisualizer:
         self.bck_length_info = InfoBox(self.screen,(650,20,100,50),'No bck info')
         self.gen_bck_bottom = Button(self.screen,(650,100,100,50),'Gen Bck',self.start_background_generation)
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
+        # Tracking parameters
         self.bck_radius = 0.9
+        # 
 
     def handle_events(self):
         self.any_slider_active = False  # Reset the flag at the start of each event loop
@@ -116,15 +118,25 @@ class LidarVisualizer:
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
 
-    def draw(self, data,color_label = None):
+    def draw(self, data,point_label = None,tracking_dic = None):
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T
-        if color_label is not None:
-            for coord,l in zip(data,color_label):
+        
+        if point_label is not None:
+            for coord,l in zip(data,point_label):
                 x,y = coord
                 color_vec = color_map[l%len(color_map)]
                 pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 2)
-        else:
+
+        if tracking_dic is not None:
+            for key in tracking_dic.keys():
+                cur_traj = tracking_dic[key].post_seq[-1] # -1 happens here sometimes
+
+                label_surface = self.object_label_font.render(str(key), False, (255,65,212))
+                label_pos = (cur_traj[0][0][0] * self.zoom + self.offset[0],cur_traj[0][1][0] * self.zoom + self.offset[1])
+                self.screen.blit(label_surface,label_pos)
+
+        if point_label is None and tracking_dic is None:
             color = int(self.color_intensity_slider.value * 255)  # Using the slider value for RGB intensity
             for x, y in data:
                 pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
@@ -200,7 +212,7 @@ class LidarVisualizer:
         point_cloud_data = get_pcd_uncolored(Td_map)
         ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
         point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
-        return point_cloud_data,None
+        return point_cloud_data,None,None
     
     def get_foreground_point_cloud(self,Td_map,density):
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
@@ -209,7 +221,7 @@ class LidarVisualizer:
         ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
         point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
         labels = labels[ds_point_cloud_data_ind]
-        return point_cloud_data,labels
+        return point_cloud_data,labels,None
     
     def run(self):
 
@@ -223,31 +235,28 @@ class LidarVisualizer:
                     Td_map = self.point_cloud_queue.get()
                     self.background_data.append(Td_map)
                     self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
-                    point_cloud_data,labels = self.get_ordinary_point_cloud(Td_map,density)
+                    point_cloud_data,point_label,tracking_dic = self.get_ordinary_point_cloud(Td_map,density)
                     
                 elif self.switch_foreground_mode.state:
                     Td_map = self.point_cloud_queue.get()
-                    point_cloud_data,labels = self.get_foreground_point_cloud(Td_map,density)
+                    point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,density)
 
                 elif self.switch_tracking_mode.state:
-                    # self.point_cloud_queue_4track.put(Td_map)
-                    # labels = something
-                    # Td_map = self.point_cloud_queue.get()
+
                     while True:
                         if not self.tracking_result_queue.empty():
                             Tracking_pool,Labeling_map,Td_map = self.tracking_result_queue.get()
-                            point_cloud_data,labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool)
+                            point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool)
+                            tracking_dic = Tracking_pool
                             break
-                            
                 else: # default
                     Td_map = self.point_cloud_queue.get()
-                    point_cloud_data,labels = self.get_ordinary_point_cloud(Td_map,density)
+                    point_cloud_data,point_labels,tracking_dic = self.get_ordinary_point_cloud(Td_map,density)
                     
                 self.screen.fill((0, 0, 0))
-                self.draw(point_cloud_data,labels)  
+                self.draw(point_cloud_data,point_labels,tracking_dic)  
 
                       
-
     def quit(self):
         self.running = False
         if self.background_data_process:
@@ -262,19 +271,19 @@ class LidarVisualizer:
 
 
 if __name__ == '__main__':
-    pcap_file_path = r'../../../Data/2019-12-21-7-30-0.pcap'
+    pcap_file_path = r'D:\LiDAR_Data\TexasMedian.pcap'
     try:
         with Manager() as manger:
-            set_start_method('fork',force=True)
+            # set_start_method('fork',force=True)
             raw_data_queue = manger.Queue() # Packet Queue
             point_cloud_queue = manger.Queue()
             # point_cloud_queue_4track = manger.Queue()
             tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
             # Creating processes for Core 2 and Core 3 tasks
             
-            eth_reader = load_pcap(pcap_file_path)
+            # eth_reader = load_pcap(pcap_file_path)
 
-            packet_reader_process = Process(target=read_packets, args=(raw_data_queue,eth_reader,))
+            packet_reader_process = Process(target=read_packets, args=(raw_data_queue,pcap_file_path,))
             packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
             packet_reader_process.start()
             packet_parser_process.start()
