@@ -217,7 +217,8 @@ def get_pcd_colored(Td_map,Labeling_map):
 
 
 # # Simulated function to continuously read packets (Simulating Core 2)
-def read_packets(raw_data_queue,eth_reader):
+def read_packets(raw_data_queue,pcap_file_path):
+    eth_reader = load_pcap(pcap_file_path)
     while True:
         # Simulate reading a packet from the Ethernet
         try:
@@ -561,3 +562,4 @@ def linear_assignment_kalman(State_affinity):
     associated_ind_cur,associated_ind_next = np.array(associated_ind_cur),np.array(associated_ind_next)
 
     return associated_ind_cur,associated_ind_next
+
