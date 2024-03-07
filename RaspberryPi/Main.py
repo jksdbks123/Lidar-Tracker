@@ -30,8 +30,6 @@ class LidarVisualizer:
             self.thred_map = np.load(r'./thred_map.npy')
         self.mot = None
 
-        
-
         self.zoom = 1.0
         self.offset = np.array([0, 0])
         self.dragging = False
