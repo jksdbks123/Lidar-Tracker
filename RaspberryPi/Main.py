@@ -50,6 +50,7 @@ class LidarVisualizer:
         self.point_cloud_queue = point_cloud_queue # point cloud queue
         self.tracking_result_queue = tracking_result_queue
         self.catch_background = False
+        self.if_objid = False
         self.background_data = [] 
         self.background_data_process = None
         self.tracking_prcess = None
@@ -66,19 +67,30 @@ class LidarVisualizer:
         self.dragging = False
         self.last_mouse_pos = (0, 0)
         self.any_slider_active = False  # Track if any slider is active
-        
+        """
+        Add badget steps:
+        1. Add badget object in initialization part
+        2. Add the callback function for the badget (optional)
+        3. Draw the badget in the initialization part
+        4. Add interactive event handling in the handle_events
+        """
         # Badgets
+        # left upper
+        self.switch_bck_recording_mode = ToggleButton(self.screen, (20, 20, 100, 30), 'Record Frames', 'Generating Backgroud', self.toggle_catch_background)
+        self.switch_tracking_mode = ToggleButton(self.screen, (20, 80, 100, 30), 'Track Off', 'Track On', self.toggle_tracking_mode)
+        self.switch_object_id = ToggleButton(self.screen, (140, 80, 50, 30), 'ObjID Off', 'ObjID On', self.toggle_objid_switch)
+        self.switch_foreground_mode = ToggleButton(self.screen, (20, 140, 100, 30), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
+        
+        # right upper
+        self.bck_length_info = InfoBox(self.screen,(650,20,100,30),'No bck info')
+        self.gen_bck_bottom = Button(self.screen,(650,80,100,30),'Gen Bck',self.start_background_generation)
+        # bottom
         self.color_intensity_slider = Slider(self.screen, (50, 550, 200, 20), "eps", default_value=0.5)
         self.density_slider = Slider(self.screen, (300, 550, 200, 20), "min_points", default_value=0.5)
-        self.switch_bck_recording_mode = ToggleButton(self.screen, (20, 20, 100, 50), 'Record Frames', 'Generating Backgroud', self.toggle_catch_background)
-        self.switch_tracking_mode = ToggleButton(self.screen, (20, 100, 100, 50), 'Track Off', 'Track On', self.toggle_tracking_mode)
-        self.switch_foreground_mode = ToggleButton(self.screen, (20, 180, 100, 50), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
-        self.bck_length_info = InfoBox(self.screen,(650,20,100,50),'No bck info')
-        self.gen_bck_bottom = Button(self.screen,(650,100,100,50),'Gen Bck',self.start_background_generation)
+
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
         # Tracking parameters
         self.bck_radius = 0.9
-        # 
 
     def handle_events(self):
         self.any_slider_active = False  # Reset the flag at the start of each event loop
@@ -92,6 +104,7 @@ class LidarVisualizer:
             self.switch_bck_recording_mode.handle_event(event)
             self.switch_tracking_mode.handle_event(event)
             self.switch_foreground_mode.handle_event(event)
+            self.switch_object_id.handle_event(event)
             self.gen_bck_bottom.handle_event(event)
             # Handle slider events and check if any slider is being dragged
             if self.color_intensity_slider.handle_event(event) or self.density_slider.handle_event(event):
@@ -128,7 +141,7 @@ class LidarVisualizer:
                 color_vec = color_map[l%len(color_map)]
                 pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 2)
 
-        if tracking_dic is not None:
+        if tracking_dic is not None and self.if_objid:
             for key in tracking_dic.keys():
                 cur_traj = tracking_dic[key].post_seq[-1] # -1 happens here sometimes
 
@@ -145,6 +158,7 @@ class LidarVisualizer:
         self.density_slider.draw()
         self.switch_bck_recording_mode.draw() 
         self.switch_tracking_mode.draw()
+        self.switch_object_id.draw()
         self.switch_foreground_mode.draw()
         
         self.bck_length_info.draw()
@@ -179,12 +193,14 @@ class LidarVisualizer:
                 while not self.tracking_result_queue.empty():
                     self.tracking_result_queue.get()
                 print('Tracking Terminated...')
-        print('Test_track')
 
     def toggle_foreground(self,state):
         if state:
             self.deactivate_other_toggles(self.switch_foreground_mode)
         print('Show Foreground Points')
+
+    def toggle_objid_switch(self,state):
+        self.if_objid = ~self.if_objid
 
     def start_background_generation(self):
         if self.background_data:
@@ -271,7 +287,7 @@ class LidarVisualizer:
 
 
 if __name__ == '__main__':
-    pcap_file_path = r'D:\LiDAR_Data\TexasMedian.pcap'
+    pcap_file_path = r'../../../Data/2019-12-21-7-30-0.pcap'
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
