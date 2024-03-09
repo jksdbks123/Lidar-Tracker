@@ -8,18 +8,24 @@ import dpkt
 from sklearn.cluster import DBSCAN
 
 class Slider:
-    def __init__(self, screen, position, label, default_value=0.5):
+    def __init__(self, screen, position, label, min_value, max_value,default_value=0.5,if_int = False):
         self.screen = screen
         self.position = position  # (x, y, width, height)
+        self.if_int = if_int
+        self.min_value = min_value
+        self.max_value = max_value
         self.label = label
         self.value = default_value
+        self.out_value = self.min_value + (self.max_value - self.min_value) * self.value
+        if self.if_int:
+            self.out_value = int(self.out_value)
         self.dragging = False
         self.font = pygame.font.Font(None, 15)
         self.slider_rect = pygame.Rect(position[0] + position[2] * self.value - 5, position[1] - 5, 10, position[3] + 10)
 
     def draw(self):
         # Draw the label
-        label_surface = self.font.render(self.label, True, (255, 255, 255))
+        label_surface = self.font.render(f'{self.label}:{self.out_value}', True, (255, 255, 255))
         self.screen.blit(label_surface, (self.position[0], self.position[1] - 30))
         # Draw the bar
         pygame.draw.rect(self.screen, (100, 100, 100), self.position)
@@ -36,6 +42,9 @@ class Slider:
             x, _, width, _ = self.position
             self.value = (event.pos[0] - x) / width
             self.value = min(max(self.value, 0), 1)
+            self.out_value = self.min_value + (self.max_value - self.min_value) * self.value
+            if self.if_int:
+                self.out_value = int(self.out_value)
             return True  # Indicates that the slider is being dragged
         return False
 

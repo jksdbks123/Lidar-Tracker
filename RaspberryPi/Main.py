@@ -39,7 +39,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue):
     print('Terminated tracking process')
 
 class LidarVisualizer:
-    def __init__(self,point_cloud_queue, tracking_result_queue,width=800, height=600, title='LiDAR Data Visualization'):
+    def __init__(self,point_cloud_queue, tracking_result_queue,width=1000, height=800, title='LiDAR Data Visualization'):
         pygame.init()
         pygame.font.init() 
         self.screen = pygame.display.set_mode((width, height))
@@ -82,12 +82,15 @@ class LidarVisualizer:
         self.switch_foreground_mode = ToggleButton(self.screen, (20, 140, 100, 30), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
         
         # right upper
-        self.bck_length_info = InfoBox(self.screen,(650,20,100,30),'No bck info')
-        self.gen_bck_bottom = Button(self.screen,(650,80,100,30),'Gen Bck',self.start_background_generation)
+        self.bck_length_info = InfoBox(self.screen,(850,20,100,30),'No bck info')
+        self.gen_bck_bottom = Button(self.screen,(850,80,100,30),'Gen Bck',self.start_background_generation)
         # bottom
-        self.color_intensity_slider = Slider(self.screen, (50, 550, 200, 20), "eps", default_value=0.5)
-        self.density_slider = Slider(self.screen, (300, 550, 200, 20), "min_points", default_value=0.5)
-
+        self.density_slider = Slider(self.screen, (750, 750, 200, 20), "PC density",0,1,default_value=1)
+        # self.density_slider = Slider(self.screen, (300, 550, 200, 20), "density", default_value=0.5)
+        self.db_window_width_slider =  Slider(self.screen, (50, 750, 200, 20), "eps_width",2,30, default_value=0.5, if_int = True)
+        self.db_window_height_slider =  Slider(self.screen, (300, 750, 200, 20), "eps_height",2,30, default_value=0.5, if_int = True)
+        self.db_min_samples_slider =  Slider(self.screen, (50, 690, 200, 20), "min_samples",2,50, default_value=0.2, if_int = True)
+        self.db_eps_dis_slider =  Slider(self.screen, (300, 690, 200, 20), "eps_dis",0,5, default_value=0.2)
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
         # Tracking parameters
         self.bck_radius = 0.9
@@ -107,7 +110,7 @@ class LidarVisualizer:
             self.switch_object_id.handle_event(event)
             self.gen_bck_bottom.handle_event(event)
             # Handle slider events and check if any slider is being dragged
-            if self.color_intensity_slider.handle_event(event) or self.density_slider.handle_event(event):
+            if  self.density_slider.handle_event(event) or self.db_window_height_slider.handle_event(event) or self.db_window_width_slider.handle_event(event) or self.db_min_samples_slider.handle_event(event) or self.db_eps_dis_slider.handle_event(event):
                 self.any_slider_active = True
                 continue  # Skip other event handling if a slider is active
 
@@ -150,12 +153,15 @@ class LidarVisualizer:
                 self.screen.blit(label_surface,label_pos)
 
         if point_label is None and tracking_dic is None:
-            color = int(self.color_intensity_slider.value * 255)  # Using the slider value for RGB intensity
+            color = int(255)  # Using the slider value for RGB intensity
             for x, y in data:
                 pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
 
-        self.color_intensity_slider.draw()
         self.density_slider.draw()
+        self.db_window_width_slider.draw()
+        self.db_window_height_slider.draw()
+        self.db_min_samples_slider.draw()
+        self.db_eps_dis_slider.draw()
         self.switch_bck_recording_mode.draw() 
         self.switch_tracking_mode.draw()
         self.switch_object_id.draw()
@@ -181,7 +187,10 @@ class LidarVisualizer:
             
             if self.tracking_prcess is None or not self.tracking_prcess.is_alive():
                 self.tracking_process_stop_event = Event()
-                self.mot = MOT(win_size = [7,13], eps = 1.5, min_samples = 5, thred_map = self.thred_map, missing_thred = 10)
+                win_size = [self.db_window_height_slider.out_value,self.db_window_width_slider.out_value]
+                eps_dis = self.db_eps_dis_slider.out_value
+                min_samples = self.db_min_samples_slider.out_value
+                self.mot = MOT(win_size = win_size, eps = eps_dis, min_samples = min_samples, thred_map = self.thred_map, missing_thred = 10)
                 self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue))
                 self.tracking_prcess.start()
         else:
