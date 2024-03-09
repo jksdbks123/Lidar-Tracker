@@ -47,6 +47,29 @@ theta = np.sort(omega)
 azimuths = np.arange(0,360,0.2)
 arg_omega = np.argsort(omega)
 
+"""
+raw_data_queue: UDP packets from LiDAR snesor 
+LidarVisualizer.point_cloud_queue: parsed point cloud frames 
+"""
+
+
+def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue):
+    while not stop_event.is_set():
+        if not point_cloud_queue.empty():
+            Td_map =  point_cloud_queue.get()
+            # some steps
+            if not mot.if_initialized:
+                mot.initialization(Td_map)
+                Tracking_pool = mot.Tracking_pool
+                Labeling_map = mot.cur_Labeling_map
+            else:
+                mot.mot_tracking_step(Td_map)
+                Tracking_pool = mot.Tracking_pool
+                Labeling_map = mot.cur_Labeling_map
+
+            result_queue.put((Tracking_pool,Labeling_map,Td_map))
+    print('Terminated tracking process')
+
 def load_pcap(file_path):
     try:
         fpcap = open(file_path, 'rb')

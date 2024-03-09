@@ -7,37 +7,6 @@ from GenBckFile import *
 from LiDARBase import *
 from MOT_TD_BCKONLIONE import MOT
 
-"""
-raw_data_queue: UDP packets from LiDAR snesor 
-LidarVisualizer.point_cloud_queue: parsed point cloud frames 
-"""
-
-def generate_and_save_background(background_data):
-    thred_map = gen_bckmap(np.array(background_data), N = 10,d_thred = 0.1,bck_n = 3)
-    np.save('./thred_map.npy',thred_map)
-    print('Generate Bck')
-
-def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue):
-    while not stop_event.is_set():
-        if not point_cloud_queue.empty():
-            Td_map =  point_cloud_queue.get()
-            # some steps
-            if not mot.if_initialized:
-                mot.initialization(Td_map)
-                Tracking_pool = mot.Tracking_pool
-                Labeling_map = mot.cur_Labeling_map
-            else:
-                mot.mot_tracking_step(Td_map)
-                Tracking_pool = mot.Tracking_pool
-                Labeling_map = mot.cur_Labeling_map
-
-            result_queue.put((Tracking_pool,Labeling_map,Td_map))
-            # print('tracking now...',result_queue.empty(), point_cloud_queue.empty())
-            # time.sleep(0.5)
-
-
-    print('Terminated tracking process')
-
 class LidarVisualizer:
     def __init__(self,point_cloud_queue, tracking_result_queue,width=1000, height=800, title='LiDAR Data Visualization'):
         pygame.init()
@@ -50,6 +19,7 @@ class LidarVisualizer:
         self.point_cloud_queue = point_cloud_queue # point cloud queue
         self.tracking_result_queue = tracking_result_queue
         self.catch_background = False
+        self.thred_map_loaded = False
         self.if_objid = False
         self.background_data = [] 
         self.background_data_process = None
@@ -59,8 +29,6 @@ class LidarVisualizer:
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
         self.mot = None
-
-        
 
         self.zoom = 1.0
         self.offset = np.array([0, 0])
@@ -144,12 +112,21 @@ class LidarVisualizer:
                 color_vec = color_map[l%len(color_map)]
                 pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 2)
 
+            for key in tracking_dic.keys():
+                his_coords = np.array(tracking_dic[key].post_seq[-10:])
+                his_coords = (his_coords[:,0].reshape(-1,2) + his_coords[:,1].reshape(-1,2))/2
+                his_coords[:,0] = his_coords[:,0] * self.zoom +  self.offset[0]
+                his_coords[:,1] = his_coords[:,1] * self.zoom +  self.offset[1]
+                color_vec = color_map[key%len(color_map)]
+                for coord in his_coords:
+                    pygame.draw.circle(self.screen, tuple(color_vec), (coord[0], coord[1]), 4)
+                    
         if tracking_dic is not None and self.if_objid:
             for key in tracking_dic.keys():
                 cur_traj = tracking_dic[key].post_seq[-1] # -1 happens here sometimes
-
                 label_surface = self.object_label_font.render(str(key), False, (255,65,212))
-                label_pos = (cur_traj[0][0][0] * self.zoom + self.offset[0],cur_traj[0][1][0] * self.zoom + self.offset[1])
+                x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
+                label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
                 self.screen.blit(label_surface,label_pos)
 
         if point_label is None and tracking_dic is None:
@@ -220,9 +197,17 @@ class LidarVisualizer:
             # Start the background generation process
             self.background_data_process = Process(target=generate_and_save_background, args=(self.background_data,))
             self.background_data_process.start()
+            self.thred_map = np.load(r'./thred_map.npy')
             print("Started background generation process.")
         else:
             print("No background data to process.")
+
+    def update(self):
+        # Check if the background process has finished and thred_map is not loaded yet
+        if self.background_data_process and not self.background_data_process.is_alive() and not self.thred_map_loaded:
+            self.thred_map = np.load(r'./thred_map.npy')
+            self.thred_map_loaded = True
+            print("thred_map.npy loaded")
 
     def process_lidar_data(self):
         # Instead of simulating data, pull from the parsed_data_queue
@@ -252,6 +237,7 @@ class LidarVisualizer:
 
         while self.running:
             self.handle_events()
+            self.update()
             density = self.density_slider.value
 
             if not self.point_cloud_queue.empty():
@@ -296,7 +282,7 @@ class LidarVisualizer:
 
 
 if __name__ == '__main__':
-    pcap_file_path = r'../../../Data/2019-12-21-7-30-0.pcap'
+    pcap_file_path = r'D:\LiDAR_Data\US395.pcap'
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)

@@ -35,6 +35,10 @@ def gen_bckmap(aggregated_maps, N, d_thred, bck_n):
             thred_map[:,i,j] = get_thred(aggregated_maps[:,i,j],N = N,d_thred = d_thred,bck_n = bck_n)
     return thred_map
 
+def generate_and_save_background(background_data):
+    thred_map = gen_bckmap(np.array(background_data), N = 10,d_thred = 0.1,bck_n = 3)
+    np.save('./thred_map.npy',thred_map)
+    print('Generate Bck')
 
 
 
