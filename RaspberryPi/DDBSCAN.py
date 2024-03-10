@@ -3,7 +3,7 @@ from sklearn.cluster._dbscan_inner import dbscan_inner
 from numpy.lib.stride_tricks import sliding_window_view
 
 class Raster_DBSCAN():
-    def __init__(self,window_size,eps,min_samples,Td_map_szie):
+    def __init__(self,Td_map_szie,window_size,eps,min_samples):
         """
         This method applys the vectorization calculation, 
         where the TD map is chunked as multiple parts and corresponding neighbors in each center of chunk are counted and recorded.
@@ -15,8 +15,9 @@ class Raster_DBSCAN():
         Step.2 -> Neigborhoods calculation
         Step.3 -> dbscan_inner()
         """
-        self.window_size = window_size #(height,width)
+        
         self.Td_map_size = Td_map_szie
+        self.window_size = window_size #(height,width)
         self.eps = eps
         self.min_samples = min_samples
         self.Height_fringe = int(self.window_size[0]/2) 
@@ -84,10 +85,10 @@ class Raster_DBSCAN():
             dbscan_inner(core_samples, neighborhoods, Labels)
         except:
             pass
-
+        
         Labeling_map = self.Labeling_map_template.copy()
-
         Labeling_map[rows,cols] = Labels
+
         # self.Labeling_map = Labeling_map
         
         return Labeling_map

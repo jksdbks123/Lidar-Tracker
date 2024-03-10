@@ -80,7 +80,6 @@ class Raster_DBSCAN():
         dbscan_inner(core_samples, neighborhoods, Labels)
 
         Labeling_map = self.Labeling_map_template.copy()
-
         Labeling_map[rows,cols] = Labels
         # self.Labeling_map = Labeling_map
         

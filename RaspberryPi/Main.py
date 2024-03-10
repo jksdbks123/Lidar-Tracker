@@ -1,5 +1,4 @@
 from multiprocessing import Process, Queue, Event, Manager
-
 import time
 from multiprocessing import set_start_method
 from Utils import *
@@ -8,16 +7,19 @@ from LiDARBase import *
 from MOT_TD_BCKONLIONE import MOT
 
 class LidarVisualizer:
-    def __init__(self,point_cloud_queue, tracking_result_queue,width=1000, height=800, title='LiDAR Data Visualization'):
+    def __init__(self,point_cloud_queue, tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,width=1000, height=800, title='LiDAR Data Visualization'):
         pygame.init()
         pygame.font.init() 
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
         pygame.font.init()  # Initialize the font module
-        self.object_label_font = pygame.font.SysFont('Comic Sans MS', 20) 
+        self.object_label_font = pygame.font.SysFont('Comic Sans MS', 20)
+        
         self.running = True
         self.point_cloud_queue = point_cloud_queue # point cloud queue
         self.tracking_result_queue = tracking_result_queue
+        self.tracking_parameter_dict = tracking_parameter_dict
+        self.tracking_param_update_event = tracking_param_update_event
         self.catch_background = False
         self.thred_map_loaded = False
         self.if_objid = False
@@ -26,12 +28,13 @@ class LidarVisualizer:
         self.tracking_prcess = None
         self.tracking_process_stop_event = None
         self.thred_map = None
+
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
-        self.mot = None
 
+        self.mot = None
         self.zoom = 1.0
-        self.offset = np.array([0, 0])
+        self.offset = np.array([500, 300])
         self.dragging = False
         self.last_mouse_pos = (0, 0)
         self.any_slider_active = False  # Track if any slider is active
@@ -53,14 +56,17 @@ class LidarVisualizer:
         self.bck_length_info = InfoBox(self.screen,(850,20,100,30),'No bck info')
         self.gen_bck_bottom = Button(self.screen,(850,80,100,30),'Gen Bck',self.start_background_generation)
         # bottom
+        
         self.density_slider = Slider(self.screen, (750, 750, 200, 20), "PC density",0,1,default_value=1)
-        # self.density_slider = Slider(self.screen, (300, 550, 200, 20), "density", default_value=0.5)
-        self.db_window_width_slider =  Slider(self.screen, (50, 750, 200, 20), "eps_width",2,30, default_value=0.5, if_int = True)
-        self.db_window_height_slider =  Slider(self.screen, (300, 750, 200, 20), "eps_height",2,30, default_value=0.5, if_int = True)
-        self.db_min_samples_slider =  Slider(self.screen, (50, 690, 200, 20), "min_samples",2,50, default_value=0.2, if_int = True)
+        self.frame_process_time_info = InfoBox(self.screen,(750,690,100,30),'0ms')
+        self.db_window_width_slider =  Slider(self.screen, (50, 750, 200, 20), "eps_width",2,30, default_value=0.4, if_int = True, if_odd = True)
+        self.db_window_height_slider =  Slider(self.screen, (300, 750, 200, 20), "eps_height",2,30, default_value=0.2, if_int = True, if_odd = True)
+        self.db_min_samples_slider =  Slider(self.screen, (50, 690, 200, 20), "min_samples",2,50, default_value=0.1, if_int = True)
         self.db_eps_dis_slider =  Slider(self.screen, (300, 690, 200, 20), "eps_dis",0,5, default_value=0.2)
+        self.update_tracking_param_buttom = Button(self.screen,(550,750,100,30),'Update Param',self.update_tracking_param)
+        
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
-        # Tracking parameters
+        # Background parameters
         self.bck_radius = 0.9
 
     def handle_events(self):
@@ -76,6 +82,7 @@ class LidarVisualizer:
             self.switch_tracking_mode.handle_event(event)
             self.switch_foreground_mode.handle_event(event)
             self.switch_object_id.handle_event(event)
+            self.update_tracking_param_buttom.handle_event(event)
             self.gen_bck_bottom.handle_event(event)
             # Handle slider events and check if any slider is being dragged
             if  self.density_slider.handle_event(event) or self.db_window_height_slider.handle_event(event) or self.db_window_width_slider.handle_event(event) or self.db_min_samples_slider.handle_event(event) or self.db_eps_dis_slider.handle_event(event):
@@ -143,8 +150,9 @@ class LidarVisualizer:
         self.switch_tracking_mode.draw()
         self.switch_object_id.draw()
         self.switch_foreground_mode.draw()
-        
+        self.update_tracking_param_buttom.draw()
         self.bck_length_info.draw()
+        self.frame_process_time_info.draw()
         self.gen_bck_bottom.draw()
         pygame.display.flip()
     
@@ -167,8 +175,11 @@ class LidarVisualizer:
                 win_size = [self.db_window_height_slider.out_value,self.db_window_width_slider.out_value]
                 eps_dis = self.db_eps_dis_slider.out_value
                 min_samples = self.db_min_samples_slider.out_value
-                self.mot = MOT(win_size = win_size, eps = eps_dis, min_samples = min_samples, thred_map = self.thred_map, missing_thred = 10)
-                self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue))
+                self.tracking_parameter_dict['win_size'] = win_size
+                self.tracking_parameter_dict['min_samples'] = min_samples
+                self.tracking_parameter_dict['eps'] = eps_dis
+                self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 10)
+                self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event))
                 self.tracking_prcess.start()
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
@@ -179,6 +190,7 @@ class LidarVisualizer:
                 while not self.tracking_result_queue.empty():
                     self.tracking_result_queue.get()
                 print('Tracking Terminated...')
+
 
     def toggle_foreground(self,state):
         if state:
@@ -202,12 +214,25 @@ class LidarVisualizer:
         else:
             print("No background data to process.")
 
+    def update_tracking_param(self):
+        if self.tracking_prcess:
+
+            win_size = [self.db_window_height_slider.out_value,self.db_window_width_slider.out_value]
+            eps_dis = self.db_eps_dis_slider.out_value
+            min_samples = self.db_min_samples_slider.out_value
+
+            self.tracking_parameter_dict['win_size'] = win_size
+            self.tracking_parameter_dict['min_samples'] = min_samples
+            self.tracking_parameter_dict['eps'] = eps_dis
+            self.tracking_param_update_event.set()
+
     def update(self):
         # Check if the background process has finished and thred_map is not loaded yet
         if self.background_data_process and not self.background_data_process.is_alive() and not self.thred_map_loaded:
             self.thred_map = np.load(r'./thred_map.npy')
             self.thred_map_loaded = True
             print("thred_map.npy loaded")
+        
 
     def process_lidar_data(self):
         # Instead of simulating data, pull from the parsed_data_queue
@@ -253,13 +278,14 @@ class LidarVisualizer:
                     point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,density)
 
                 elif self.switch_tracking_mode.state:
-
                     while True:
                         if not self.tracking_result_queue.empty():
-                            Tracking_pool,Labeling_map,Td_map = self.tracking_result_queue.get()
+                            Tracking_pool,Labeling_map,Td_map,time_consumption = self.tracking_result_queue.get()
                             point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool)
                             tracking_dic = Tracking_pool
+                            self.frame_process_time_info.update_text(f'{time_consumption:.1f}ms')
                             break
+                        
                 else: # default
                     Td_map = self.point_cloud_queue.get()
                     point_cloud_data,point_labels,tracking_dic = self.get_ordinary_point_cloud(Td_map,density)
@@ -282,14 +308,15 @@ class LidarVisualizer:
 
 
 if __name__ == '__main__':
-    pcap_file_path = r'D:\LiDAR_Data\US395.pcap'
+    pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
             raw_data_queue = manger.Queue() # Packet Queue
             point_cloud_queue = manger.Queue()
-            # point_cloud_queue_4track = manger.Queue()
             tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
+            tracking_parameter_dict = manger.dict({})
+            tracking_param_update_event = Event()
             # Creating processes for Core 2 and Core 3 tasks
             
             # eth_reader = load_pcap(pcap_file_path)
@@ -301,7 +328,7 @@ if __name__ == '__main__':
 
             # Running the visualization (Core 1 task) in the main process
             
-            visualizer = LidarVisualizer(point_cloud_queue,tracking_result_queue)
+            visualizer = LidarVisualizer(point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event)
             visualizer.run()
             
             # Cleanup

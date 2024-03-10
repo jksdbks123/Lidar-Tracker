@@ -1,5 +1,5 @@
 from Utils import *
-
+from DDBSCAN import Raster_DBSCAN
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
 color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
@@ -53,21 +53,29 @@ LidarVisualizer.point_cloud_queue: parsed point cloud frames
 """
 
 
-def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue):
+def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event):
     while not stop_event.is_set():
         if not point_cloud_queue.empty():
             Td_map =  point_cloud_queue.get()
             # some steps
+            time_a = time.time()
             if not mot.if_initialized:
                 mot.initialization(Td_map)
                 Tracking_pool = mot.Tracking_pool
                 Labeling_map = mot.cur_Labeling_map
             else:
+                if tracking_param_update_event.is_set():
+                    mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
+                    tracking_param_update_event.clear()
+                    print(mot.db.eps)
+                time_a = time.time()
                 mot.mot_tracking_step(Td_map)
                 Tracking_pool = mot.Tracking_pool
                 Labeling_map = mot.cur_Labeling_map
+                
+            time_consumption = (time.time() - time_a) * 1000
+            result_queue.put((Tracking_pool,Labeling_map,Td_map,time_consumption))
 
-            result_queue.put((Tracking_pool,Labeling_map,Td_map))
     print('Terminated tracking process')
 
 def load_pcap(file_path):

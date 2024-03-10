@@ -25,7 +25,7 @@ Once some objects are detected, just forward.
 """
 
 class MOT():
-    def __init__(self, win_size, eps, min_samples, thred_map, missing_thred):
+    def __init__(self,tracking_parameter_dict, thred_map, missing_thred):
         """
         background_update_time : background update time (sec)
         """
@@ -35,10 +35,11 @@ class MOT():
         self.if_initialized = False 
         # params for clustering and background sampling
         self.bck_radius = 0.9
-        self.win_size = win_size
-        self.eps = eps 
-        self.min_samples = min_samples
+        self.win_size = tracking_parameter_dict['win_size']
+        self.eps = tracking_parameter_dict['eps'] 
+        self.min_samples = tracking_parameter_dict['min_samples']
         self.missing_thred = missing_thred
+        
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
         ###
         self.thred_map = thred_map     
