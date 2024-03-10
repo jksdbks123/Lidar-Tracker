@@ -58,13 +58,16 @@ class LidarVisualizer:
         # bottom
         
         self.density_slider = Slider(self.screen, (750, 750, 200, 20), "PC density",0,1,default_value=1)
-        self.frame_process_time_info = InfoBox(self.screen,(750,690,100,30),'0ms')
+        self.frame_process_time_info = InfoBox(self.screen,(850,690,100,30),'0ms')
         self.db_window_width_slider =  Slider(self.screen, (50, 750, 200, 20), "eps_width",2,30, default_value=0.4, if_int = True, if_odd = True)
         self.db_window_height_slider =  Slider(self.screen, (300, 750, 200, 20), "eps_height",2,30, default_value=0.2, if_int = True, if_odd = True)
         self.db_min_samples_slider =  Slider(self.screen, (50, 690, 200, 20), "min_samples",2,50, default_value=0.1, if_int = True)
         self.db_eps_dis_slider =  Slider(self.screen, (300, 690, 200, 20), "eps_dis",0,5, default_value=0.2)
         self.update_tracking_param_buttom = Button(self.screen,(550,750,100,30),'Update Param',self.update_tracking_param)
         
+        self.info_boxes = [self.bck_length_info,self.frame_process_time_info]
+        self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
+        self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,self.switch_object_id,self.update_tracking_param_buttom,self.gen_bck_bottom] # buttoms and toggles
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
         # Background parameters
         self.bck_radius = 0.9
@@ -77,13 +80,9 @@ class LidarVisualizer:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     self.running = False
+            for item in self.events_handle_items:
+                item.handle_event(event)
 
-            self.switch_bck_recording_mode.handle_event(event)
-            self.switch_tracking_mode.handle_event(event)
-            self.switch_foreground_mode.handle_event(event)
-            self.switch_object_id.handle_event(event)
-            self.update_tracking_param_buttom.handle_event(event)
-            self.gen_bck_bottom.handle_event(event)
             # Handle slider events and check if any slider is being dragged
             if  self.density_slider.handle_event(event) or self.db_window_height_slider.handle_event(event) or self.db_window_width_slider.handle_event(event) or self.db_min_samples_slider.handle_event(event) or self.db_eps_dis_slider.handle_event(event):
                 self.any_slider_active = True
@@ -141,19 +140,13 @@ class LidarVisualizer:
             for x, y in data:
                 pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
 
-        self.density_slider.draw()
-        self.db_window_width_slider.draw()
-        self.db_window_height_slider.draw()
-        self.db_min_samples_slider.draw()
-        self.db_eps_dis_slider.draw()
-        self.switch_bck_recording_mode.draw() 
-        self.switch_tracking_mode.draw()
-        self.switch_object_id.draw()
-        self.switch_foreground_mode.draw()
-        self.update_tracking_param_buttom.draw()
-        self.bck_length_info.draw()
-        self.frame_process_time_info.draw()
-        self.gen_bck_bottom.draw()
+        for item in self.events_handle_items:
+            item.draw()
+        for item in self.info_boxes:
+            item.draw()
+        for item in self.slider_bars:
+            item.draw() 
+
         pygame.display.flip()
     
     def deactivate_other_toggles(self,activate_button):
@@ -306,9 +299,9 @@ class LidarVisualizer:
 
         pygame.quit()
 
-
-if __name__ == '__main__':
-    pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
+def main():
+    # pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
+    pcap_file_path = r'D:\LiDAR_Data\US395.pcap'
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
@@ -355,3 +348,5 @@ if __name__ == '__main__':
         visualizer.tracking_prcess.join()
         visualizer.quit()
 
+if __name__ == '__main__':
+    main()
