@@ -354,7 +354,7 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
         Tracking_pool[glb_id].state = state_cur_
         Tracking_pool[glb_id].P = P_cur_
         Tracking_pool[glb_id].label_seq.append(-1)
-        Tracking_pool[glb_id].mea_seq.append(-1)
+        Tracking_pool[glb_id].mea_seq.append(None)
         Tracking_pool[glb_id].app_seq.append(-1)
         Tracking_pool[glb_id].post_seq.append(state_cur_)
 

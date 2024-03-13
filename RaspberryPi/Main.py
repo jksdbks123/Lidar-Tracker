@@ -122,22 +122,25 @@ class LidarVisualizer:
             
             if tracking_dic is not None:
                 for key in tracking_dic.keys():
-                    his_coords = np.array(tracking_dic[key].meq_seq[-10:])
-                    his_coords = (his_coords[:,0].reshape(-1,2) + his_coords[:,1].reshape(-1,2))/2
-                    his_coords[:,0] = his_coords[:,0] * self.zoom +  self.offset[0]
-                    his_coords[:,1] = his_coords[:,1] * self.zoom +  self.offset[1]
                     color_vec = color_map[key%len(color_map)]
+                    his_coords = np.array(tracking_dic[key].mea_seq[-10:])
                     for coord in his_coords:
-                        pygame.draw.circle(self.screen, tuple(color_vec), (coord[0], coord[1]), 4)
+                        if coord is not None:
+                            x = (coord[0][0][0] + coord[1][0][0]) / 2
+                            y = (coord[0][1][0] + coord[1][1][0]) / 2
+                            x = x * self.zoom +  self.offset[0]
+                            y = y * self.zoom +  self.offset[1]
+                            pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 4)
 
 
         if tracking_dic is not None and self.if_objid:
             for key in tracking_dic.keys():
                 cur_traj = tracking_dic[key].mea_seq[-1] # -1 happens here sometimes
-                label_surface = self.object_label_font.render(str(key), False, (255,65,212))
-                x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
-                label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
-                self.screen.blit(label_surface,label_pos)
+                if cur_traj is not None:
+                    label_surface = self.object_label_font.render(str(key), False, (255,65,212))
+                    x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
+                    label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
+                    self.screen.blit(label_surface,label_pos)
 
 
         if point_label is None and tracking_dic is None:
