@@ -54,7 +54,7 @@ LidarVisualizer.point_cloud_queue: parsed point cloud frames
 
 
 def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event):
-    
+    start_tracking_time = time.time()
     while not stop_event.is_set():
         Td_map =  point_cloud_queue.get()
         # some steps
@@ -74,6 +74,13 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             Tracking_pool = mot.Tracking_pool
             Labeling_map = mot.cur_Labeling_map
             time_b = time.time()
+            if (time_b - start_tracking_time) > 120:
+                 mot.Off_tracking_pool = {}
+                 mot.Tracking_pool = {}
+                 mot.Global_id = 0
+                 start_tracking_time = time.time()
+
+
         result_queue.put_nowait((Tracking_pool,Labeling_map,Td_map,time_b - time_a))
 
     print('Terminated tracking process')

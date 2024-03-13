@@ -71,7 +71,7 @@ class LidarVisualizer:
         self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,self.switch_object_id,self.update_tracking_param_buttom,self.gen_bck_bottom] # buttoms and toggles
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
         # Background parameters
-        self.bck_radius = 0.9
+        self.bck_radius = 0.3
 
     def handle_events(self):
         self.any_slider_active = False  # Reset the flag at the start of each event loop
@@ -179,10 +179,10 @@ class LidarVisualizer:
                 self.tracking_parameter_dict['win_size'] = win_size
                 self.tracking_parameter_dict['min_samples'] = min_samples
                 self.tracking_parameter_dict['eps'] = eps_dis
-                self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 5)
+                self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 10)
                 self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event))
                 self.tracking_prcess.start()
-                
+
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
                 self.mot = None
