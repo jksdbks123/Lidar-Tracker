@@ -385,7 +385,7 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
 
     dis = np.sqrt(np.sum(state_init[0][:2]**2))
 
-    if dis > 5:
+    if dis > 0.1:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init

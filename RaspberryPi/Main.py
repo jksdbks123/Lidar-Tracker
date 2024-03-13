@@ -123,7 +123,7 @@ class LidarVisualizer:
             if tracking_dic is not None:
                 for key in tracking_dic.keys():
                     color_vec = color_map[key%len(color_map)]
-                    his_coords = np.array(tracking_dic[key].mea_seq[-10:])
+                    his_coords = tracking_dic[key].mea_seq[-10:]
                     for coord in his_coords:
                         if coord is not None:
                             x = (coord[0][0][0] + coord[1][0][0]) / 2
@@ -182,6 +182,7 @@ class LidarVisualizer:
                 self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 5)
                 self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event))
                 self.tracking_prcess.start()
+                
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
                 self.mot = None
