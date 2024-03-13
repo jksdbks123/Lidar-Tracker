@@ -7,7 +7,7 @@ from LiDARBase import *
 from MOT_TD_BCKONLIONE import MOT
 
 class LidarVisualizer:
-    def __init__(self,point_cloud_queue, tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,width=1000, height=800, title='LiDAR Data Visualization'):
+    def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,width=1000, height=800, title='LiDAR Data Visualization'):
         pygame.init()
         pygame.font.init() 
         self.screen = pygame.display.set_mode((width, height))
@@ -18,6 +18,7 @@ class LidarVisualizer:
         self.running = True
         self.point_cloud_queue = point_cloud_queue # point cloud queue
         self.tracking_result_queue = tracking_result_queue
+        self.raw_data_queue = raw_data_queue
         self.tracking_parameter_dict = tracking_parameter_dict
         self.tracking_param_update_event = tracking_param_update_event
         self.catch_background = False
@@ -58,7 +59,7 @@ class LidarVisualizer:
         # bottom
         
         self.density_slider = Slider(self.screen, (750, 750, 200, 20), "PC density",0,1,default_value=1)
-        self.frame_process_time_info = InfoBox(self.screen,(850,690,100,30),'0ms')
+        self.frame_process_time_info = InfoBox(self.screen,(700,690,250,30),'0ms')
         self.db_window_width_slider =  Slider(self.screen, (50, 750, 200, 20), "eps_width",2,30, default_value=0.4, if_int = True, if_odd = True)
         self.db_window_height_slider =  Slider(self.screen, (300, 750, 200, 20), "eps_height",2,30, default_value=0.2, if_int = True, if_odd = True)
         self.db_min_samples_slider =  Slider(self.screen, (50, 690, 200, 20), "min_samples",2,50, default_value=0.1, if_int = True)
@@ -108,32 +109,36 @@ class LidarVisualizer:
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
 
-    def draw(self, data,point_label = None,tracking_dic = None):
+    def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T
         
         if point_label is not None:
+
             for coord,l in zip(data,point_label):
                 x,y = coord
                 color_vec = color_map[l%len(color_map)]
                 pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 2)
+            
+            if tracking_dic is not None:
+                for key in tracking_dic.keys():
+                    his_coords = np.array(tracking_dic[key].meq_seq[-10:])
+                    his_coords = (his_coords[:,0].reshape(-1,2) + his_coords[:,1].reshape(-1,2))/2
+                    his_coords[:,0] = his_coords[:,0] * self.zoom +  self.offset[0]
+                    his_coords[:,1] = his_coords[:,1] * self.zoom +  self.offset[1]
+                    color_vec = color_map[key%len(color_map)]
+                    for coord in his_coords:
+                        pygame.draw.circle(self.screen, tuple(color_vec), (coord[0], coord[1]), 4)
 
-            for key in tracking_dic.keys():
-                his_coords = np.array(tracking_dic[key].post_seq[-10:])
-                his_coords = (his_coords[:,0].reshape(-1,2) + his_coords[:,1].reshape(-1,2))/2
-                his_coords[:,0] = his_coords[:,0] * self.zoom +  self.offset[0]
-                his_coords[:,1] = his_coords[:,1] * self.zoom +  self.offset[1]
-                color_vec = color_map[key%len(color_map)]
-                for coord in his_coords:
-                    pygame.draw.circle(self.screen, tuple(color_vec), (coord[0], coord[1]), 4)
-                    
+
         if tracking_dic is not None and self.if_objid:
             for key in tracking_dic.keys():
-                cur_traj = tracking_dic[key].post_seq[-1] # -1 happens here sometimes
+                cur_traj = tracking_dic[key].mea_seq[-1] # -1 happens here sometimes
                 label_surface = self.object_label_font.render(str(key), False, (255,65,212))
                 x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
                 label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
                 self.screen.blit(label_surface,label_pos)
+
 
         if point_label is None and tracking_dic is None:
             color = int(255)  # Using the slider value for RGB intensity
@@ -171,7 +176,7 @@ class LidarVisualizer:
                 self.tracking_parameter_dict['win_size'] = win_size
                 self.tracking_parameter_dict['min_samples'] = min_samples
                 self.tracking_parameter_dict['eps'] = eps_dis
-                self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 10)
+                self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 5)
                 self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event))
                 self.tracking_prcess.start()
         else:
@@ -181,7 +186,7 @@ class LidarVisualizer:
                 self.tracking_prcess.join()
                 self.tracking_prcess = None
                 while not self.tracking_result_queue.empty():
-                    self.tracking_result_queue.get()
+                    self.tracking_result_queue.get_nowait()
                 print('Tracking Terminated...')
 
 
@@ -213,11 +218,11 @@ class LidarVisualizer:
             win_size = [self.db_window_height_slider.out_value,self.db_window_width_slider.out_value]
             eps_dis = self.db_eps_dis_slider.out_value
             min_samples = self.db_min_samples_slider.out_value
-
             self.tracking_parameter_dict['win_size'] = win_size
             self.tracking_parameter_dict['min_samples'] = min_samples
             self.tracking_parameter_dict['eps'] = eps_dis
             self.tracking_param_update_event.set()
+            print('set_once')
 
     def update(self):
         # Check if the background process has finished and thred_map is not loaded yet
@@ -225,67 +230,56 @@ class LidarVisualizer:
             self.thred_map = np.load(r'./thred_map.npy')
             self.thred_map_loaded = True
             print("thred_map.npy loaded")
+
         
 
-    def process_lidar_data(self):
-        # Instead of simulating data, pull from the parsed_data_queue
-        if not self.parsed_data_queue.empty():
-            data = self.parsed_data_queue.get()
-            return data
-        else:
-            # Return some default data if the queue is empty to avoid errors
-            return np.array([[0], [0]])
-        
-    def get_ordinary_point_cloud(self,Td_map,density):
-        point_cloud_data = get_pcd_uncolored(Td_map)
-        ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
-        point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
-        return point_cloud_data,None,None
-    
-    def get_foreground_point_cloud(self,Td_map,density):
+    def get_foreground_point_cloud(self,Td_map,vertical_limits):
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
         Foreground_map = Foreground_map.astype(int)
-        point_cloud_data,labels = get_pcd_colored(Td_map,Foreground_map)                    
-        ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
-        point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
-        labels = labels[ds_point_cloud_data_ind]
+        point_cloud_data,labels = get_pcd_colored(Td_map,Foreground_map,vertical_limits)                    
+        # ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
+        # point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
+        # labels = labels[ds_point_cloud_data_ind]
         return point_cloud_data,labels,None
     
     def run(self):
 
         while self.running:
+            
             self.handle_events()
             self.update()
-            density = self.density_slider.value
-
-            if not self.point_cloud_queue.empty():
+            # density = self.density_slider.value
+            vertical_limits = [0,12]
+            time_cums = 0
+            if self.switch_bck_recording_mode.state:
+                Td_map = self.point_cloud_queue.get()
+                self.background_data.append(Td_map)
+                self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
+                point_cloud_data,point_label,tracking_dic = get_ordinary_point_cloud(Td_map,vertical_limits)
                 
-                if self.switch_bck_recording_mode.state:
-                    Td_map = self.point_cloud_queue.get()
-                    self.background_data.append(Td_map)
-                    self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
-                    point_cloud_data,point_label,tracking_dic = self.get_ordinary_point_cloud(Td_map,density)
-                    
-                elif self.switch_foreground_mode.state:
-                    Td_map = self.point_cloud_queue.get()
-                    point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,density)
+            elif self.switch_foreground_mode.state:
+                Td_map = self.point_cloud_queue.get()
+                # point_cloud_data,point_labels,tracking_dic = self.get_ordinary_point_cloud(Td_map,density)
+                point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,vertical_limits)
+                
 
-                elif self.switch_tracking_mode.state:
-                    while True:
-                        if not self.tracking_result_queue.empty():
-                            Tracking_pool,Labeling_map,Td_map,time_consumption = self.tracking_result_queue.get()
-                            point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool)
-                            tracking_dic = Tracking_pool
-                            self.frame_process_time_info.update_text(f'{time_consumption:.1f}ms')
-                            break
-                        
-                else: # default
-                    Td_map = self.point_cloud_queue.get()
-                    point_cloud_data,point_labels,tracking_dic = self.get_ordinary_point_cloud(Td_map,density)
+            elif self.switch_tracking_mode.state:
+                Tracking_pool,Labeling_map,Td_map,time_cums = self.tracking_result_queue.get()
+                point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,vertical_limits)
+                # ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
+                # point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
+                tracking_dic = Tracking_pool
                     
-                self.screen.fill((0, 0, 0))
-                self.draw(point_cloud_data,point_labels,tracking_dic)  
+            else: # default
+                Td_map = self.point_cloud_queue.get()
+                point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,vertical_limits)
+            
+            time_a = time.time()
+            self.screen.fill((0, 0, 0))
+            self.draw(point_cloud_data,point_labels,tracking_dic)
+            self.frame_process_time_info.update_text(f'resq:{self.tracking_result_queue.qsize()},pcq:{self.point_cloud_queue.qsize()},render:{(time.time() - time_a)*1000:.1f}ms,tracking:{time_cums * 1000:.1f}')
 
+                
                       
     def quit(self):
         self.running = False
@@ -299,9 +293,9 @@ class LidarVisualizer:
 
         pygame.quit()
 
-def main():
+def main(mode = 'online',pcap_file_path = None):
     # pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
-    pcap_file_path = r'D:\LiDAR_Data\US395.pcap'
+    
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
@@ -311,17 +305,21 @@ def main():
             tracking_parameter_dict = manger.dict({})
             tracking_param_update_event = Event()
             # Creating processes for Core 2 and Core 3 tasks
-            
-            # eth_reader = load_pcap(pcap_file_path)
+            if mode == 'online':
+                sock = socket.socket(socket.AF_INET, # Internet
+                                socket.SOCK_DGRAM) # UDP
+                sock.bind(('', 2368)) 
+                packet_reader_process = Process(target=read_packets_online, args=(sock,raw_data_queue,))
+            elif mode == 'offline':
+                packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue,pcap_file_path,))
 
-            packet_reader_process = Process(target=read_packets, args=(raw_data_queue,pcap_file_path,))
             packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
             packet_reader_process.start()
             packet_parser_process.start()
 
             # Running the visualization (Core 1 task) in the main process
             
-            visualizer = LidarVisualizer(point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event)
+            visualizer = LidarVisualizer(point_cloud_queue,tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event)
             visualizer.run()
             
             # Cleanup
@@ -349,4 +347,8 @@ def main():
         visualizer.quit()
 
 if __name__ == '__main__':
-    main()
+    # pcap_file_path = r'D:\LiDAR_Data\US395.pcap'
+    # mode = 'offline'
+    # main(mode=mode,pcap_file_path = pcap_file_path)
+    mode = 'online'
+    main(mode=mode)

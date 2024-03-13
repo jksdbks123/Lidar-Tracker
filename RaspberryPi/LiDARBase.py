@@ -54,27 +54,27 @@ LidarVisualizer.point_cloud_queue: parsed point cloud frames
 
 
 def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event):
+    
     while not stop_event.is_set():
-        if not point_cloud_queue.empty():
-            Td_map =  point_cloud_queue.get()
-            # some steps
-            time_a = time.time()
-            if not mot.if_initialized:
-                mot.initialization(Td_map)
-                Tracking_pool = mot.Tracking_pool
-                Labeling_map = mot.cur_Labeling_map
-            else:
-                if tracking_param_update_event.is_set():
-                    mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
-                    tracking_param_update_event.clear()
-                    print(mot.db.eps)
-                time_a = time.time()
-                mot.mot_tracking_step(Td_map)
-                Tracking_pool = mot.Tracking_pool
-                Labeling_map = mot.cur_Labeling_map
-                
-            time_consumption = (time.time() - time_a) * 1000
-            result_queue.put((Tracking_pool,Labeling_map,Td_map,time_consumption))
+        Td_map =  point_cloud_queue.get()
+        # some steps
+        time_a = time.time()
+        if not mot.if_initialized:
+            mot.initialization(Td_map)
+            Tracking_pool = mot.Tracking_pool
+            Labeling_map = mot.cur_Labeling_map
+            time_b = time.time()
+        else:
+            if tracking_param_update_event.is_set():
+                mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
+                tracking_param_update_event.clear()
+                print(mot.db.eps)
+            
+            mot.mot_tracking_step(Td_map)
+            Tracking_pool = mot.Tracking_pool
+            Labeling_map = mot.cur_Labeling_map
+            time_b = time.time()
+        result_queue.put_nowait((Tracking_pool,Labeling_map,Td_map,time_b - time_a))
 
     print('Terminated tracking process')
 
@@ -160,13 +160,19 @@ def calc_cart_coord(distances, azimuth):# distance: 12*32 azimuth: 12*32
     Z = distances * np.sin(longitudes)
     return X, Y, Z
 
-def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool):
-    td_freq_map = Td_map
+def get_ordinary_point_cloud(Td_map,vertical_limits):
+    point_cloud_data = get_pcd_uncolored(Td_map,vertical_limits)
+    # ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
+    # point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
+    return point_cloud_data,None,None
+
+
+def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,vertical_limits):
     Xs = []
     Ys = []
 
     Labels = []
-    for i in range(Td_map.shape[0]):
+    for i in range(vertical_limits[0],vertical_limits[1]):
         longitudes = theta[i] * np.pi / 180
         latitudes = azimuths * np.pi / 180 
         hypotenuses = Td_map[i] * np.cos(longitudes)
@@ -187,68 +193,59 @@ def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool):
         if label_cur_frame != -1:
             # Colors[Labels == label_cur_frame] = color_map[key%len(color_map)]
             Labels[Labels == label_cur_frame] = key
+            
     XYZ = np.c_[Xs,Ys]
     return XYZ,Labels
 
-def get_pcd_uncolored(Td_map):
+def get_pcd_uncolored(Td_map,vertical_limits):
 
     Xs = []
     Ys = []
-    Zs = []
-    for i in range(Td_map.shape[0]):
+    for i in range(vertical_limits[0],vertical_limits[1]):
         longitudes = theta[i]*np.pi / 180
         latitudes = azimuths * np.pi / 180 
         hypotenuses = Td_map[i] * np.cos(longitudes)
         X = hypotenuses * np.sin(latitudes)
         Y = hypotenuses * np.cos(latitudes)
-        Z = Td_map[i] * np.sin(longitudes)
         Xs.append(X)
         Ys.append(Y)
-        Zs.append(Z)
 
     Xs = np.concatenate(Xs)
     Ys = np.concatenate(Ys)
-    Zs = np.concatenate(Zs)
     
     XYZ = np.c_[Xs,Ys]
     XYZ = XYZ[(XYZ[:,0] != 0)&(XYZ[:,1] != 0)]
     return XYZ
 
-def get_pcd_colored(Td_map,Labeling_map):
+def get_pcd_colored(Td_map,Labeling_map,vertical_limits):
 
     
     Xs = []
     Ys = []
-    Zs = []
     Labels = []
-    for i in range(Td_map.shape[0]):
+    for i in range(vertical_limits[0],vertical_limits[1]):
         longitudes = theta[i]*np.pi / 180
         latitudes = azimuths * np.pi / 180 
         hypotenuses = Td_map[i] * np.cos(longitudes)
         X = hypotenuses * np.sin(latitudes)
         Y = hypotenuses * np.cos(latitudes)
-        # Z = Td_map[i] * np.sin(longitudes)
-
-        Valid_ind = Td_map[i] != 0 
-        Xs.append(X[Valid_ind])
-        Ys.append(Y[Valid_ind])
-        # Zs.append(Z[Valid_ind])
-        Labels.append(Labeling_map[i][Valid_ind])
+        Xs.append(X)
+        Ys.append(Y)
+        Labels.append(Labeling_map[i])
 
     Xs = np.concatenate(Xs)
     Ys = np.concatenate(Ys)
-    # Zs = np.concatenate(Zs)
     Labels = np.concatenate(Labels)
     XYZ = np.c_[Xs,Ys]
-    # Valid_ind = (XYZ[:,0] != 0)&(XYZ[:,1] != 0)&(XYZ[:,2] != 0)
-    # Labels = Labels[Valid_ind]
-    # XYZ = XYZ[Valid_ind]
+    Valid_ind = (XYZ[:,0] != 0)&(XYZ[:,1] != 0)
+    Labels = Labels[Valid_ind]
+    XYZ = XYZ[Valid_ind]
 
     return XYZ,Labels     
 
 
-# # Simulated function to continuously read packets (Simulating Core 2)
-def read_packets(raw_data_queue,pcap_file_path):
+# # # Simulated function to continuously read packets (Simulating Core 2)
+def read_packets_offline(raw_data_queue,pcap_file_path):
     eth_reader = load_pcap(pcap_file_path)
     while True:
         # Simulate reading a packet from the Ethernet
@@ -266,6 +263,12 @@ def read_packets(raw_data_queue,pcap_file_path):
                         continue
             # raw_packet = np.random.rand(20000,2) * 600  # Placeholder for actual packet data
                     raw_data_queue.put((ts,data))
+
+def read_packets_online(sock,raw_data_queue):    
+    while True:
+        data,addr = sock.recvfrom(1206)
+        raw_data_queue.put_nowait((time.time(),data))
+
 # Function to parse packets into point cloud data (Simulating Core 3)
 def parse_packets(raw_data_queue, point_cloud_queue):
     
@@ -276,60 +279,59 @@ def parse_packets(raw_data_queue, point_cloud_queue):
     Td_map = np.zeros((32,1800))
     # Intens_map = np.zeros((32,1800))
     next_ts = 0
-    while True:
-        if not raw_data_queue.empty():
-            ts,raw_packet = raw_data_queue.get()
-            distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
-            next_ts = ts + 0.1
-            azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
-            culmulative_azimuth_values.append(azimuth)
-            culmulative_laser_ids.append(laser_id)
-            culmulative_distances.append(distances)
-            break
-
+    
+    ts,raw_packet = raw_data_queue.get()
+    distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
+    print(Timestamp)
+    next_ts = Timestamp + 100000
+    azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
+    culmulative_azimuth_values.append(azimuth)
+    culmulative_laser_ids.append(laser_id)
+    culmulative_distances.append(distances)
+            
+    
     while True:
         while True:
-            if not raw_data_queue.empty():
-                ts,raw_packet = raw_data_queue.get()
-                # Placeholder for parsing logic; here we just pass the data through
-                distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
-                # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
-                azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
+            ts,raw_packet = raw_data_queue.get()
+            # Placeholder for parsing logic; here we just pass the data through
+            distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
+            # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
+            azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
+            
+            if Timestamp > next_ts:
                 
-                if ts > next_ts:
+                if len(culmulative_azimuth_values) > 0:
                     
-                    if len(culmulative_azimuth_values) > 0:
-                        
-                        culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
-                        culmulative_azimuth_values += Data_order[:,1].reshape(-1,1)
-                        culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
-                        culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
-                        # culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
-                        culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
-                        culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)] = culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)]%1799
+                    culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
+                    culmulative_azimuth_values += Data_order[:,1].reshape(-1,1)
+                    culmulative_laser_ids = np.concatenate(culmulative_laser_ids,axis = 1).flatten()
+                    culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
+                    # culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
+                    culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
+                    culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)] = culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)]%1799
 
-                        Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
-                        # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
-                        
-                        point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
-                    else:
-                        
-                        point_cloud_queue.put(Td_map) #32*1800
-
-                    culmulative_azimuth_values = []
-                    culmulative_laser_ids = []
-                    culmulative_distances = []
-                    # culmulative_intensities = []
-
-                    Td_map = np.zeros((32,1800))
-                    # Intens_map = np.zeros((32,1800))
-                    next_ts += 0.1
-                    break
+                    Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
+                    # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
+                    
+                    point_cloud_queue.put_nowait(Td_map[arg_omega,:]) #32*1800
                 else:
-                    culmulative_azimuth_values.append(azimuth)
-                    culmulative_laser_ids.append(laser_id)
-                    culmulative_distances.append(distances)
-                    # culmulative_intensities.append(intensities)
+                    
+                    point_cloud_queue.put_nowait(Td_map) #32*1800
+
+                culmulative_azimuth_values = []
+                culmulative_laser_ids = []
+                culmulative_distances = []
+                # culmulative_intensities = []
+
+                Td_map = np.zeros((32,1800))
+                # Intens_map = np.zeros((32,1800))
+                next_ts += 100000
+                break
+            else:
+                culmulative_azimuth_values.append(azimuth)
+                culmulative_laser_ids.append(laser_id)
+                culmulative_distances.append(distances)
+                # culmulative_intensities.append(intensities)
 
 def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
     

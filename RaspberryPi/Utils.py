@@ -7,6 +7,7 @@ import cv2
 import dpkt
 from sklearn.cluster import DBSCAN
 import time
+import socket
 
 class Slider:
     def __init__(self, screen, position, label, min_value, max_value,default_value=0.5,if_int = False, if_odd = False):
@@ -50,6 +51,9 @@ class Slider:
             self.out_value = self.min_value + (self.max_value - self.min_value) * self.value
             if self.if_int:
                 self.out_value = int(self.out_value)
+            if self.if_odd:
+                if self.out_value % 2 == 0:
+                    self.out_value += 1
             return True  # Indicates that the slider is being dragged
         return False
 

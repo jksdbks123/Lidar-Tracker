@@ -85,10 +85,11 @@ class Raster_DBSCAN():
             dbscan_inner(core_samples, neighborhoods, Labels)
         except:
             pass
-        
-        Labeling_map = self.Labeling_map_template.copy()
-        Labeling_map[rows,cols] = Labels
-
+        try:
+            Labeling_map = self.Labeling_map_template.copy()
+            Labeling_map[rows,cols] = Labels
+        except:
+            print(len(rows),len(cols),len(Labels))
         # self.Labeling_map = Labeling_map
         
         return Labeling_map
