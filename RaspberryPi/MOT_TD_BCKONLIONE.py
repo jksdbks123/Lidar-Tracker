@@ -34,7 +34,7 @@ class MOT():
         self.if_pcap_valid = True
         self.if_initialized = False 
         # params for clustering and background sampling
-        self.bck_radius = 0.9
+        self.bck_radius = 0.3
         self.win_size = tracking_parameter_dict['win_size']
         self.eps = tracking_parameter_dict['eps'] 
         self.min_samples = tracking_parameter_dict['min_samples']
