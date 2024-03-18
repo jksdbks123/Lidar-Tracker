@@ -7,7 +7,7 @@ from LiDARBase import *
 from MOT_TD_BCKONLIONE import MOT
 
 class LidarVisualizer:
-    def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,width=1000, height=800, title='LiDAR Data Visualization'):
+    def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,width=1500, height=1000, title='LiDAR Data Visualization'):
         pygame.init()
         pygame.font.init() 
         self.screen = pygame.display.set_mode((width, height))
@@ -35,10 +35,16 @@ class LidarVisualizer:
 
         self.mot = None
         self.zoom = 1.0
-        self.offset = np.array([500, 300])
+        self.offset = np.array([800, 300])
         self.dragging = False
         self.last_mouse_pos = (0, 0)
         self.any_slider_active = False  # Track if any slider is active
+
+        self.lines = []
+        self.line_counts = []
+        current_line_start = None
+        self.drawing = False
+
         """
         Add badget steps:
         1. Add badget object in initialization part
@@ -52,23 +58,26 @@ class LidarVisualizer:
         self.switch_tracking_mode = ToggleButton(self.screen, (20, 80, 100, 30), 'Track Off', 'Track On', self.toggle_tracking_mode)
         self.switch_object_id = ToggleButton(self.screen, (140, 80, 50, 30), 'ObjID Off', 'ObjID On', self.toggle_objid_switch)
         self.switch_foreground_mode = ToggleButton(self.screen, (20, 140, 100, 30), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
-        
+        # left middle
+        self.switch_drawing_lines_mode = ToggleButton(self.screen, (20, 600, 100, 30), 'Line Edit', 'Line On',self.draw_lines)
+        self.buttom_clear_lines = Button(self.screen,(20,650,100,30),'Clear Lines',self.clear_lines)
         # right upper
-        self.bck_length_info = InfoBox(self.screen,(850,20,100,30),'No bck info')
-        self.gen_bck_bottom = Button(self.screen,(850,80,100,30),'Gen Bck',self.start_background_generation)
-        # bottom
-        
-        self.density_slider = Slider(self.screen, (750, 750, 200, 20), "PC density",0,1,default_value=1)
-        self.frame_process_time_info = InfoBox(self.screen,(700,690,250,30),'0ms')
-        self.db_window_width_slider =  Slider(self.screen, (50, 750, 200, 20), "eps_width",2,30, default_value=0.4, if_int = True, if_odd = True)
-        self.db_window_height_slider =  Slider(self.screen, (300, 750, 200, 20), "eps_height",2,30, default_value=0.2, if_int = True, if_odd = True)
-        self.db_min_samples_slider =  Slider(self.screen, (50, 690, 200, 20), "min_samples",2,50, default_value=0.1, if_int = True)
-        self.db_eps_dis_slider =  Slider(self.screen, (300, 690, 200, 20), "eps_dis",0,5, default_value=0.2)
-        self.update_tracking_param_buttom = Button(self.screen,(550,750,100,30),'Update Param',self.update_tracking_param)
+        self.bck_length_info = InfoBox(self.screen,(1350,20,100,30),'No bck info')
+        self.gen_bck_bottom = Button(self.screen,(1350,80,100,30),'Gen Bck',self.start_background_generation)
+
+        # bottom 
+        self.density_slider = Slider(self.screen, (1200, 900, 200, 20), "PC density",0,1,default_value=1)
+        self.frame_process_time_info = InfoBox(self.screen,(1200,840,250,30),'0ms')
+        self.db_window_width_slider =  Slider(self.screen, (50, 900, 200, 20), "eps_width",2,30, default_value=0.4, if_int = True, if_odd = True)
+        self.db_window_height_slider =  Slider(self.screen, (300, 900, 200, 20), "eps_height",2,30, default_value=0.2, if_int = True, if_odd = True)
+        self.db_min_samples_slider =  Slider(self.screen, (50, 840, 200, 20), "min_samples",2,50, default_value=0.1, if_int = True)
+        self.db_eps_dis_slider =  Slider(self.screen, (300, 840, 200, 20), "eps_dis",0,5, default_value=0.2)
+        self.update_tracking_param_buttom = Button(self.screen,(550,900,100,30),'Update Param',self.update_tracking_param)
         
         self.info_boxes = [self.bck_length_info,self.frame_process_time_info]
         self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
-        self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,self.switch_object_id,self.update_tracking_param_buttom,self.gen_bck_bottom] # buttoms and toggles
+        self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,self.switch_object_id,self.update_tracking_param_buttom,
+                                    self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines] # buttoms and toggles
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
         # Background parameters
         self.bck_radius = 0.3
@@ -81,6 +90,7 @@ class LidarVisualizer:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     self.running = False
+
             for item in self.events_handle_items:
                 item.handle_event(event)
 
@@ -112,7 +122,15 @@ class LidarVisualizer:
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T
-        
+
+        # for line, count in zip(self.lines, self.line_counts):
+        #     pygame.draw.line(screen, (255, 255, 255), line[0], line[1], 2)
+        #     # Calculate midpoint for the count text
+        #     mid_point = ((line[0][0] + line[1][0]) // 2, (line[0][1] + line[1][1]) // 2)
+        #     # Render the count text
+        #     count_surf = font.render(str(count), True, (255, 255, 255))
+        #     screen.blit(count_surf, mid_point)
+
         if point_label is not None:
 
             for coord,l in zip(data,point_label):
@@ -156,7 +174,14 @@ class LidarVisualizer:
             item.draw() 
 
         pygame.display.flip()
-    
+
+    def draw_lines(self,state):
+        print(state)
+        pass
+    def clear_lines(self):
+        self.lines.clear()
+        self.line_counts.clear()
+
     def deactivate_other_toggles(self,activate_button):
         for button in self.toggle_buttons:
             if button != activate_button:
@@ -253,7 +278,7 @@ class LidarVisualizer:
             self.handle_events()
             self.update()
             # density = self.density_slider.value
-            vertical_limits = [0,12]
+            vertical_limits = [0,13]
             time_cums = 0
             if self.switch_bck_recording_mode.state:
                 Td_map = self.point_cloud_queue.get()
@@ -351,8 +376,8 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    # pcap_file_path = r'D:\LiDAR_Data\US395.pcap'
-    # mode = 'offline'
-    # main(mode=mode,pcap_file_path = pcap_file_path)
-    mode = 'online'
-    main(mode=mode)
+    pcap_file_path = r'D:\2024-03-15-01-30-00.pcap'
+    mode = 'offline'
+    main(mode=mode,pcap_file_path = pcap_file_path)
+    # mode = 'online'
+    # main(mode=mode)
