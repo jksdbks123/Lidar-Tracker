@@ -41,10 +41,12 @@ class LidarVisualizer:
         self.any_slider_active = False  # Track if any slider is active
 
         self.lines = [] # [((),())]
+        self.line_counts = []
         if os.path.exists(r'./lines.npy'):
             lines = np.load(r'./lines.npy')
-            
-        self.line_counts = []
+            for line in lines:
+                self.lines.append((tuple(line[0]),tuple(line[1])))
+                self.line_counts.append(0)
         self.current_line_start = None
         self.drawing_lines = False
         self.start_drawing = False
@@ -147,6 +149,7 @@ class LidarVisualizer:
                         print(self.lines)
     
     def draw_lines_and_counts(self):
+        line_id = 0
         for line, count in zip(self.lines, self.line_counts):
             start_x, start_y = line[0]
             end_x, end_y = line[1]
@@ -164,8 +167,9 @@ class LidarVisualizer:
             mid_point_y = ((adjusted_start_y + adjusted_end_y) / 2)
             
             # Render the count text
-            count_surf = self.object_label_font.render(str(count), True, (122, 128, 214))
+            count_surf = self.object_label_font.render(f'id{line_id}:{count}', True, (200, 128, 20))
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
+            line_id += 1
 
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))

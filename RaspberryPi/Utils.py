@@ -133,5 +133,12 @@ class Button:
             if self.rect.collidepoint(event.pos):
                 self.callback()  # Execute the callback function
 
+def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
+    """Returns True if line segments seg1 and seg2 intersect."""
+    def ccw(A, B, C):
+        return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+    return ccw(seg1_start, seg2_start, seg2_end) != ccw(seg1_end, seg2_start, seg2_end) and ccw(seg1_start, seg1_end, seg2_start) != ccw(seg1_start, seg1_end, seg2_end)
+
+
 
 
