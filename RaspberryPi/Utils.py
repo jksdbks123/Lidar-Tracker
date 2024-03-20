@@ -88,6 +88,8 @@ class ToggleButton:
             if self.rect.collidepoint(event.pos):
                 self.state = not self.state
                 self.callback(self.state)  # Call the callback function when toggled
+    def is_mouse_over(self, pos):
+        return self.rect.collidepoint(pos)
 
 class InfoBox:
     def __init__(self, screen, position, initial_text="", background_color=(50, 50, 50), text_color=(255, 255, 255)):

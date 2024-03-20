@@ -35,15 +35,19 @@ class LidarVisualizer:
 
         self.mot = None
         self.zoom = 1.0
-        self.offset = np.array([800, 300])
+        self.offset = np.array([0, 0])
         self.dragging = False
         self.last_mouse_pos = (0, 0)
         self.any_slider_active = False  # Track if any slider is active
 
-        self.lines = []
+        self.lines = [] # [((),())]
+        if os.path.exists(r'./lines.npy'):
+            lines = np.load(r'./lines.npy')
+            
         self.line_counts = []
-        current_line_start = None
-        self.drawing = False
+        self.current_line_start = None
+        self.drawing_lines = False
+        self.start_drawing = False
 
         """
         Add badget steps:
@@ -100,7 +104,8 @@ class LidarVisualizer:
                 continue  # Skip other event handling if a slider is active
 
             # Block panning and zooming when a slider is being adjusted
-            if not self.any_slider_active:
+            
+            if not self.any_slider_active and not self.drawing_lines:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button for dragging
                         self.dragging = True
@@ -119,17 +124,53 @@ class LidarVisualizer:
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
 
+            if self.drawing_lines:
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.switch_drawing_lines_mode.is_mouse_over(event.pos):
+                    if not self.start_drawing:
+                        self.start_drawing = True
+                        world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                        world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                        self.current_line_start = (world_x,world_y)
+                        
+                        print('First',print(self.current_line_start))
+                    else:
+                        # Finish drawing the line
+                        world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                        world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                        self.lines.append((self.current_line_start, (world_x,world_y)))
+                        self.line_counts.append(0)  # Initialize count
+                        self.start_drawing = False
+                        self.current_line_start = None
+                        lines = np.array(self.lines)
+                        np.save('./lines.npy',lines)
+                        print('Second')
+                        print(self.lines)
+    
+    def draw_lines_and_counts(self):
+        for line, count in zip(self.lines, self.line_counts):
+            start_x, start_y = line[0]
+            end_x, end_y = line[1]
+            
+            adjusted_start_x = (start_x * self.zoom) + self.offset[0]
+            adjusted_start_y = (start_y * self.zoom) + self.offset[1]
+            adjusted_end_x = (end_x * self.zoom) + self.offset[0]
+            adjusted_end_y = (end_y * self.zoom) + self.offset[1]
+            
+            # Draw the line
+            pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
+            
+            # Calculate midpoint for the count text, adjusted for zoom and offset
+            mid_point_x = ((adjusted_start_x + adjusted_end_x) / 2)
+            mid_point_y = ((adjusted_start_y + adjusted_end_y) / 2)
+            
+            # Render the count text
+            count_surf = self.object_label_font.render(str(count), True, (122, 128, 214))
+            self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
+
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T
-
-        # for line, count in zip(self.lines, self.line_counts):
-        #     pygame.draw.line(screen, (255, 255, 255), line[0], line[1], 2)
-        #     # Calculate midpoint for the count text
-        #     mid_point = ((line[0][0] + line[1][0]) // 2, (line[0][1] + line[1][1]) // 2)
-        #     # Render the count text
-        #     count_surf = font.render(str(count), True, (255, 255, 255))
-        #     screen.blit(count_surf, mid_point)
+        self.draw_lines_and_counts()
 
         if point_label is not None:
 
@@ -176,8 +217,14 @@ class LidarVisualizer:
         pygame.display.flip()
 
     def draw_lines(self,state):
-        print(state)
-        pass
+        if state:
+            self.drawing_lines = True
+        else:
+            self.drawing_lines = False
+            self.start_drawing =  False
+            self.current_line_start = None
+
+        
     def clear_lines(self):
         self.lines.clear()
         self.line_counts.clear()
@@ -207,7 +254,6 @@ class LidarVisualizer:
                 self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 10)
                 self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event))
                 self.tracking_prcess.start()
-
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
                 self.mot = None
@@ -278,7 +324,7 @@ class LidarVisualizer:
             self.handle_events()
             self.update()
             # density = self.density_slider.value
-            vertical_limits = [0,13]
+            vertical_limits = [0,31]
             time_cums = 0
             if self.switch_bck_recording_mode.state:
                 Td_map = self.point_cloud_queue.get()
@@ -376,7 +422,7 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'D:\2024-03-15-01-30-00.pcap'
+    pcap_file_path = r'../../../Data/2019-12-21-7-30-0.pcap'
     mode = 'offline'
     main(mode=mode,pcap_file_path = pcap_file_path)
     # mode = 'online'
