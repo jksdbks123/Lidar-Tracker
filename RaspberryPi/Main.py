@@ -40,13 +40,15 @@ class LidarVisualizer:
         self.last_mouse_pos = (0, 0)
         self.any_slider_active = False  # Track if any slider is active
 
-        self.lines = [] # [((),())]
-        self.line_counts = []
+        
+        self.lines = []
+        self.line_counts = [] 
         if os.path.exists(r'./lines.npy'):
             lines = np.load(r'./lines.npy')
             for line in lines:
                 self.lines.append((tuple(line[0]),tuple(line[1])))
                 self.line_counts.append(0)
+
         self.current_line_start = None
         self.drawing_lines = False
         self.start_drawing = False
@@ -127,7 +129,11 @@ class LidarVisualizer:
                         self.last_mouse_pos = mouse_pos
 
             if self.drawing_lines:
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.switch_drawing_lines_mode.is_mouse_over(event.pos):
+                hover_flag = True
+                for badget in self.events_handle_items:
+                    hover_flag = hover_flag and not badget.is_mouse_over(event.pos)
+                    
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and hover_flag:
                     if not self.start_drawing:
                         self.start_drawing = True
                         world_x = (event.pos[0] - self.offset[0]) / self.zoom
@@ -139,18 +145,21 @@ class LidarVisualizer:
                         # Finish drawing the line
                         world_x = (event.pos[0] - self.offset[0]) / self.zoom
                         world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                        
                         self.lines.append((self.current_line_start, (world_x,world_y)))
-                        self.line_counts.append(0)  # Initialize count
+                        self.line_counts.append(0)
                         self.start_drawing = False
                         self.current_line_start = None
                         lines = np.array(self.lines)
-                        np.save('./lines.npy',lines)
+                        np.save(r'./lines.npy',lines)
+
                         print('Second')
                         print(self.lines)
     
     def draw_lines_and_counts(self):
-        line_id = 0
-        for line, count in zip(self.lines, self.line_counts):
+        
+        for i,line in enumerate(self.lines):
+            count = self.line_counts[i]
             start_x, start_y = line[0]
             end_x, end_y = line[1]
             
@@ -167,14 +176,13 @@ class LidarVisualizer:
             mid_point_y = ((adjusted_start_y + adjusted_end_y) / 2)
             
             # Render the count text
-            count_surf = self.object_label_font.render(f'id{line_id}:{count}', True, (200, 128, 20))
+            count_surf = self.object_label_font.render(f'id{i}:{count}', True, (200, 128, 20))
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
-            line_id += 1
-
+            
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T
-        self.draw_lines_and_counts()
+        
 
         if point_label is not None:
 
@@ -184,9 +192,9 @@ class LidarVisualizer:
                 pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 2)
             
             if tracking_dic is not None:
-                for key in tracking_dic.keys():
-                    color_vec = color_map[key%len(color_map)]
-                    his_coords = tracking_dic[key].mea_seq[-10:]
+                for obj_id in tracking_dic.keys():
+                    color_vec = color_map[obj_id%len(color_map)]
+                    his_coords = tracking_dic[obj_id].mea_seq[-10:]
                     for coord in his_coords:
                         if coord is not None:
                             x = (coord[0][0][0] + coord[1][0][0]) / 2
@@ -195,12 +203,22 @@ class LidarVisualizer:
                             y = y * self.zoom +  self.offset[1]
                             pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 4)
 
+                    if len(tracking_dic[obj_id].post_seq) > 1:
+                        prev_pos = tracking_dic[obj_id].post_seq[-2][0].flatten()[:2]
+                        curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
+                        for i in range(len(self.line_counts)):
+                            if line_segments_intersect(prev_pos, curr_pos, self.lines[i][0], self.lines[i][1]):
+                                self.line_counts[i] += 1
+                                break
+                        
+
 
         if tracking_dic is not None and self.if_objid:
-            for key in tracking_dic.keys():
-                cur_traj = tracking_dic[key].mea_seq[-1] # -1 happens here sometimes
+            
+            for obj_id in tracking_dic.keys():
+                cur_traj = tracking_dic[obj_id].mea_seq[-1] # -1 happens here sometimes
                 if cur_traj is not None:
-                    label_surface = self.object_label_font.render(str(key), False, (255,65,212))
+                    label_surface = self.object_label_font.render(str(obj_id), False, (255,65,212))
                     x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
                     label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
                     self.screen.blit(label_surface,label_pos)
@@ -211,6 +229,7 @@ class LidarVisualizer:
             for x, y in data:
                 pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
 
+        self.draw_lines_and_counts()
         for item in self.events_handle_items:
             item.draw()
         for item in self.info_boxes:
@@ -256,7 +275,7 @@ class LidarVisualizer:
                 self.tracking_parameter_dict['min_samples'] = min_samples
                 self.tracking_parameter_dict['eps'] = eps_dis
                 self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 10)
-                self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event))
+                self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event,))
                 self.tracking_prcess.start()
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
@@ -303,14 +322,13 @@ class LidarVisualizer:
             self.tracking_param_update_event.set()
             print('set_once')
 
-    def update(self):
+    def update_background(self):
         # Check if the background process has finished and thred_map is not loaded yet
         if self.background_data_process and not self.background_data_process.is_alive() and not self.thred_map_loaded:
             self.thred_map = np.load(r'./thred_map.npy')
             self.thred_map_loaded = True
             print("thred_map.npy loaded")
 
-        
 
     def get_foreground_point_cloud(self,Td_map,vertical_limits):
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
@@ -321,12 +339,13 @@ class LidarVisualizer:
         # labels = labels[ds_point_cloud_data_ind]
         return point_cloud_data,labels,None
     
+
     def run(self):
 
         while self.running:
             
             self.handle_events()
-            self.update()
+            self.update_background()
             # density = self.density_slider.value
             vertical_limits = [0,31]
             time_cums = 0
@@ -338,15 +357,12 @@ class LidarVisualizer:
                 
             elif self.switch_foreground_mode.state:
                 Td_map = self.point_cloud_queue.get()
-                # point_cloud_data,point_labels,tracking_dic = self.get_ordinary_point_cloud(Td_map,density)
                 point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,vertical_limits)
-                
+                         
 
             elif self.switch_tracking_mode.state:
                 Tracking_pool,Labeling_map,Td_map,time_cums = self.tracking_result_queue.get()
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,vertical_limits)
-                # ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
-                # point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
                 tracking_dic = Tracking_pool
                     
             else: # default
@@ -398,7 +414,7 @@ def main(mode = 'online',pcap_file_path = None):
 
             # Running the visualization (Core 1 task) in the main process
             
-            visualizer = LidarVisualizer(point_cloud_queue,tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event)
+            visualizer = LidarVisualizer(point_cloud_queue,tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,)
             visualizer.run()
             
             # Cleanup

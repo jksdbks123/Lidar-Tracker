@@ -132,6 +132,9 @@ class Button:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
                 self.callback()  # Execute the callback function
+                
+    def is_mouse_over(self, pos):
+        return self.rect.collidepoint(pos)
 
 def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
     """Returns True if line segments seg1 and seg2 intersect."""
