@@ -51,7 +51,8 @@ class LidarVisualizer:
 
         self.current_line_start = None
         self.drawing_lines = False
-        self.start_drawing = False
+        self.start_drawing_lines = False # currently in a line drawing session
+        self.current_line_connection = None
 
         """
         Add badget steps:
@@ -108,7 +109,6 @@ class LidarVisualizer:
                 continue  # Skip other event handling if a slider is active
 
             # Block panning and zooming when a slider is being adjusted
-            
             if not self.any_slider_active and not self.drawing_lines:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button for dragging
@@ -129,36 +129,53 @@ class LidarVisualizer:
                         self.last_mouse_pos = mouse_pos
 
             if self.drawing_lines:
-                hover_flag = True
-                for badget in self.events_handle_items:
-                    hover_flag = hover_flag and not badget.is_mouse_over(event.pos)
-                    
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and hover_flag:
-                    if not self.start_drawing:
-                        self.start_drawing = True
-                        world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                        world_y = (event.pos[1] - self.offset[1]) / self.zoom
-                        self.current_line_start = (world_x,world_y)
-                        
-                        print('First',print(self.current_line_start))
-                    else:
-                        # Finish drawing the line
-                        world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                        world_y = (event.pos[1] - self.offset[1]) / self.zoom
-                        
-                        self.lines.append((self.current_line_start, (world_x,world_y)))
-                        self.line_counts.append(0)
-                        self.start_drawing = False
-                        self.current_line_start = None
-                        lines = np.array(self.lines)
-                        np.save(r'./lines.npy',lines)
+                
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    hover_flag = True
+                    for badget in self.events_handle_items:
+                        hover_flag = hover_flag and not badget.is_mouse_over(event.pos)
+                    if hover_flag:
+                        if not self.start_drawing_lines:
+                            self.start_drawing_lines = True
+                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            self.current_line_start = (world_x,world_y)
+                            
+                            print('First',print(self.current_line_start))
+                        else:
+                            # Finish drawing the line
+                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            
+                            self.lines.append((self.current_line_start, (world_x,world_y)))
+                            self.line_counts.append(0)
+                            self.start_drawing_lines = False
+                            self.current_line_start = None
+                            lines = np.array(self.lines)
+                            np.save(r'./lines.npy',lines)
 
-                        print('Second')
-                        print(self.lines)
-    
-    def draw_lines_and_counts(self):
+                            print('Second')
+                            print(self.lines)
+
+                if self.start_drawing_lines:
+                    world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                    world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                    self.current_line_connection = (self.current_line_start,(world_x, world_y))
         
+    def draw_lines_and_counts(self):
+
+        if self.start_drawing_lines:
+            start_x, start_y = self.current_line_connection[0]
+            end_x, end_y = self.current_line_connection[1]
+            adjusted_start_x = (start_x * self.zoom) + self.offset[0]
+            adjusted_start_y = (start_y * self.zoom) + self.offset[1]
+            adjusted_end_x = (end_x * self.zoom) + self.offset[0]
+            adjusted_end_y = (end_y * self.zoom) + self.offset[1]
+
+            pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
+            
         for i,line in enumerate(self.lines):
+
             count = self.line_counts[i]
             start_x, start_y = line[0]
             end_x, end_y = line[1]
@@ -183,7 +200,6 @@ class LidarVisualizer:
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T
         
-
         if point_label is not None:
 
             for coord,l in zip(data,point_label):
@@ -210,8 +226,6 @@ class LidarVisualizer:
                             if line_segments_intersect(prev_pos, curr_pos, self.lines[i][0], self.lines[i][1]):
                                 self.line_counts[i] += 1
                                 break
-                        
-
 
         if tracking_dic is not None and self.if_objid:
             
@@ -228,8 +242,9 @@ class LidarVisualizer:
             color = int(255)  # Using the slider value for RGB intensity
             for x, y in data:
                 pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
-
+        
         self.draw_lines_and_counts()
+
         for item in self.events_handle_items:
             item.draw()
         for item in self.info_boxes:
@@ -430,7 +445,8 @@ def main(mode = 'online',pcap_file_path = None):
         packet_reader_process.terminate()
         packet_parser_process.terminate()
         visualizer.tracking_process_stop_event.set()
-        visualizer.tracking_prcess.terminate()
+        if visualizer.tracking_prcess is not None:
+            visualizer.tracking_prcess.terminate()
         packet_reader_process.join()
         packet_parser_process.join()
         if visualizer.tracking_prcess and visualizer.tracking_prcess.is_alive():
