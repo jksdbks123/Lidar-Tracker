@@ -40,19 +40,8 @@ class LidarVisualizer:
         self.last_mouse_pos = (0, 0)
         self.any_slider_active = False  # Track if any slider is active
 
-        
-        self.lines = []
-        self.line_counts = [] 
-        if os.path.exists(r'./lines.npy'):
-            lines = np.load(r'./lines.npy')
-            for line in lines:
-                self.lines.append((tuple(line[0]),tuple(line[1])))
-                self.line_counts.append(0)
-
-        self.current_line_start = None
-        self.drawing_lines = False
-        self.start_drawing_lines = False # currently in a line drawing session
-        self.current_line_connection = None
+        self.bar_drawer = BarDrawer() # bar crossing for vehicle counting
+        self.lane_drawer = LaneDrawer() # lane drawer for queue detection         
 
         """
         Add badget steps:
@@ -68,8 +57,12 @@ class LidarVisualizer:
         self.switch_object_id = ToggleButton(self.screen, (140, 80, 50, 30), 'ObjID Off', 'ObjID On', self.toggle_objid_switch)
         self.switch_foreground_mode = ToggleButton(self.screen, (20, 140, 100, 30), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
         # left middle
-        self.switch_drawing_lines_mode = ToggleButton(self.screen, (20, 600, 100, 30), 'Line Edit', 'Line On',self.draw_lines)
-        self.buttom_clear_lines = Button(self.screen,(20,650,100,30),'Clear Lines',self.clear_lines)
+        self.switch_drawing_lines_mode = ToggleButton(self.screen, (20, 550, 100, 30), 'Bar Edit Off', 'Bar Edit On',self.draw_lines)
+        self.buttom_clear_lines = Button(self.screen,(20,600,100,30),'Clear Lines',self.clear_lines)
+
+        self.switch_drawing_lanes_mode = ToggleButton(self.screen, (20, 650, 100, 30), 'Lane Edit Off', 'Lane Edit On',self.draw_lanes)
+        self.buttom_clear_lanes = Button(self.screen,(20,700,100,30),'Clear Lanes',self.clear_lanes)
+
         # right upper
         self.bck_length_info = InfoBox(self.screen,(1350,20,100,30),'No bck info')
         self.gen_bck_bottom = Button(self.screen,(1350,80,100,30),'Gen Bck',self.start_background_generation)
@@ -86,8 +79,8 @@ class LidarVisualizer:
         self.info_boxes = [self.bck_length_info,self.frame_process_time_info]
         self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
         self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,self.switch_object_id,self.update_tracking_param_buttom,
-                                    self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines] # buttoms and toggles
-        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode] 
+                                    self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines,self.buttom_clear_lanes,self.switch_drawing_lanes_mode] # buttoms and toggles
+        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode] 
         # Background parameters
         self.bck_radius = 0.3
 
@@ -109,7 +102,7 @@ class LidarVisualizer:
                 continue  # Skip other event handling if a slider is active
 
             # Block panning and zooming when a slider is being adjusted
-            if not self.any_slider_active and not self.drawing_lines:
+            if not self.any_slider_active and not self.bar_drawer.drawing_lines:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button for dragging
                         self.dragging = True
@@ -128,45 +121,62 @@ class LidarVisualizer:
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
 
-            if self.drawing_lines:
+            if self.bar_drawer.drawing_lines:
                 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     hover_flag = True
                     for badget in self.events_handle_items:
                         hover_flag = hover_flag and not badget.is_mouse_over(event.pos)
                     if hover_flag:
-                        if not self.start_drawing_lines:
-                            self.start_drawing_lines = True
+                        if not self.bar_drawer.start_drawing_lines:
+                            self.bar_drawer.start_drawing_lines = True
                             world_x = (event.pos[0] - self.offset[0]) / self.zoom
                             world_y = (event.pos[1] - self.offset[1]) / self.zoom
-                            self.current_line_start = (world_x,world_y)
+                            self.bar_drawer.current_line_start = (world_x,world_y)
                             
-                            print('First',print(self.current_line_start))
+                            print('First',print(self.bar_drawer.current_line_start))
                         else:
                             # Finish drawing the line
                             world_x = (event.pos[0] - self.offset[0]) / self.zoom
                             world_y = (event.pos[1] - self.offset[1]) / self.zoom
                             
-                            self.lines.append((self.current_line_start, (world_x,world_y)))
-                            self.line_counts.append(0)
-                            self.start_drawing_lines = False
-                            self.current_line_start = None
-                            lines = np.array(self.lines)
+                            self.bar_drawer.lines.append((self.bar_drawer.current_line_start, (world_x,world_y)))
+                            self.bar_drawer.line_counts.append(0)
+                            self.bar_drawer.start_drawing_lines = False
+                            self.bar_drawer.current_line_start = None
+                            lines = np.array(self.bar_drawer.lines)
                             np.save(r'./lines.npy',lines)
 
                             print('Second')
-                            print(self.lines)
+                            print(self.bar_drawer.lines)
 
-                if self.start_drawing_lines:
+                if self.bar_drawer.start_drawing_lines:
                     world_x = (event.pos[0] - self.offset[0]) / self.zoom
                     world_y = (event.pos[1] - self.offset[1]) / self.zoom
-                    self.current_line_connection = (self.current_line_start,(world_x, world_y))
-        
+                    self.bar_drawer.current_line_connection = (self.bar_drawer.current_line_start,(world_x, world_y))
+
+            if self.lane_drawer.drawing_lanes:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_MINUS:
+                        self.lane_drawer.lane_width = max(0.3048, self.lane_drawer.lane_width - 0.3048)
+                        print(self.lane_drawer.lane_width,'m')
+                    if event.key == pygame.K_EQUALS:
+                        self.lane_drawer.lane_width += 0.3048
+                        print(self.lane_drawer.lane_width,'p')
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    hover_flag = True
+                    for badget in self.events_handle_items:
+                        hover_flag = hover_flag and not badget.is_mouse_over(event.pos)
+                
+                    # if hover_flag:
+                        
+
+                            
     def draw_lines_and_counts(self):
 
-        if self.start_drawing_lines:
-            start_x, start_y = self.current_line_connection[0]
-            end_x, end_y = self.current_line_connection[1]
+        if self.bar_drawer.start_drawing_lines:
+            start_x, start_y = self.bar_drawer.current_line_connection[0]
+            end_x, end_y = self.bar_drawer.current_line_connection[1]
             adjusted_start_x = (start_x * self.zoom) + self.offset[0]
             adjusted_start_y = (start_y * self.zoom) + self.offset[1]
             adjusted_end_x = (end_x * self.zoom) + self.offset[0]
@@ -174,9 +184,9 @@ class LidarVisualizer:
 
             pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
             
-        for i,line in enumerate(self.lines):
+        for i,line in enumerate(self.bar_drawer.lines):
 
-            count = self.line_counts[i]
+            count = self.bar_drawer.line_counts[i]
             start_x, start_y = line[0]
             end_x, end_y = line[1]
             
@@ -199,7 +209,6 @@ class LidarVisualizer:
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T
-        
         if point_label is not None:
 
             for coord,l in zip(data,point_label):
@@ -256,16 +265,27 @@ class LidarVisualizer:
 
     def draw_lines(self,state):
         if state:
-            self.drawing_lines = True
+            self.bar_drawer.drawing_lines = True
         else:
-            self.drawing_lines = False
-            self.start_drawing =  False
-            self.current_line_start = None
+            self.bar_drawer.drawing_lines = False
+            self.bar_drawer.start_drawing_lines =  False
+            self.bar_drawer.current_line_start = None
 
-        
+    def draw_lanes(self,state):
+        if state:
+            self.lane_drawer.drawing_lanes = True
+        else:
+            self.lane_drawer.drawing_lanes = False
+            self.lane_drawer.start_drawing_lanes =  False
+            self.lane_drawer.current_lane_connection = None
+
     def clear_lines(self):
-        self.lines.clear()
-        self.line_counts.clear()
+        self.bar_drawer.lines.clear()
+        self.bar_drawer.line_counts.clear()
+
+    def clear_lanes(self):
+        self.lane_drawer.lanes.clear()
+        self.bar_drawer.lane_points.clear()
 
     def deactivate_other_toggles(self,activate_button):
         for button in self.toggle_buttons:

@@ -9,6 +9,34 @@ from sklearn.cluster import DBSCAN
 import time
 import socket
 
+class LaneDrawer:
+    def __init__(self):
+        self.lane_points = []  # List of points defining the current lane centerline
+        self.lanes = []  # List of lanes, where each lane is a list of points
+
+        self.lane_width = 12 * 0.3048  # Default lane width in feet
+
+        self.current_lane_start = None
+        self.drawing_lanes = False # mode on
+        self.start_drawing_lanes = False # start a drawing session
+        self.current_lane_connection = None 
+
+class BarDrawer:
+    def __init__(self):
+
+        self.lines = []
+        self.line_counts = []
+        if os.path.exists(r'./lines.npy'):
+            lines = np.load(r'./lines.npy')
+            for line in lines:
+                self.lines.append((tuple(line[0]),tuple(line[1])))
+                self.line_counts.append(0) 
+
+        self.current_line_start = None
+        self.drawing_lines = False # mode on
+        self.start_drawing_lines = False # currently in a line drawing session
+        self.current_line_connection = None
+
 class Slider:
     def __init__(self, screen, position, label, min_value, max_value,default_value=0.5,if_int = False, if_odd = False):
         self.screen = screen
