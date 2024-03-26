@@ -145,7 +145,6 @@ class LidarVisualizer:
                             self.bar_drawer.start_drawing_lines = False
                             self.bar_drawer.current_line_start = None
                             lines = np.array(self.bar_drawer.lines)
-                            np.save(r'./lines.npy',lines)
 
                             print('Second')
                             print(self.bar_drawer.lines)
@@ -154,22 +153,59 @@ class LidarVisualizer:
                     world_x = (event.pos[0] - self.offset[0]) / self.zoom
                     world_y = (event.pos[1] - self.offset[1]) / self.zoom
                     self.bar_drawer.current_line_connection = (self.bar_drawer.current_line_start,(world_x, world_y))
+            """
+            Left click to create a polyline
+            Right click to discard current step
+            Middle click to finish a polyline drawing
 
+            """
             if self.lane_drawer.drawing_lanes:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_MINUS:
                         self.lane_drawer.lane_width = max(0.3048, self.lane_drawer.lane_width - 0.3048)
-                        print(self.lane_drawer.lane_width,'m')
                     if event.key == pygame.K_EQUALS:
                         self.lane_drawer.lane_width += 0.3048
-                        print(self.lane_drawer.lane_width,'p')
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: # add spline 
                     hover_flag = True
                     for badget in self.events_handle_items:
                         hover_flag = hover_flag and not badget.is_mouse_over(event.pos)
                 
-                    # if hover_flag:
-                        
+                    if hover_flag: # not hover on the toggle or buttoms
+                        if not self.lane_drawer.start_drawing_lanes:
+                            self.lane_drawer.start_drawing_lanes = True
+                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            self.lane_drawer.current_lane_points.append((world_x,world_y))
+
+                        else:
+                            # continue add spline points into the list
+                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            self.lane_drawer.current_lane_points.append((world_x,world_y))
+                            self.lane_drawer.current_lane_widths.append(self.lane_drawer.lane_width)
+
+
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3: # withdraw last point
+                    # if we are drawing and the list is empty, then pop the last one
+                    if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_points:
+                        self.lane_drawer.current_lane_points.pop() # remove the last one
+                        if self.lane_drawer.current_lane_widths:
+                            self.lane_drawer.current_lane_widths.pop()
+                    
+                    if not self.lane_drawer.current_lane_points:
+                        # if it's empty after we pop out the last one, then quit drawing session
+                        self.lane_drawer.start_drawing_lanes = False
+
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2: # middle click
+                    if len(self.lane_drawer.current_lane_points) > 1:
+                        self.lane_drawer.lane_points.append(self.lane_drawer.current_lane_points)
+                        self.lane_drawer.lane_widths.append(self.lane_drawer.current_lane_widths)
+                        self.lane_drawer.start_drawing_lanes = False
+                        self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
+                        self.lane_drawer.current_lane_widths = []
+
+
 
                             
     def draw_lines_and_counts(self):
@@ -183,7 +219,7 @@ class LidarVisualizer:
             adjusted_end_y = (end_y * self.zoom) + self.offset[1]
 
             pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
-            
+        
         for i,line in enumerate(self.bar_drawer.lines):
 
             count = self.bar_drawer.line_counts[i]
@@ -205,7 +241,7 @@ class LidarVisualizer:
             # Render the count text
             count_surf = self.object_label_font.render(f'id{i}:{count}', True, (200, 128, 20))
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
-            
+
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
         data = (data.T * self.zoom + self.offset[:, None]).T

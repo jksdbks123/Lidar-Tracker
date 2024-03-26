@@ -11,15 +11,14 @@ import socket
 
 class LaneDrawer:
     def __init__(self):
-        self.lane_points = []  # List of points defining the current lane centerline
-        self.lanes = []  # List of lanes, where each lane is a list of points
-
+        self.current_lane_points = []  # List of points defining the current lane centerline
+        self.current_lane_widths = []
+        self.lane_points = []  # Finished list of lanes, where each lane is a list of points
+        self.lane_widths = []
         self.lane_width = 12 * 0.3048  # Default lane width in feet
-
-        self.current_lane_start = None
         self.drawing_lanes = False # mode on
         self.start_drawing_lanes = False # start a drawing session
-        self.current_lane_connection = None 
+        
 
 class BarDrawer:
     def __init__(self):
