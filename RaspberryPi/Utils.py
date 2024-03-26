@@ -8,6 +8,7 @@ import dpkt
 from sklearn.cluster import DBSCAN
 import time
 import socket
+import math
 
 class LaneDrawer:
     def __init__(self):
@@ -18,6 +19,7 @@ class LaneDrawer:
         self.lane_width = 12 * 0.3048  # Default lane width in feet
         self.drawing_lanes = False # mode on
         self.start_drawing_lanes = False # start a drawing session
+        self.current_lane_connection = None
         
 
 class BarDrawer:
@@ -169,6 +171,53 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
         return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
     return ccw(seg1_start, seg2_start, seg2_end) != ccw(seg1_end, seg2_start, seg2_end) and ccw(seg1_start, seg1_end, seg2_start) != ccw(seg1_start, seg1_end, seg2_end)
 
+def calculate_perpendicular_points(x1, y1, x2, y2, width):
+    # Calculate the direction vector (dx, dy) of the segment
+    dx = x2 - x1
+    dy = y2 - y1
+    # Normalize the direction vector
+    length = math.sqrt(dx**2 + dy**2)
+    dx /= length
+    dy /= length
+    # Calculate the normal vector by rotating the direction vector
+    nx = -dy
+    ny = dx
+    # Scale the normal vector by half the width to get the offset vector
+    offset_x = nx * (width / 2)
+    offset_y = ny * (width / 2)
+    # Calculate the perpendicular points
+    p1 = (x1 + offset_x, y1 + offset_y)
+    p2 = (x1 - offset_x, y1 - offset_y)
+    p3 = (x2 - offset_x, y2 - offset_y)
+    p4 = (x2 + offset_x, y2 + offset_y)
+    return p1, p2, p3, p4
 
+def adjust_for_zoom_and_offset(points, zoom, offset):
+    adjusted_points = []
+    for point in points:
+        adjusted_x = (point[0] * zoom) + offset[0]
+        adjusted_y = (point[1] * zoom) + offset[1]
+        adjusted_points.append((adjusted_x, adjusted_y))
+    return adjusted_points
 
-
+def create_lane_polygons(centerlines, widths, zoom, offset):
+    lane_polygons = []
+    for centerline, width_segments in zip(centerlines, widths):
+        # Initialize lists to store the outer edge points of the lane polygon
+        left_side_points = []
+        right_side_points = []
+        for i in range(len(centerline) - 1):
+            # some problems here
+            
+            p1, p2, p3, p4 = calculate_perpendicular_points(centerline[i][0], centerline[i][1], centerline[i+1][0], centerline[i+1][1], width_segments[i])
+            left_side_points.append(p1)
+            right_side_points.append(p3)
+        # Add the last segment's perpendicular points
+        last_segment_width = width_segments[-1]
+        p1, p2, p3, p4 = calculate_perpendicular_points(centerline[-2][0], centerline[-2][1], centerline[-1][0], centerline[-1][1], last_segment_width)
+        left_side_points.append(p4)
+        right_side_points.append(p2)
+        # Combine the points, adjusting for zoom and offset
+        polygon_points = adjust_for_zoom_and_offset(left_side_points + right_side_points[::-1], zoom, offset)
+        lane_polygons.append(polygon_points)
+    return lane_polygons

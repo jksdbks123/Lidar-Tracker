@@ -87,6 +87,7 @@ class LidarVisualizer:
     def handle_events(self):
         self.any_slider_active = False  # Reset the flag at the start of each event loop
         for event in pygame.event.get():
+            
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
@@ -102,7 +103,7 @@ class LidarVisualizer:
                 continue  # Skip other event handling if a slider is active
 
             # Block panning and zooming when a slider is being adjusted
-            if not self.any_slider_active and not self.bar_drawer.drawing_lines:
+            if not self.any_slider_active and not self.bar_drawer.drawing_lines and not self.lane_drawer.drawing_lanes:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button for dragging
                         self.dragging = True
@@ -121,6 +122,9 @@ class LidarVisualizer:
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
 
+
+
+            
             if self.bar_drawer.drawing_lines:
                 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -134,7 +138,6 @@ class LidarVisualizer:
                             world_y = (event.pos[1] - self.offset[1]) / self.zoom
                             self.bar_drawer.current_line_start = (world_x,world_y)
                             
-                            print('First',print(self.bar_drawer.current_line_start))
                         else:
                             # Finish drawing the line
                             world_x = (event.pos[0] - self.offset[0]) / self.zoom
@@ -145,11 +148,8 @@ class LidarVisualizer:
                             self.bar_drawer.start_drawing_lines = False
                             self.bar_drawer.current_line_start = None
                             lines = np.array(self.bar_drawer.lines)
-
-                            print('Second')
-                            print(self.bar_drawer.lines)
-
-                if self.bar_drawer.start_drawing_lines:
+                
+                if self.bar_drawer.start_drawing_lines and event.type == pygame.MOUSEMOTION:
                     world_x = (event.pos[0] - self.offset[0]) / self.zoom
                     world_y = (event.pos[1] - self.offset[1]) / self.zoom
                     self.bar_drawer.current_line_connection = (self.bar_drawer.current_line_start,(world_x, world_y))
@@ -192,25 +192,41 @@ class LidarVisualizer:
                         self.lane_drawer.current_lane_points.pop() # remove the last one
                         if self.lane_drawer.current_lane_widths:
                             self.lane_drawer.current_lane_widths.pop()
-                    
+
                     if not self.lane_drawer.current_lane_points:
                         # if it's empty after we pop out the last one, then quit drawing session
                         self.lane_drawer.start_drawing_lanes = False
+                        self.lane_drawer.current_lane_connection = None
 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2: # middle click
                     if len(self.lane_drawer.current_lane_points) > 1:
                         self.lane_drawer.lane_points.append(self.lane_drawer.current_lane_points)
                         self.lane_drawer.lane_widths.append(self.lane_drawer.current_lane_widths)
                         self.lane_drawer.start_drawing_lanes = False
+                        self.lane_drawer.current_lane_connection = None
                         self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
                         self.lane_drawer.current_lane_widths = []
+                        
+                if self.lane_drawer.start_drawing_lanes and event.type == pygame.MOUSEMOTION:
+
+                    world_x = (event.pos[0] - self.offset[0]) / self.zoom
+                    world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                    self.lane_drawer.current_lane_connection = (self.lane_drawer.current_lane_points[-1],(world_x, world_y))
 
 
 
                             
     def draw_lines_and_counts(self):
+        if self.lane_drawer.start_drawing_lanes:
+            start_x, start_y = self.lane_drawer.current_lane_connection[0]
+            end_x, end_y = self.lane_drawer.current_lane_connection[1]
+            adjusted_start_x = (start_x * self.zoom) + self.offset[0]
+            adjusted_start_y = (start_y * self.zoom) + self.offset[1]
+            adjusted_end_x = (end_x * self.zoom) + self.offset[0]
+            adjusted_end_y = (end_y * self.zoom) + self.offset[1]
+            pygame.draw.line(self.screen, (122, 67, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
 
-        if self.bar_drawer.start_drawing_lines:
+        if self.bar_drawer.start_drawing_lines and self.bar_drawer.current_line_connection is not None:
             start_x, start_y = self.bar_drawer.current_line_connection[0]
             end_x, end_y = self.bar_drawer.current_line_connection[1]
             adjusted_start_x = (start_x * self.zoom) + self.offset[0]
@@ -241,6 +257,13 @@ class LidarVisualizer:
             # Render the count text
             count_surf = self.object_label_font.render(f'id{i}:{count}', True, (200, 128, 20))
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
+
+        for centerline, width in zip(self.lane_drawer.lane_points, self.lane_drawer.lane_widths):
+            print(centerline,width)
+            polygon_vertices = create_lane_polygons(centerline, width,self.zoom,self.offset)
+            pygame.draw.polygon(self.screen, (0, 255, 0), polygon_vertices)
+
+            
 
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
@@ -318,6 +341,9 @@ class LidarVisualizer:
     def clear_lines(self):
         self.bar_drawer.lines.clear()
         self.bar_drawer.line_counts.clear()
+        self.bar_drawer.current_line_start = None
+        self.bar_drawer.start_drawing_lines = False
+        self.bar_drawer.current_line_connection = None
 
     def clear_lanes(self):
         self.lane_drawer.lanes.clear()
