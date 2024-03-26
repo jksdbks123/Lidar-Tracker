@@ -208,7 +208,6 @@ def create_lane_polygons(centerlines, widths, zoom, offset):
         right_side_points = []
         for i in range(len(centerline) - 1):
             # some problems here
-            
             p1, p2, p3, p4 = calculate_perpendicular_points(centerline[i][0], centerline[i][1], centerline[i+1][0], centerline[i+1][1], width_segments[i])
             left_side_points.append(p1)
             right_side_points.append(p3)

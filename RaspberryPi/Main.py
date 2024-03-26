@@ -122,8 +122,6 @@ class LidarVisualizer:
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
 
-
-
             
             if self.bar_drawer.drawing_lines:
                 
@@ -217,7 +215,7 @@ class LidarVisualizer:
 
                             
     def draw_lines_and_counts(self):
-        if self.lane_drawer.start_drawing_lanes:
+        if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_connection is not None:
             start_x, start_y = self.lane_drawer.current_lane_connection[0]
             end_x, end_y = self.lane_drawer.current_lane_connection[1]
             adjusted_start_x = (start_x * self.zoom) + self.offset[0]
@@ -253,15 +251,14 @@ class LidarVisualizer:
             # Calculate midpoint for the count text, adjusted for zoom and offset
             mid_point_x = ((adjusted_start_x + adjusted_end_x) / 2)
             mid_point_y = ((adjusted_start_y + adjusted_end_y) / 2)
-            
             # Render the count text
             count_surf = self.object_label_font.render(f'id{i}:{count}', True, (200, 128, 20))
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
-
-        for centerline, width in zip(self.lane_drawer.lane_points, self.lane_drawer.lane_widths):
-            print(centerline,width)
-            polygon_vertices = create_lane_polygons(centerline, width,self.zoom,self.offset)
-            pygame.draw.polygon(self.screen, (0, 255, 0), polygon_vertices)
+        if self.lane_drawer.lane_points:
+            
+            polygon_vertices = create_lane_polygons(self.lane_drawer.lane_points, self.lane_drawer.lane_widths,self.zoom,self.offset)
+            for poly in polygon_vertices:
+                pygame.draw.polygon(self.screen, (0, 255, 0), poly)
 
             
 
