@@ -9,11 +9,15 @@ from sklearn.cluster import DBSCAN
 import time
 import socket
 import math
+from shapely.geometry import LineString
+from shapely.ops import unary_union
+
 
 class LaneDrawer:
     def __init__(self):
         self.current_lane_points = []  # List of points defining the current lane centerline
         self.current_lane_widths = []
+
         self.lane_points = []  # Finished list of lanes, where each lane is a list of points
         self.lane_widths = []
         self.lane_width = 12 * 0.3048  # Default lane width in feet
@@ -171,27 +175,6 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
         return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
     return ccw(seg1_start, seg2_start, seg2_end) != ccw(seg1_end, seg2_start, seg2_end) and ccw(seg1_start, seg1_end, seg2_start) != ccw(seg1_start, seg1_end, seg2_end)
 
-def calculate_perpendicular_points(x1, y1, x2, y2, width):
-    # Calculate the direction vector (dx, dy) of the segment
-    dx = x2 - x1
-    dy = y2 - y1
-    # Normalize the direction vector
-    length = math.sqrt(dx**2 + dy**2)
-    dx /= length
-    dy /= length
-    # Calculate the normal vector by rotating the direction vector
-    nx = -dy
-    ny = dx
-    # Scale the normal vector by half the width to get the offset vector
-    offset_x = nx * (width / 2)
-    offset_y = ny * (width / 2)
-    # Calculate the perpendicular points
-    p1 = (x1 + offset_x, y1 + offset_y)
-    p2 = (x1 - offset_x, y1 - offset_y)
-    p3 = (x2 - offset_x, y2 - offset_y)
-    p4 = (x2 + offset_x, y2 + offset_y)
-    return p1, p2, p3, p4
-
 def adjust_for_zoom_and_offset(points, zoom, offset):
     adjusted_points = []
     for point in points:
@@ -200,23 +183,17 @@ def adjust_for_zoom_and_offset(points, zoom, offset):
         adjusted_points.append((adjusted_x, adjusted_y))
     return adjusted_points
 
-def create_lane_polygons(centerlines, widths, zoom, offset):
-    lane_polygons = []
-    for centerline, width_segments in zip(centerlines, widths):
-        # Initialize lists to store the outer edge points of the lane polygon
-        left_side_points = []
-        right_side_points = []
-        for i in range(len(centerline) - 1):
-            # some problems here
-            p1, p2, p3, p4 = calculate_perpendicular_points(centerline[i][0], centerline[i][1], centerline[i+1][0], centerline[i+1][1], width_segments[i])
-            left_side_points.append(p1)
-            right_side_points.append(p3)
-        # Add the last segment's perpendicular points
-        last_segment_width = width_segments[-1]
-        p1, p2, p3, p4 = calculate_perpendicular_points(centerline[-2][0], centerline[-2][1], centerline[-1][0], centerline[-1][1], last_segment_width)
-        left_side_points.append(p4)
-        right_side_points.append(p2)
-        # Combine the points, adjusting for zoom and offset
-        polygon_points = adjust_for_zoom_and_offset(left_side_points + right_side_points[::-1], zoom, offset)
-        lane_polygons.append(polygon_points)
-    return lane_polygons
+def create_bufferzone_vertex(centerline,width): # n, n -1
+    segment_buffers = []
+    for i in range(len(centerline) - 1):
+        segment = LineString([centerline[i], centerline[i + 1]])
+        # Use width for the segment; ensure list has enough entries
+        segment_width = width[min(i, len(width) - 1)] / 2
+        buffer = segment.buffer(segment_width, resolution=16, cap_style=2, join_style=2)
+        segment_buffers.append(buffer)
+    # Merge all segment buffers into a single polygon
+    merged_buffer = unary_union(segment_buffers)
+    exterior = list(merged_buffer.exterior.coords)
+    return exterior
+
+    

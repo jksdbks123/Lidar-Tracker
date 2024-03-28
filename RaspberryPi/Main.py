@@ -62,6 +62,7 @@ class LidarVisualizer:
 
         self.switch_drawing_lanes_mode = ToggleButton(self.screen, (20, 650, 100, 30), 'Lane Edit Off', 'Lane Edit On',self.draw_lanes)
         self.buttom_clear_lanes = Button(self.screen,(20,700,100,30),'Clear Lanes',self.clear_lanes)
+        self.lane_width_info = InfoBox(self.screen,(20,750,100,30),'Lane Width: 12ft')
 
         # right upper
         self.bck_length_info = InfoBox(self.screen,(1350,20,100,30),'No bck info')
@@ -76,7 +77,7 @@ class LidarVisualizer:
         self.db_eps_dis_slider =  Slider(self.screen, (300, 840, 200, 20), "eps_dis",0,5, default_value=0.2)
         self.update_tracking_param_buttom = Button(self.screen,(550,900,100,30),'Update Param',self.update_tracking_param)
         
-        self.info_boxes = [self.bck_length_info,self.frame_process_time_info]
+        self.info_boxes = [self.bck_length_info,self.frame_process_time_info,self.lane_width_info]
         self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
         self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,self.switch_object_id,self.update_tracking_param_buttom,
                                     self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines,self.buttom_clear_lanes,self.switch_drawing_lanes_mode] # buttoms and toggles
@@ -122,7 +123,6 @@ class LidarVisualizer:
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
 
-            
             if self.bar_drawer.drawing_lines:
                 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -145,7 +145,7 @@ class LidarVisualizer:
                             self.bar_drawer.line_counts.append(0)
                             self.bar_drawer.start_drawing_lines = False
                             self.bar_drawer.current_line_start = None
-                            lines = np.array(self.bar_drawer.lines)
+                            # lines = np.array(self.bar_drawer.lines)
                 
                 if self.bar_drawer.start_drawing_lines and event.type == pygame.MOUSEMOTION:
                     world_x = (event.pos[0] - self.offset[0]) / self.zoom
@@ -161,9 +161,10 @@ class LidarVisualizer:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_MINUS:
                         self.lane_drawer.lane_width = max(0.3048, self.lane_drawer.lane_width - 0.3048)
+                        self.lane_width_info.update_text(f'Lane Width: {self.lane_drawer.lane_width * 0.3048:.1f}')
                     if event.key == pygame.K_EQUALS:
                         self.lane_drawer.lane_width += 0.3048
-
+                        self.lane_width_info.update_text(f'Lane Width: {self.lane_drawer.lane_width * 0.3048:.1f}')
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: # add spline 
                     hover_flag = True
                     for badget in self.events_handle_items:
@@ -183,7 +184,6 @@ class LidarVisualizer:
                             self.lane_drawer.current_lane_points.append((world_x,world_y))
                             self.lane_drawer.current_lane_widths.append(self.lane_drawer.lane_width)
 
-
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3: # withdraw last point
                     # if we are drawing and the list is empty, then pop the last one
                     if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_points:
@@ -198,8 +198,9 @@ class LidarVisualizer:
 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2: # middle click
                     if len(self.lane_drawer.current_lane_points) > 1:
-                        self.lane_drawer.lane_points.append(self.lane_drawer.current_lane_points)
-                        self.lane_drawer.lane_widths.append(self.lane_drawer.current_lane_widths)
+                        
+                        lane_vertices = create_bufferzone_vertex(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths)
+                        self.lane_drawer.lane_points.append(lane_vertices)
                         self.lane_drawer.start_drawing_lanes = False
                         self.lane_drawer.current_lane_connection = None
                         self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
@@ -214,8 +215,12 @@ class LidarVisualizer:
 
 
                             
-    def draw_lines_and_counts(self):
+    def draw_manual_elements(self):
+        """
+        Current Drawing Sessions
+        """
         if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_connection is not None:
+            
             start_x, start_y = self.lane_drawer.current_lane_connection[0]
             end_x, end_y = self.lane_drawer.current_lane_connection[1]
             adjusted_start_x = (start_x * self.zoom) + self.offset[0]
@@ -225,6 +230,7 @@ class LidarVisualizer:
             pygame.draw.line(self.screen, (122, 67, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
 
         if self.bar_drawer.start_drawing_lines and self.bar_drawer.current_line_connection is not None:
+            
             start_x, start_y = self.bar_drawer.current_line_connection[0]
             end_x, end_y = self.bar_drawer.current_line_connection[1]
             adjusted_start_x = (start_x * self.zoom) + self.offset[0]
@@ -233,7 +239,9 @@ class LidarVisualizer:
             adjusted_end_y = (end_y * self.zoom) + self.offset[1]
 
             pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
-        
+        """
+        Historical Drawing Sessions
+        """
         for i,line in enumerate(self.bar_drawer.lines):
 
             count = self.bar_drawer.line_counts[i]
@@ -254,10 +262,11 @@ class LidarVisualizer:
             # Render the count text
             count_surf = self.object_label_font.render(f'id{i}:{count}', True, (200, 128, 20))
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
+        
         if self.lane_drawer.lane_points:
             
-            polygon_vertices = create_lane_polygons(self.lane_drawer.lane_points, self.lane_drawer.lane_widths,self.zoom,self.offset)
-            for poly in polygon_vertices:
+            for poly in self.lane_drawer.lane_points:
+                poly = adjust_for_zoom_and_offset(poly,self.zoom,self.offset)
                 pygame.draw.polygon(self.screen, (0, 255, 0), poly)
 
             
@@ -308,7 +317,7 @@ class LidarVisualizer:
             for x, y in data:
                 pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
         
-        self.draw_lines_and_counts()
+        self.draw_manual_elements()
 
         for item in self.events_handle_items:
             item.draw()
@@ -320,8 +329,10 @@ class LidarVisualizer:
         pygame.display.flip()
 
     def draw_lines(self,state):
+
         if state:
             self.bar_drawer.drawing_lines = True
+            self.deactivate_other_toggles(self.switch_drawing_lines_mode)
         else:
             self.bar_drawer.drawing_lines = False
             self.bar_drawer.start_drawing_lines =  False
@@ -330,6 +341,7 @@ class LidarVisualizer:
     def draw_lanes(self,state):
         if state:
             self.lane_drawer.drawing_lanes = True
+            self.deactivate_other_toggles(self.switch_drawing_lanes_mode)
         else:
             self.lane_drawer.drawing_lanes = False
             self.lane_drawer.start_drawing_lanes =  False
@@ -343,8 +355,12 @@ class LidarVisualizer:
         self.bar_drawer.current_line_connection = None
 
     def clear_lanes(self):
-        self.lane_drawer.lanes.clear()
-        self.bar_drawer.lane_points.clear()
+        self.lane_drawer.current_lane_points.clear()
+        self.lane_drawer.current_lane_widths.clear()
+        self.lane_drawer.lane_points.clear()
+        self.lane_drawer.lane_widths.clear()
+        self.lane_drawer.current_lane_connection = None
+
 
     def deactivate_other_toggles(self,activate_button):
         for button in self.toggle_buttons:
@@ -439,7 +455,7 @@ class LidarVisualizer:
         while self.running:
             
             self.handle_events()
-            self.update_background()
+            
             # density = self.density_slider.value
             vertical_limits = [0,31]
             time_cums = 0
@@ -462,7 +478,7 @@ class LidarVisualizer:
             else: # default
                 Td_map = self.point_cloud_queue.get()
                 point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,vertical_limits)
-            
+            self.update_background()
             time_a = time.time()
             self.screen.fill((0, 0, 0))
             self.draw(point_cloud_data,point_labels,tracking_dic)
