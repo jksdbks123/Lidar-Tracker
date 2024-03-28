@@ -221,13 +221,12 @@ class LidarVisualizer:
         """
         if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_connection is not None:
             
-            start_x, start_y = self.lane_drawer.current_lane_connection[0]
-            end_x, end_y = self.lane_drawer.current_lane_connection[1]
-            adjusted_start_x = (start_x * self.zoom) + self.offset[0]
-            adjusted_start_y = (start_y * self.zoom) + self.offset[1]
-            adjusted_end_x = (end_x * self.zoom) + self.offset[0]
-            adjusted_end_y = (end_y * self.zoom) + self.offset[1]
-            pygame.draw.line(self.screen, (122, 67, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
+            his_cur_centerline = self.lane_drawer.current_lane_points + [self.lane_drawer.current_lane_connection[1]]
+            his_cur_width = self.lane_drawer.current_lane_widths + [self.lane_drawer.lane_width]
+            his_poly = create_bufferzone_vertex(his_cur_centerline,his_cur_width)
+            his_poly = adjust_for_zoom_and_offset(his_poly,self.zoom,self.offset)
+            pygame.draw.polygon(self.screen, (0, 255, 0), his_poly)
+            
 
         if self.bar_drawer.start_drawing_lines and self.bar_drawer.current_line_connection is not None:
             
@@ -239,6 +238,7 @@ class LidarVisualizer:
             adjusted_end_y = (end_y * self.zoom) + self.offset[1]
 
             pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
+        
         """
         Historical Drawing Sessions
         """
@@ -266,6 +266,7 @@ class LidarVisualizer:
         if self.lane_drawer.lane_points:
             
             for poly in self.lane_drawer.lane_points:
+                
                 poly = adjust_for_zoom_and_offset(poly,self.zoom,self.offset)
                 pygame.draw.polygon(self.screen, (0, 255, 0), poly)
 
@@ -273,6 +274,7 @@ class LidarVisualizer:
 
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
+        self.draw_manual_elements()
         data = (data.T * self.zoom + self.offset[:, None]).T
         if point_label is not None:
 
@@ -316,8 +318,7 @@ class LidarVisualizer:
             color = int(255)  # Using the slider value for RGB intensity
             for x, y in data:
                 pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
-        
-        self.draw_manual_elements()
+    
 
         for item in self.events_handle_items:
             item.draw()
