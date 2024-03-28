@@ -183,6 +183,10 @@ def adjust_for_zoom_and_offset(points, zoom, offset):
         adjusted_points.append((adjusted_x, adjusted_y))
     return adjusted_points
 
+def adjust_for_zoom_and_offset_numpy(points, zoom, offset):
+    
+    return points * zoom + offset
+
 def create_bufferzone_vertex(centerline,width): # n, n -1
     segment_buffers = []
     for i in range(len(centerline) - 1):

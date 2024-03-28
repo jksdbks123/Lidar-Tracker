@@ -169,8 +169,6 @@ def calc_cart_coord(distances, azimuth):# distance: 12*32 azimuth: 12*32
 
 def get_ordinary_point_cloud(Td_map,vertical_limits):
     point_cloud_data = get_pcd_uncolored(Td_map,vertical_limits)
-    # ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
-    # point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
     return point_cloud_data,None,None
 
 
@@ -226,7 +224,6 @@ def get_pcd_uncolored(Td_map,vertical_limits):
 
 def get_pcd_colored(Td_map,Labeling_map,vertical_limits):
 
-    
     Xs = []
     Ys = []
     Labels = []
@@ -250,6 +247,14 @@ def get_pcd_colored(Td_map,Labeling_map,vertical_limits):
 
     return XYZ,Labels     
 
+def get_static_bck_points(thred_map,vertical_limits):
+    bck_points_total = []
+    for i in range(thred_map.shape[0]):
+        Labeling_map = thred_map[i] > 0
+        bck_points,Labels = get_pcd_colored(thred_map[i],Labeling_map,vertical_limits)
+        bck_points_total.append(bck_points[Labels])
+    bck_points_total = np.concatenate(bck_points_total)
+    return bck_points_total
 
 # # # Simulated function to continuously read packets (Simulating Core 2)
 def read_packets_offline(raw_data_queue,pcap_file_path):

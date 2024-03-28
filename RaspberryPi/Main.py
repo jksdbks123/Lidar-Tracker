@@ -9,12 +9,13 @@ from MOT_TD_BCKONLIONE import MOT
 class LidarVisualizer:
     def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,width=1500, height=1000, title='LiDAR Data Visualization'):
         pygame.init()
-        pygame.font.init() 
         self.screen = pygame.display.set_mode((width, height))
+        self.background_surface = pygame.Surface((width, height))
+        self.background_surface.fill((0, 0, 0))  # Fill with black or your choice of background color
+        self.vertical_limits = [0,31] # Vertical range (for 32 lines)
         pygame.display.set_caption(title)
         pygame.font.init()  # Initialize the font module
         self.object_label_font = pygame.font.SysFont('Comic Sans MS', 20)
-        
         self.running = True
         self.point_cloud_queue = point_cloud_queue # point cloud queue
         self.tracking_result_queue = tracking_result_queue
@@ -29,17 +30,23 @@ class LidarVisualizer:
         self.tracking_prcess = None
         self.tracking_process_stop_event = None
         self.thred_map = None
-
+        self.static_bck_points = None
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
+            self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
+        self.if_background_need_update = False 
 
         self.mot = None
         self.zoom = 1.0
         self.offset = np.array([0, 0])
         self.dragging = False
         self.last_mouse_pos = (0, 0)
-        self.any_slider_active = False  # Track if any slider is active
 
+        # adjusted_points = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
+        for point in self.static_bck_points:
+            pygame.draw.circle(self.background_surface, (255,255,255), tuple(point), 2)
+        self.screen.blit(self.background_surface, (0, 0))
+        self.any_slider_active = False  # Track if any slider is active
         self.bar_drawer = BarDrawer() # bar crossing for vehicle counting
         self.lane_drawer = LaneDrawer() # lane drawer for queue detection         
 
@@ -85,6 +92,8 @@ class LidarVisualizer:
         # Background parameters
         self.bck_radius = 0.3
 
+    # def update_background_surface(self):
+
     def handle_events(self):
         self.any_slider_active = False  # Reset the flag at the start of each event loop
         for event in pygame.event.get():
@@ -111,13 +120,16 @@ class LidarVisualizer:
                         self.last_mouse_pos = event.pos
                     elif event.button == 4:  # Mouse wheel up to zoom in
                         self.zoom *= 1.1
+                        self.if_background_need_update = True
                     elif event.button == 5:  # Mouse wheel down to zoom out
                         self.zoom /= 1.1
+                        self.if_background_need_update = True
                 elif event.type == pygame.MOUSEBUTTONUP:
                     if event.button == 1:  # Stop dragging on left mouse button release
                         self.dragging = False
                 elif event.type == pygame.MOUSEMOTION:
                     if self.dragging:
+                        self.if_background_need_update = True
                         mouse_pos = event.pos
                         movement = np.array(mouse_pos) - np.array(self.last_mouse_pos)
                         self.offset += movement
@@ -226,7 +238,6 @@ class LidarVisualizer:
             his_poly = create_bufferzone_vertex(his_cur_centerline,his_cur_width)
             his_poly = adjust_for_zoom_and_offset(his_poly,self.zoom,self.offset)
             pygame.draw.polygon(self.screen, (0, 255, 0), his_poly)
-            
 
         if self.bar_drawer.start_drawing_lines and self.bar_drawer.current_line_connection is not None:
             
@@ -266,7 +277,6 @@ class LidarVisualizer:
         if self.lane_drawer.lane_points:
             
             for poly in self.lane_drawer.lane_points:
-                
                 poly = adjust_for_zoom_and_offset(poly,self.zoom,self.offset)
                 pygame.draw.polygon(self.screen, (0, 255, 0), poly)
 
@@ -274,14 +284,22 @@ class LidarVisualizer:
 
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
-        self.draw_manual_elements()
+        
+        
         data = (data.T * self.zoom + self.offset[:, None]).T
+        if self.if_background_need_update:
+            self.background_surface.fill((0,0,0))
+            static_bck_points_adjusted = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
+            for point in static_bck_points_adjusted:
+                pygame.draw.circle(self.background_surface, (255,255,255), tuple(point), 2)
+            self.if_background_need_update = False
+        self.screen.blit(self.background_surface, (0, 0))
+        self.draw_manual_elements()
         if point_label is not None:
-
-            for coord,l in zip(data,point_label):
+            data = data[point_label == 1]
+            for coord in data:
                 x,y = coord
-                color_vec = color_map[l%len(color_map)]
-                pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 2)
+                pygame.draw.circle(self.screen, tuple(color_map[1]), (x, y), 2)
             
             if tracking_dic is not None:
                 for obj_id in tracking_dic.keys():
@@ -439,15 +457,14 @@ class LidarVisualizer:
             self.thred_map = np.load(r'./thred_map.npy')
             self.thred_map_loaded = True
             print("thred_map.npy loaded")
+            self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
 
 
     def get_foreground_point_cloud(self,Td_map,vertical_limits):
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
         Foreground_map = Foreground_map.astype(int)
         point_cloud_data,labels = get_pcd_colored(Td_map,Foreground_map,vertical_limits)                    
-        # ds_point_cloud_data_ind = np.random.choice(np.arange(len(point_cloud_data)), size = int(len(point_cloud_data) * density),replace = False).astype(int)
-        # point_cloud_data = point_cloud_data[ds_point_cloud_data_ind]
-        # labels = labels[ds_point_cloud_data_ind]
+
         return point_cloud_data,labels,None
     
 
@@ -457,31 +474,36 @@ class LidarVisualizer:
             
             self.handle_events()
             
-            # density = self.density_slider.value
-            vertical_limits = [0,31]
             time_cums = 0
             if self.switch_bck_recording_mode.state:
                 Td_map = self.point_cloud_queue.get()
                 self.background_data.append(Td_map)
                 self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
-                point_cloud_data,point_label,tracking_dic = get_ordinary_point_cloud(Td_map,vertical_limits)
+                point_cloud_data,point_label,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
                 
             elif self.switch_foreground_mode.state:
                 Td_map = self.point_cloud_queue.get()
-                point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,vertical_limits)
+                point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,self.vertical_limits)
                          
 
             elif self.switch_tracking_mode.state:
                 Tracking_pool,Labeling_map,Td_map,time_cums = self.tracking_result_queue.get()
-                point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,vertical_limits)
+                point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
                 tracking_dic = Tracking_pool
                     
             else: # default
                 Td_map = self.point_cloud_queue.get()
-                point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,vertical_limits)
-            self.update_background()
+                if self.thred_map is not None:
+                    point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,self.vertical_limits)
+                else:
+                    point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
+                
+                    
+
+            self.update_background() # this is for update background map itself
             time_a = time.time()
             self.screen.fill((0, 0, 0))
+            
             self.draw(point_cloud_data,point_labels,tracking_dic)
             self.frame_process_time_info.update_text(f'resq:{self.tracking_result_queue.qsize()},pcq:{self.point_cloud_queue.qsize()},render:{(time.time() - time_a)*1000:.1f}ms,tracking:{time_cums * 1000:.1f}')
 
