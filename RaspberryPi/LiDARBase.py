@@ -171,6 +171,12 @@ def get_ordinary_point_cloud(Td_map,vertical_limits):
     point_cloud_data = get_pcd_uncolored(Td_map,vertical_limits)
     return point_cloud_data,None,None
 
+def get_foreground_point_cloud(thred_map,bck_radius,Td_map,vertical_limits):
+    Foreground_map = ~(np.abs(Td_map - thred_map) <= bck_radius).any(axis = 0)
+    Foreground_map = Foreground_map.astype(int)
+    point_cloud_data,labels = get_pcd_colored(Td_map,Foreground_map,vertical_limits)                    
+
+    return point_cloud_data,labels,None
 
 def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,vertical_limits):
     Xs = []

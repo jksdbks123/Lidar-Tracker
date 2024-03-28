@@ -284,26 +284,45 @@ class LidarVisualizer:
 
     def draw(self, data, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
-        
-        
-        data = (data.T * self.zoom + self.offset[:, None]).T
-        if self.if_background_need_update:
-            self.background_surface.fill((0,0,0))
-            static_bck_points_adjusted = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
-            for point in static_bck_points_adjusted:
-                pygame.draw.circle(self.background_surface, (255,255,255), tuple(point), 2)
-            self.if_background_need_update = False
-        self.screen.blit(self.background_surface, (0, 0))
-        self.draw_manual_elements()
-        if point_label is not None:
-            data = data[point_label == 1]
-            for coord in data:
+        # data = (data.T * self.zoom + self.offset[:, None]).T # nx2 
+        data = adjust_for_zoom_and_offset_numpy(data,self.zoom,self.offset)
+
+        if self.switch_foreground_mode.state:
+            for coord,l in zip(data,point_label):
                 x,y = coord
-                pygame.draw.circle(self.screen, tuple(color_map[1]), (x, y), 2)
+                pygame.draw.circle(self.screen, tuple(color_map[l]), (x, y), 2)
+
+        elif self.switch_bck_recording_mode.state:
+            for x, y in data:
+                pygame.draw.circle(self.screen, (255,255,255), (x, y), 2)
+        else:
+            if self.if_background_need_update and self.thred_map is not None:
+                self.background_surface.fill((0,0,0))
+                static_bck_points_adjusted = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
+                for point in static_bck_points_adjusted:
+                    pygame.draw.circle(self.background_surface, (255,255,255), tuple(point), 2)
+                self.if_background_need_update = False
+            self.screen.blit(self.background_surface, (0, 0))
+            self.draw_manual_elements()
             
-            if tracking_dic is not None:
+            if self.switch_tracking_mode.state:
+                # point_label is correspondance to the obj_id
+                data = data[point_label != -1]
+                point_label = point_label[point_label != -1]
                 for obj_id in tracking_dic.keys():
                     color_vec = color_map[obj_id%len(color_map)]
+                    if self.if_objid:
+                        cur_traj = tracking_dic[obj_id].mea_seq[-1] # -1 happens here sometimes
+                        if cur_traj is not None:
+                            label_surface = self.object_label_font.render(str(obj_id), False, (255,65,212))
+                            x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
+                            label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
+                            self.screen.blit(label_surface,label_pos)
+
+                    for coord in data[point_label == obj_id]:
+                        x,y = coord
+                        pygame.draw.circle(self.screen, color_vec, (x, y), 2)
+
                     his_coords = tracking_dic[obj_id].mea_seq[-10:]
                     for coord in his_coords:
                         if coord is not None:
@@ -316,27 +335,17 @@ class LidarVisualizer:
                     if len(tracking_dic[obj_id].post_seq) > 1:
                         prev_pos = tracking_dic[obj_id].post_seq[-2][0].flatten()[:2]
                         curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
-                        for i in range(len(self.line_counts)):
-                            if line_segments_intersect(prev_pos, curr_pos, self.lines[i][0], self.lines[i][1]):
-                                self.line_counts[i] += 1
+                        for i in range(len(self.bar_drawer.line_counts)):
+                            if line_segments_intersect(prev_pos, curr_pos, self.bar_drawer.lines[i][0], self.bar_drawer.lines[i][1]):
+                                self.bar_drawer.line_counts[i] += 1
                                 break
 
-        if tracking_dic is not None and self.if_objid:
-            
-            for obj_id in tracking_dic.keys():
-                cur_traj = tracking_dic[obj_id].mea_seq[-1] # -1 happens here sometimes
-                if cur_traj is not None:
-                    label_surface = self.object_label_font.render(str(obj_id), False, (255,65,212))
-                    x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
-                    label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
-                    self.screen.blit(label_surface,label_pos)
-
-
-        if point_label is None and tracking_dic is None:
-            color = int(255)  # Using the slider value for RGB intensity
-            for x, y in data:
-                pygame.draw.circle(self.screen, (color,color,color), (x, y), 2)
-    
+            else:
+                for coord,l in zip(data,point_label):
+                    if l == 0:
+                        continue
+                    x,y = coord
+                    pygame.draw.circle(self.screen, tuple(color_map[1]), (x, y), 2)
 
         for item in self.events_handle_items:
             item.draw()
@@ -458,14 +467,6 @@ class LidarVisualizer:
             self.thred_map_loaded = True
             print("thred_map.npy loaded")
             self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
-
-
-    def get_foreground_point_cloud(self,Td_map,vertical_limits):
-        Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
-        Foreground_map = Foreground_map.astype(int)
-        point_cloud_data,labels = get_pcd_colored(Td_map,Foreground_map,vertical_limits)                    
-
-        return point_cloud_data,labels,None
     
 
     def run(self):
@@ -473,37 +474,38 @@ class LidarVisualizer:
         while self.running:
             
             self.handle_events()
-            
             time_cums = 0
             if self.switch_bck_recording_mode.state:
+                
                 Td_map = self.point_cloud_queue.get()
                 self.background_data.append(Td_map)
                 self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
-                point_cloud_data,point_label,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
-                
+                point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
+                # pc,None,None
             elif self.switch_foreground_mode.state:
                 Td_map = self.point_cloud_queue.get()
-                point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,self.vertical_limits)
-                         
-
+                point_cloud_data,point_labels,tracking_dic = get_foreground_point_cloud(self.thred_map,self.bck_radius,
+                                                                                        Td_map,self.vertical_limits)
+                # pc,label (0/1),None 
             elif self.switch_tracking_mode.state:
                 Tracking_pool,Labeling_map,Td_map,time_cums = self.tracking_result_queue.get()
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
+                # pc, label (obj_id)
                 tracking_dic = Tracking_pool
                     
             else: # default
                 Td_map = self.point_cloud_queue.get()
                 if self.thred_map is not None:
-                    point_cloud_data,point_labels,tracking_dic = self.get_foreground_point_cloud(Td_map,self.vertical_limits)
+                    point_cloud_data,point_labels,tracking_dic = get_foreground_point_cloud(self.thred_map,self.bck_radius,
+                                                                                            Td_map,self.vertical_limits)
+                    # pc,label (0/1), None
                 else:
                     point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
-                
-                    
+                    # pc,None, None
 
             self.update_background() # this is for update background map itself
             time_a = time.time()
             self.screen.fill((0, 0, 0))
-            
             self.draw(point_cloud_data,point_labels,tracking_dic)
             self.frame_process_time_info.update_text(f'resq:{self.tracking_result_queue.qsize()},pcq:{self.point_cloud_queue.qsize()},render:{(time.time() - time_a)*1000:.1f}ms,tracking:{time_cums * 1000:.1f}')
 
