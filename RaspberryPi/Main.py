@@ -34,6 +34,7 @@ class LidarVisualizer:
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
             self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
+            print("Background loaded")
         self.if_background_need_update = False 
 
         self.mot = None
@@ -41,11 +42,12 @@ class LidarVisualizer:
         self.offset = np.array([0, 0])
         self.dragging = False
         self.last_mouse_pos = (0, 0)
-
+        
         # adjusted_points = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
         for point in self.static_bck_points:
             pygame.draw.circle(self.background_surface, (255,255,255), tuple(point), 2)
         self.screen.blit(self.background_surface, (0, 0))
+
         self.any_slider_active = False  # Track if any slider is active
         self.bar_drawer = BarDrawer() # bar crossing for vehicle counting
         self.lane_drawer = LaneDrawer() # lane drawer for queue detection         
@@ -63,6 +65,7 @@ class LidarVisualizer:
         self.switch_tracking_mode = ToggleButton(self.screen, (20, 80, 100, 30), 'Track Off', 'Track On', self.toggle_tracking_mode)
         self.switch_object_id = ToggleButton(self.screen, (140, 80, 50, 30), 'ObjID Off', 'ObjID On', self.toggle_objid_switch)
         self.switch_foreground_mode = ToggleButton(self.screen, (20, 140, 100, 30), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
+        self.switch_queue_monitoring_mode = ToggleButton(self.screen, (20, 200, 100, 30), 'Queue Monitor Off', 'Queue Monitor On', self.toggle_queue_monitor)
         # left middle
         self.switch_drawing_lines_mode = ToggleButton(self.screen, (20, 550, 100, 30), 'Bar Edit Off', 'Bar Edit On',self.draw_lines)
         self.buttom_clear_lines = Button(self.screen,(20,600,100,30),'Clear Lines',self.clear_lines)
@@ -87,8 +90,8 @@ class LidarVisualizer:
         self.info_boxes = [self.bck_length_info,self.frame_process_time_info,self.lane_width_info]
         self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
         self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,self.switch_object_id,self.update_tracking_param_buttom,
-                                    self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines,self.buttom_clear_lanes,self.switch_drawing_lanes_mode] # buttoms and toggles
-        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode] 
+                                    self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines,self.buttom_clear_lanes,self.switch_drawing_lanes_mode,self.switch_queue_monitoring_mode] # buttoms and toggles
+        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode,self.switch_queue_monitoring_mode] 
         # Background parameters
         self.bck_radius = 0.3
 
@@ -212,20 +215,23 @@ class LidarVisualizer:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2: # middle click
                     if len(self.lane_drawer.current_lane_points) > 1:
                         self.lane_drawer.lane_end_points.append(self.lane_drawer.current_lane_points[-1])
-                        lane_vertices = create_bufferzone_vertex(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths)
+                        # lane_vertices = create_bufferzone_vertex(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths)
+                        lane_multipoly = create_subsection_polygons(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths,0.5)
+                        self.lane_drawer.lane_subsections_poly.append(lane_multipoly)
+                        lane_vertices = []
+                        for poly in lane_multipoly:
+                            lane_vertices.append(list(poly.exterior.coords))
                         self.lane_drawer.lane_points.append(lane_vertices)
                         self.lane_drawer.start_drawing_lanes = False
                         self.lane_drawer.current_lane_connection = None
                         self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
                         self.lane_drawer.current_lane_widths = []
 
-                if self.lane_drawer.start_drawing_lanes and event.type == pygame.MOUSEMOTION:
+                if self.lane_drawer.start_drawing_lanes and event.type == pygame.MOUSEMOTION and self.lane_drawer.current_lane_points:
 
                     world_x = (event.pos[0] - self.offset[0]) / self.zoom
                     world_y = (event.pos[1] - self.offset[1]) / self.zoom
                     self.lane_drawer.current_lane_connection = (self.lane_drawer.current_lane_points[-1],(world_x, world_y))
-
-
 
                             
     def draw_manual_elements(self):
@@ -277,9 +283,10 @@ class LidarVisualizer:
         
         if self.lane_drawer.lane_points:
             
-            for i,poly in enumerate(self.lane_drawer.lane_points):
-                poly = adjust_for_zoom_and_offset(poly,self.zoom,self.offset)
-                pygame.draw.polygon(self.screen, (0, 255, 0), poly)
+            for i,lane_poly_points in enumerate(self.lane_drawer.lane_points):
+                for seg_poly_points in lane_poly_points:
+                    poly = adjust_for_zoom_and_offset(seg_poly_points,self.zoom,self.offset)
+                    pygame.draw.polygon(self.screen, (0, 255, 0), poly)
                 label_surface = self.object_label_font.render(f'Lane {i}', False, (255,65,212))
                 x,y = self.lane_drawer.lane_end_points[i]
                 label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
@@ -343,7 +350,6 @@ class LidarVisualizer:
                             if line_segments_intersect(prev_pos, curr_pos, self.bar_drawer.lines[i][0], self.bar_drawer.lines[i][1]):
                                 self.bar_drawer.line_counts[i] += 1
                                 break
-
             else:
                 for coord,l in zip(data,point_label):
                     if l == 0:
@@ -394,6 +400,7 @@ class LidarVisualizer:
         self.lane_drawer.current_lane_connection = None
 
 
+
     def deactivate_other_toggles(self,activate_button):
         for button in self.toggle_buttons:
             if button != activate_button:
@@ -404,6 +411,10 @@ class LidarVisualizer:
             self.deactivate_other_toggles(self.switch_bck_recording_mode)
         print('Test_toggle_bck')
 
+    def toggle_queue_monitor(self,state):
+        if state:
+            self.deactivate_other_toggles(self.switch_queue_monitoring_mode)
+            
     def toggle_tracking_mode(self,state):
         if state:
             self.deactivate_other_toggles(self.switch_tracking_mode)
@@ -462,7 +473,6 @@ class LidarVisualizer:
             self.tracking_parameter_dict['min_samples'] = min_samples
             self.tracking_parameter_dict['eps'] = eps_dis
             self.tracking_param_update_event.set()
-            print('set_once')
 
     def update_background(self):
         # Check if the background process has finished and thred_map is not loaded yet
@@ -480,7 +490,6 @@ class LidarVisualizer:
             self.handle_events()
             time_cums = 0
             if self.switch_bck_recording_mode.state:
-                
                 Td_map = self.point_cloud_queue.get()
                 self.background_data.append(Td_map)
                 self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
@@ -496,7 +505,10 @@ class LidarVisualizer:
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
                 # pc, label (obj_id)
                 tracking_dic = Tracking_pool
-                    
+
+            elif self.switch_queue_monitoring_mode.state:
+                Td_map = self.point_cloud_queue.get()
+                point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits) 
             else: # default
                 Td_map = self.point_cloud_queue.get()
                 if self.thred_map is not None:

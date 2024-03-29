@@ -17,8 +17,9 @@ class LaneDrawer:
     def __init__(self):
         self.current_lane_points = []  # List of points defining the current lane centerline
         self.current_lane_widths = []
-        self.lane_points = []  # Finished list of lanes, where each lane is a list of points
+        self.lane_points = []  # Finished list of lanes, where each lane is a list of points 
         self.lane_widths = []
+        self.lane_subsections_poly = [] # n x k x poly lane segments
         self.lane_width = 12 * 0.3048  # Default lane width in feet
         self.lane_end_points = []
         self.drawing_lanes = False # mode on
@@ -198,4 +199,50 @@ def create_bufferzone_vertex(centerline,width): # n, n -1
     exterior = list(merged_buffer.exterior.coords)
     return exterior
 
+def calculate_segment_lengths_and_cumulative_lengths(centerline):
+    lengths = []
+    cumulative_lengths = [0]  # Start with 0 length at the first point
+    for i in range(len(centerline) - 1):
+        segment = LineString([centerline[i], centerline[i+1]])
+        length = segment.length
+        lengths.append(length)
+        cumulative_lengths.append(cumulative_lengths[-1] + length)
+    return lengths, cumulative_lengths
+def interpolate_width(cumulative_lengths, widths, position):
+    # Find the segment where the position belongs
+    for i in range(1, len(cumulative_lengths)):
+        if position <= cumulative_lengths[i]:
+            segment_start_length = cumulative_lengths[i-1]
+            segment_end_length = cumulative_lengths[i]
+            segment_relative_position = (position - segment_start_length) / (segment_end_length - segment_start_length)
+            
+            # Linearly interpolate the width based on the relative position within the segment
+            width_at_position = widths[i-1] + (widths[min(i, len(widths)-1)] - widths[i-1]) * segment_relative_position
+            return width_at_position
+    return widths[-1]  # Return the last width if position is beyond the last segment
+
+def create_subsection_polygons(centerline, widths, subsection_length):
+    lane_line = LineString(centerline)
+    total_length = lane_line.length
+    subsection_polygons = []
+    lengths, cumulative_lengths = calculate_segment_lengths_and_cumulative_lengths(centerline)
     
+    distances = np.arange(0, total_length, subsection_length)
+    for start_dist in distances:
+        end_dist = min(start_dist + subsection_length, total_length)
+        
+        # Interpolate widths for start and end points of the subsection
+        start_width = interpolate_width(cumulative_lengths, widths, start_dist)
+        end_width = interpolate_width(cumulative_lengths, widths, end_dist)
+        avg_width = (start_width + end_width) / 2  # Use average width for the subsection
+        
+        start_point = lane_line.interpolate(start_dist)
+        end_point = lane_line.interpolate(end_dist)
+        subsection_line = LineString([start_point, end_point])
+        buffer_polygon = subsection_line.buffer(avg_width / 2, resolution=16, cap_style=2, join_style=2)
+        subsection_polygons.append(buffer_polygon)
+
+    return subsection_polygons
+
+
+
