@@ -147,17 +147,16 @@ class LidarVisualizer:
                             world_x = (event.pos[0] - self.offset[0]) / self.zoom
                             world_y = (event.pos[1] - self.offset[1]) / self.zoom
                             self.bar_drawer.current_line_start = (world_x,world_y)
-                            
                         else:
                             # Finish drawing the line
                             world_x = (event.pos[0] - self.offset[0]) / self.zoom
                             world_y = (event.pos[1] - self.offset[1]) / self.zoom
-                            
                             self.bar_drawer.lines.append((self.bar_drawer.current_line_start, (world_x,world_y)))
                             self.bar_drawer.line_counts.append(0)
                             self.bar_drawer.start_drawing_lines = False
                             self.bar_drawer.current_line_start = None
-                            # lines = np.array(self.bar_drawer.lines)
+                            lines = np.array(self.bar_drawer.lines)
+                            np.save(r'./lines.npy',lines)
                 
                 if self.bar_drawer.start_drawing_lines and event.type == pygame.MOUSEMOTION:
                     world_x = (event.pos[0] - self.offset[0]) / self.zoom
@@ -167,16 +166,17 @@ class LidarVisualizer:
             Left click to create a polyline
             Right click to discard current step
             Middle click to finish a polyline drawing
-
             """
+
             if self.lane_drawer.drawing_lanes:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_MINUS:
                         self.lane_drawer.lane_width = max(0.3048, self.lane_drawer.lane_width - 0.3048)
-                        self.lane_width_info.update_text(f'Lane Width: {self.lane_drawer.lane_width * 0.3048:.1f}')
+                        self.lane_width_info.update_text(f'Lane Width: {self.lane_drawer.lane_width / 0.3048:.1f}ft')
                     if event.key == pygame.K_EQUALS:
                         self.lane_drawer.lane_width += 0.3048
-                        self.lane_width_info.update_text(f'Lane Width: {self.lane_drawer.lane_width * 0.3048:.1f}')
+                        self.lane_width_info.update_text(f'Lane Width: {self.lane_drawer.lane_width / 0.3048:.1f}ft')
+
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: # add spline 
                     hover_flag = True
                     for badget in self.events_handle_items:
@@ -202,6 +202,7 @@ class LidarVisualizer:
                         self.lane_drawer.current_lane_points.pop() # remove the last one
                         if self.lane_drawer.current_lane_widths:
                             self.lane_drawer.current_lane_widths.pop()
+                            
 
                     if not self.lane_drawer.current_lane_points:
                         # if it's empty after we pop out the last one, then quit drawing session
@@ -210,14 +211,14 @@ class LidarVisualizer:
 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2: # middle click
                     if len(self.lane_drawer.current_lane_points) > 1:
-                        
+                        self.lane_drawer.lane_end_points.append(self.lane_drawer.current_lane_points[-1])
                         lane_vertices = create_bufferzone_vertex(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths)
                         self.lane_drawer.lane_points.append(lane_vertices)
                         self.lane_drawer.start_drawing_lanes = False
                         self.lane_drawer.current_lane_connection = None
                         self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
                         self.lane_drawer.current_lane_widths = []
-                        
+
                 if self.lane_drawer.start_drawing_lanes and event.type == pygame.MOUSEMOTION:
 
                     world_x = (event.pos[0] - self.offset[0]) / self.zoom
@@ -276,10 +277,13 @@ class LidarVisualizer:
         
         if self.lane_drawer.lane_points:
             
-            for poly in self.lane_drawer.lane_points:
+            for i,poly in enumerate(self.lane_drawer.lane_points):
                 poly = adjust_for_zoom_and_offset(poly,self.zoom,self.offset)
                 pygame.draw.polygon(self.screen, (0, 255, 0), poly)
-
+                label_surface = self.object_label_font.render(f'Lane {i}', False, (255,65,212))
+                x,y = self.lane_drawer.lane_end_points[i]
+                label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
+                self.screen.blit(label_surface,label_pos)
             
 
     def draw(self, data, point_label = None, tracking_dic = None):

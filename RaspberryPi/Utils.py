@@ -17,15 +17,14 @@ class LaneDrawer:
     def __init__(self):
         self.current_lane_points = []  # List of points defining the current lane centerline
         self.current_lane_widths = []
-
         self.lane_points = []  # Finished list of lanes, where each lane is a list of points
         self.lane_widths = []
         self.lane_width = 12 * 0.3048  # Default lane width in feet
+        self.lane_end_points = []
         self.drawing_lanes = False # mode on
         self.start_drawing_lanes = False # start a drawing session
         self.current_lane_connection = None
         
-
 class BarDrawer:
     def __init__(self):
 
@@ -36,7 +35,7 @@ class BarDrawer:
             for line in lines:
                 self.lines.append((tuple(line[0]),tuple(line[1])))
                 self.line_counts.append(0) 
-
+            print(lines)
         self.current_line_start = None
         self.drawing_lines = False # mode on
         self.start_drawing_lines = False # currently in a line drawing session
@@ -184,7 +183,6 @@ def adjust_for_zoom_and_offset(points, zoom, offset):
     return adjusted_points
 
 def adjust_for_zoom_and_offset_numpy(points, zoom, offset):
-    
     return points * zoom + offset
 
 def create_bufferzone_vertex(centerline,width): # n, n -1
