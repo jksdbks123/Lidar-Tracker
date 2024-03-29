@@ -42,10 +42,12 @@ class LidarVisualizer:
         self.offset = np.array([0, 0])
         self.dragging = False
         self.last_mouse_pos = (0, 0)
-        
+
         # adjusted_points = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
         for point in self.static_bck_points:
-            pygame.draw.circle(self.background_surface, (255,255,255), tuple(point), 2)
+            x,y = point
+            x,y = self.convert_coordinates(x,y)
+            pygame.draw.circle(self.background_surface, (255,255,255), (x,y), 2)
         self.screen.blit(self.background_surface, (0, 0))
 
         self.any_slider_active = False  # Track if any slider is active
@@ -96,6 +98,9 @@ class LidarVisualizer:
         self.bck_radius = 0.3
 
     # def update_background_surface(self):
+    def convert_coordinates(self, x, y):
+        """Converts y-coordinate to simulate origin at bottom-left."""
+        return x, self.screen.get_height()  - y
 
     def handle_events(self):
         self.any_slider_active = False  # Reset the flag at the start of each event loop
@@ -120,7 +125,9 @@ class LidarVisualizer:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button for dragging
                         self.dragging = True
-                        self.last_mouse_pos = event.pos
+                        mouse_pos = event.pos
+                        mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
+                        self.last_mouse_pos = mouse_pos
                     elif event.button == 4:  # Mouse wheel up to zoom in
                         self.zoom *= 1.1
                         self.if_background_need_update = True
@@ -134,6 +141,7 @@ class LidarVisualizer:
                     if self.dragging:
                         self.if_background_need_update = True
                         mouse_pos = event.pos
+                        mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
                         movement = np.array(mouse_pos) - np.array(self.last_mouse_pos)
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
@@ -147,13 +155,17 @@ class LidarVisualizer:
                     if hover_flag:
                         if not self.bar_drawer.start_drawing_lines:
                             self.bar_drawer.start_drawing_lines = True
-                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            mouse_pos = event.pos
+                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
+                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
+                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
                             self.bar_drawer.current_line_start = (world_x,world_y)
                         else:
                             # Finish drawing the line
-                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            mouse_pos = event.pos
+                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
+                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
+                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
                             self.bar_drawer.lines.append((self.bar_drawer.current_line_start, (world_x,world_y)))
                             self.bar_drawer.line_counts.append(0)
                             self.bar_drawer.start_drawing_lines = False
@@ -162,8 +174,10 @@ class LidarVisualizer:
                             np.save(r'./lines.npy',lines)
                 
                 if self.bar_drawer.start_drawing_lines and event.type == pygame.MOUSEMOTION:
-                    world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                    world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                    mouse_pos = event.pos
+                    mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
+                    world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
+                    world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
                     self.bar_drawer.current_line_connection = (self.bar_drawer.current_line_start,(world_x, world_y))
             """
             Left click to create a polyline
@@ -188,14 +202,18 @@ class LidarVisualizer:
                     if hover_flag: # not hover on the toggle or buttoms
                         if not self.lane_drawer.start_drawing_lanes:
                             self.lane_drawer.start_drawing_lanes = True
-                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            mouse_pos = event.pos
+                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
+                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
+                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
                             self.lane_drawer.current_lane_points.append((world_x,world_y))
 
                         else:
                             # continue add spline points into the list
-                            world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                            world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                            mouse_pos = event.pos
+                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
+                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
+                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
                             self.lane_drawer.current_lane_points.append((world_x,world_y))
                             self.lane_drawer.current_lane_widths.append(self.lane_drawer.lane_width)
 
@@ -228,9 +246,10 @@ class LidarVisualizer:
                         self.lane_drawer.current_lane_widths = []
 
                 if self.lane_drawer.start_drawing_lanes and event.type == pygame.MOUSEMOTION and self.lane_drawer.current_lane_points:
-
-                    world_x = (event.pos[0] - self.offset[0]) / self.zoom
-                    world_y = (event.pos[1] - self.offset[1]) / self.zoom
+                    mouse_pos = event.pos
+                    mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
+                    world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
+                    world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
                     self.lane_drawer.current_lane_connection = (self.lane_drawer.current_lane_points[-1],(world_x, world_y))
 
                             
@@ -244,7 +263,10 @@ class LidarVisualizer:
             his_cur_width = self.lane_drawer.current_lane_widths + [self.lane_drawer.lane_width]
             his_poly = create_bufferzone_vertex(his_cur_centerline,his_cur_width)
             his_poly = adjust_for_zoom_and_offset(his_poly,self.zoom,self.offset)
-            pygame.draw.polygon(self.screen, (0, 255, 0), his_poly)
+            his_poly_converted = []
+            for x,y in his_poly:
+                his_poly_converted.append(self.convert_coordinates(x,y))
+            pygame.draw.polygon(self.screen, (0, 255, 0), his_poly_converted)
 
         if self.bar_drawer.start_drawing_lines and self.bar_drawer.current_line_connection is not None:
             
@@ -254,7 +276,8 @@ class LidarVisualizer:
             adjusted_start_y = (start_y * self.zoom) + self.offset[1]
             adjusted_end_x = (end_x * self.zoom) + self.offset[0]
             adjusted_end_y = (end_y * self.zoom) + self.offset[1]
-
+            adjusted_start_x,adjusted_start_y = self.convert_coordinates(adjusted_start_x,adjusted_start_y)
+            adjusted_end_x,adjusted_end_y = self.convert_coordinates(adjusted_end_x,adjusted_end_y)
             pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
         
         """
@@ -270,7 +293,8 @@ class LidarVisualizer:
             adjusted_start_y = (start_y * self.zoom) + self.offset[1]
             adjusted_end_x = (end_x * self.zoom) + self.offset[0]
             adjusted_end_y = (end_y * self.zoom) + self.offset[1]
-            
+            adjusted_start_x,adjusted_start_y = self.convert_coordinates(adjusted_start_x,adjusted_start_y)
+            adjusted_end_x,adjusted_end_y = self.convert_coordinates(adjusted_end_x,adjusted_end_y)
             # Draw the line
             pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
             
@@ -286,11 +310,15 @@ class LidarVisualizer:
             for i,lane_poly_points in enumerate(self.lane_drawer.lane_points):
                 for seg_poly_points in lane_poly_points:
                     poly = adjust_for_zoom_and_offset(seg_poly_points,self.zoom,self.offset)
-                    pygame.draw.polygon(self.screen, (0, 255, 0), poly)
+                    poly_converted = []
+                    for x,y in poly:
+                        poly_converted.append(self.convert_coordinates(x,y))
+                    pygame.draw.polygon(self.screen, (0, 255, 0), poly_converted)
                 label_surface = self.object_label_font.render(f'Lane {i}', False, (255,65,212))
                 x,y = self.lane_drawer.lane_end_points[i]
                 label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
-                self.screen.blit(label_surface,label_pos)
+                label_pos_x,label_pos_y = self.convert_coordinates(label_pos[0],label_pos[1])
+                self.screen.blit(label_surface,(label_pos_x,label_pos_y))
             
 
     def draw(self, data, point_label = None, tracking_dic = None):
@@ -301,17 +329,22 @@ class LidarVisualizer:
         if self.switch_foreground_mode.state:
             for coord,l in zip(data,point_label):
                 x,y = coord
+                # x,y = self.convert_coordinates(x,y)
+                x,y = self.convert_coordinates(x,y)
                 pygame.draw.circle(self.screen, tuple(color_map[l]), (x, y), 2)
 
         elif self.switch_bck_recording_mode.state:
             for x, y in data:
+                x,y = self.convert_coordinates(x,y)
                 pygame.draw.circle(self.screen, (255,255,255), (x, y), 2)
         else:
             if self.if_background_need_update and self.thred_map is not None:
                 self.background_surface.fill((0,0,0))
                 static_bck_points_adjusted = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
                 for point in static_bck_points_adjusted:
-                    pygame.draw.circle(self.background_surface, (255,255,255), tuple(point), 2)
+                    x,y = point
+                    x,y = self.convert_coordinates(x,y)
+                    pygame.draw.circle(self.background_surface, (255,255,255), (x, y), 2)
                 self.if_background_need_update = False
             self.screen.blit(self.background_surface, (0, 0))
             self.draw_manual_elements()
@@ -332,6 +365,7 @@ class LidarVisualizer:
 
                     for coord in data[point_label == obj_id]:
                         x,y = coord
+                        x,y = self.convert_coordinates(x,y)
                         pygame.draw.circle(self.screen, color_vec, (x, y), 2)
 
                     his_coords = tracking_dic[obj_id].mea_seq[-10:]
@@ -341,6 +375,7 @@ class LidarVisualizer:
                             y = (coord[0][1][0] + coord[1][1][0]) / 2
                             x = x * self.zoom +  self.offset[0]
                             y = y * self.zoom +  self.offset[1]
+                            x,y = self.convert_coordinates(x,y)
                             pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 4)
 
                     if len(tracking_dic[obj_id].post_seq) > 1:
@@ -355,6 +390,7 @@ class LidarVisualizer:
                     if l == 0:
                         continue
                     x,y = coord
+                    x,y = self.convert_coordinates(x,y)
                     pygame.draw.circle(self.screen, tuple(color_map[1]), (x, y), 2)
 
         for item in self.events_handle_items:

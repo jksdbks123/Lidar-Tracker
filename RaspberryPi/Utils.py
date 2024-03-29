@@ -246,3 +246,6 @@ def create_subsection_polygons(centerline, widths, subsection_length):
 
 
 
+    def convert_coordinates(self, x, y):
+        """Converts y-coordinate to simulate origin at bottom-left."""
+        return x, self.screen.get_height()  - y
