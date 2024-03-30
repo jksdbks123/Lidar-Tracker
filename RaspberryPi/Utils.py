@@ -9,6 +9,7 @@ from sklearn.cluster import DBSCAN
 import time
 import socket
 import math
+import pickle
 from shapely.geometry import LineString
 from shapely.ops import unary_union
 
@@ -17,30 +18,77 @@ class LaneDrawer:
     def __init__(self):
         self.current_lane_points = []  # List of points defining the current lane centerline
         self.current_lane_widths = []
-        self.lane_points = []  # Finished list of lanes, where each lane is a list of points 
-        self.lane_widths = []
+        self.lane_points = []  # n x k x poly points
+        self.lane_widths = [] # n x k - 1 
         self.lane_subsections_poly = [] # n x k x poly lane segments
-        self.lane_width = 12 * 0.3048  # Default lane width in feet
         self.lane_end_points = []
+        self.lane_width = 12 * 0.3048  # Default lane width in feet
         self.drawing_lanes = False # mode on
         self.start_drawing_lanes = False # start a drawing session
         self.current_lane_connection = None
+        self.read_lanes()
+
+    def read_lanes(self):
+        if os.path.exists('./lane_dic.pkl') and os.path.exists('./lane_width_dic.pkl') and os.path.exists('./lane_poly.pkl') and os.path.exists('./lane_end_points.pkl'):
+            with open("./lane_dic.pkl", "rb") as f:
+                lane_dic = pickle.load(f)
+                for key in lane_dic.keys():
+                    self.lane_points.append(lane_dic[key])
+            with open("./lane_width_dic.pkl", "rb") as f:
+                lane_widths = pickle.load(f)
+                for key in lane_widths.keys():
+                    self.lane_widths.append(lane_widths[key])
+            with open('./lane_poly.pkl', 'rb') as f:
+                self.lane_subsections_poly = pickle.load(f)
+            with open('./lane_end_points.pkl', 'rb') as f:
+                self.lane_end_points = pickle.load(f)
+
+    def save(self):
+
+        lane_dic = {}
+        lane_width_dic = {}
+        for i,lane_points in enumerate(self.lane_points):
+            lane_dic[i] = lane_points
+        for i,width_series in enumerate(self.lane_widths):
+            lane_width_dic[i] = width_series
+        with open('./lane_dic.pkl', "wb") as f:
+            pickle.dump(lane_dic, f)
+        with open('./lane_width_dic.pkl', "wb") as f:
+            pickle.dump(lane_width_dic, f)
+        with open('./lane_poly.pkl', 'wb') as f:
+            pickle.dump(self.lane_subsections_poly, f, pickle.HIGHEST_PROTOCOL)
+        with open('./lane_end_points.pkl', 'wb') as f:
+            pickle.dump(self.lane_end_points, f, pickle.HIGHEST_PROTOCOL)
+            
+            
         
 class BarDrawer:
     def __init__(self):
 
-        self.lines = []
+        self.lines = [] # n x [(x1,y1),(x2,y2)]
         self.line_counts = []
-        if os.path.exists(r'./lines.npy'):
-            lines = np.load(r'./lines.npy')
-            for line in lines:
-                self.lines.append((tuple(line[0]),tuple(line[1])))
-                self.line_counts.append(0) 
-            print(lines)
         self.current_line_start = None
         self.drawing_lines = False # mode on
         self.start_drawing_lines = False # currently in a line drawing session
         self.current_line_connection = None
+        self.read_bars()
+
+    def read_bars(self):
+        if os.path.exists('./bars.txt'):
+            with open('./bars.txt', 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    x1,y1,x2,y2 = line.split(' ')
+                    self.lines.append([(float(x1),float(y1)),(float(x2),float(y2))])
+                    self.line_counts.append(0)
+        
+    def save(self):
+        with open('./bars.txt','w') as f:
+            for line in self.lines:
+                x1,y1 = line[0]
+                x2,y2 = line[1]
+                f.writelines(f'{x1} {y1} {x2} {y2}\n')
+            
 
 class Slider:
     def __init__(self, screen, position, label, min_value, max_value,default_value=0.5,if_int = False, if_odd = False):

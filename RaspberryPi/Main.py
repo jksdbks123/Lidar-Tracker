@@ -170,8 +170,7 @@ class LidarVisualizer:
                             self.bar_drawer.line_counts.append(0)
                             self.bar_drawer.start_drawing_lines = False
                             self.bar_drawer.current_line_start = None
-                            lines = np.array(self.bar_drawer.lines)
-                            np.save(r'./lines.npy',lines)
+                            self.bar_drawer.save()
                 
                 if self.bar_drawer.start_drawing_lines and event.type == pygame.MOUSEMOTION:
                     mouse_pos = event.pos
@@ -233,7 +232,6 @@ class LidarVisualizer:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2: # middle click
                     if len(self.lane_drawer.current_lane_points) > 1:
                         self.lane_drawer.lane_end_points.append(self.lane_drawer.current_lane_points[-1])
-                        # lane_vertices = create_bufferzone_vertex(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths)
                         lane_multipoly = create_subsection_polygons(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths,0.5)
                         self.lane_drawer.lane_subsections_poly.append(lane_multipoly)
                         lane_vertices = []
@@ -244,6 +242,7 @@ class LidarVisualizer:
                         self.lane_drawer.current_lane_connection = None
                         self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
                         self.lane_drawer.current_lane_widths = []
+                        self.lane_drawer.save()
 
                 if self.lane_drawer.start_drawing_lanes and event.type == pygame.MOUSEMOTION and self.lane_drawer.current_lane_points:
                     mouse_pos = event.pos
@@ -518,7 +517,6 @@ class LidarVisualizer:
             print("thred_map.npy loaded")
             self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
     
-
     def run(self):
 
         while self.running:
@@ -560,7 +558,7 @@ class LidarVisualizer:
             self.screen.fill((0, 0, 0))
             self.draw(point_cloud_data,point_labels,tracking_dic)
             self.frame_process_time_info.update_text(f'resq:{self.tracking_result_queue.qsize()},pcq:{self.point_cloud_queue.qsize()},render:{(time.time() - time_a)*1000:.1f}ms,tracking:{time_cums * 1000:.1f}')
-
+            
                 
                       
     def quit(self):
