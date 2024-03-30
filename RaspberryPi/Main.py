@@ -8,6 +8,13 @@ from MOT_TD_BCKONLIONE import MOT
 
 class LidarVisualizer:
     def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,width=1500, height=1000, title='LiDAR Data Visualization'):
+        """
+        Coordinate Logic:
+        1) Mouse Coord 2) World Coord 3) Screen Coord
+
+        Mouse -> Y-axis upside down -> Screen Coord -> offset and zoom -> World
+
+        """
         pygame.init()
         self.screen = pygame.display.set_mode((width, height))
         self.background_surface = pygame.Surface((width, height))
@@ -628,7 +635,7 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'../../../Data/2019-12-21-7-30-0.pcap'
+    pcap_file_path = r'../../../Data/9thVir/2024-03-14-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode,pcap_file_path = pcap_file_path)
     # mode = 'online'
