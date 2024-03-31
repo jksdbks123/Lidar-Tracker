@@ -21,6 +21,7 @@ class LaneDrawer:
         self.lane_points = []  # n x k x poly points
         self.lane_widths = [] # n x k - 1 
         self.lane_subsections_poly = [] # n x k x poly lane segments
+        self.lane_laser_indices = []
         self.lane_end_points = []
         self.lane_width = 12 * 0.3048  # Default lane width in feet
         self.drawing_lanes = False # mode on
@@ -59,6 +60,16 @@ class LaneDrawer:
             pickle.dump(self.lane_subsections_poly, f, pickle.HIGHEST_PROTOCOL)
         with open('./lane_end_points.pkl', 'wb') as f:
             pickle.dump(self.lane_end_points, f, pickle.HIGHEST_PROTOCOL)
+
+    def clear(self):
+        self.current_lane_points.clear()
+        self.current_lane_widths.clear()
+        self.lane_points.clear()
+        self.lane_widths.clear()
+        self.current_lane_connection = None
+        self.drawing_lanes = False
+        self.lane_end_points.clear()
+        self.lane_subsections_poly.clear()
             
             
         
@@ -88,6 +99,12 @@ class BarDrawer:
                 x1,y1 = line[0]
                 x2,y2 = line[1]
                 f.writelines(f'{x1} {y1} {x2} {y2}\n')
+    def clear(self):
+        self.lines.clear()
+        self.line_counts.clear()
+        self.current_line_start = None
+        self.start_drawing_lines = False
+        self.current_line_connection = None
             
 
 class Slider:

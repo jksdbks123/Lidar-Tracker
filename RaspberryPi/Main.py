@@ -38,9 +38,10 @@ class LidarVisualizer:
         self.tracking_process_stop_event = None
         self.thred_map = None
         self.static_bck_points = None
+        self.bck_laser_index = None
         if os.path.exists(r'./thred_map.npy'):
             self.thred_map = np.load(r'./thred_map.npy')
-            self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
+            self.static_bck_points,self.bck_laser_index = get_static_bck_points_laser_index(self.thred_map,self.vertical_limits)
             print("Background loaded")
         self.if_background_need_update = False 
 
@@ -77,10 +78,10 @@ class LidarVisualizer:
         self.switch_queue_monitoring_mode = ToggleButton(self.screen, (20, 200, 100, 30), 'Queue Monitor Off', 'Queue Monitor On', self.toggle_queue_monitor)
         # left middle
         self.switch_drawing_lines_mode = ToggleButton(self.screen, (20, 550, 100, 30), 'Bar Edit Off', 'Bar Edit On',self.draw_lines)
-        self.buttom_clear_lines = Button(self.screen,(20,600,100,30),'Clear Lines',self.clear_lines)
+        self.buttom_clear_lines = Button(self.screen,(20,600,100,30),'Clear Lines',self.bar_drawer.clear)
 
         self.switch_drawing_lanes_mode = ToggleButton(self.screen, (20, 650, 100, 30), 'Lane Edit Off', 'Lane Edit On',self.draw_lanes)
-        self.buttom_clear_lanes = Button(self.screen,(20,700,100,30),'Clear Lanes',self.clear_lanes)
+        self.buttom_clear_lanes = Button(self.screen,(20,700,100,30),'Clear Lanes',self.lane_drawer.clear)
         self.lane_width_info = InfoBox(self.screen,(20,750,100,30),'Lane Width: 12ft')
 
         # right upper
@@ -104,7 +105,6 @@ class LidarVisualizer:
         # Background parameters
         self.bck_radius = 0.3
 
-    # def update_background_surface(self):
     def convert_coordinates(self, x, y):
         """Converts y-coordinate to simulate origin at bottom-left."""
         return x, self.screen.get_height()  - y
@@ -421,26 +421,11 @@ class LidarVisualizer:
     def draw_lanes(self,state):
         if state:
             self.lane_drawer.drawing_lanes = True
-            self.deactivate_other_toggles(self.switch_drawing_lanes_mode)
+            self.deactivate_other_toggles(self.switch_drawing_lanesc_mode)
         else:
             self.lane_drawer.drawing_lanes = False
             self.lane_drawer.start_drawing_lanes =  False
             self.lane_drawer.current_lane_connection = None
-
-    def clear_lines(self):
-        self.bar_drawer.lines.clear()
-        self.bar_drawer.line_counts.clear()
-        self.bar_drawer.current_line_start = None
-        self.bar_drawer.start_drawing_lines = False
-        self.bar_drawer.current_line_connection = None
-
-    def clear_lanes(self):
-        self.lane_drawer.current_lane_points.clear()
-        self.lane_drawer.current_lane_widths.clear()
-        self.lane_drawer.lane_points.clear()
-        self.lane_drawer.lane_widths.clear()
-        self.lane_drawer.current_lane_connection = None
-
 
 
     def deactivate_other_toggles(self,activate_button):
@@ -522,7 +507,7 @@ class LidarVisualizer:
             self.thred_map = np.load(r'./thred_map.npy')
             self.thred_map_loaded = True
             print("thred_map.npy loaded")
-            self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
+            self.static_bck_points,self.bck_laser_index = get_static_bck_points_laser_index(self.thred_map,self.vertical_limits)
     
     def run(self):
 

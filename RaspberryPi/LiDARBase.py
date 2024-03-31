@@ -1,9 +1,10 @@
 from Utils import *
 from DDBSCAN import Raster_DBSCAN
+
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
 color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
-
+thred_map_index = np.arange(32*1800).reshape((32,1800))
 class detected_obj():
     def __init__(self):
         self.glb_id = None
@@ -251,16 +252,53 @@ def get_pcd_colored(Td_map,Labeling_map,vertical_limits):
     Labels = Labels[Valid_ind]
     XYZ = XYZ[Valid_ind]
 
-    return XYZ,Labels     
+    return XYZ,Labels    
+ 
+def get_pcd_colored_laser_ind(Td_map,Labeling_map,vertical_limits,thred_map_index):
 
-def get_static_bck_points(thred_map,vertical_limits):
+    Xs = []
+    Ys = []
+    Labels = []
+    LaserInds = []
+    for i in range(vertical_limits[0],vertical_limits[1]):
+        
+        longitudes = theta[i]*np.pi / 180
+        latitudes = azimuths * np.pi / 180 
+        hypotenuses = Td_map[i] * np.cos(longitudes)
+        X = hypotenuses * np.sin(latitudes)
+        Y = hypotenuses * np.cos(latitudes)
+        Xs.append(X)
+        Ys.append(Y)
+        Labels.append(Labeling_map[i])
+        LaserInds.append(thred_map_index[i])
+
+    Xs = np.concatenate(Xs)
+    Ys = np.concatenate(Ys)
+    Labels = np.concatenate(Labels)
+    LaserInds = np.concatenate(LaserInds)
+    XYZ = np.c_[Xs,Ys]
+    Valid_ind = (XYZ[:,0] != 0)&(XYZ[:,1] != 0)
+    Labels = Labels[Valid_ind]
+    LaserInds = LaserInds[Valid_ind]
+    XYZ = XYZ[Valid_ind]
+
+    return XYZ,Labels,LaserInds
+
+def get_static_bck_points_laser_index(thred_map,vertical_limits):
+
+   
+
     bck_points_total = []
+    bck_laser_index_total = []
     for i in range(thred_map.shape[0]):
         Labeling_map = thred_map[i] > 0
-        bck_points,Labels = get_pcd_colored(thred_map[i],Labeling_map,vertical_limits)
+        bck_points,Labels,LaserInds = get_pcd_colored_laser_ind(thred_map[i],Labeling_map,vertical_limits,thred_map_index)
         bck_points_total.append(bck_points[Labels])
+        bck_laser_index_total.append(LaserInds[Labels])
     bck_points_total = np.concatenate(bck_points_total)
-    return bck_points_total
+    bck_laser_index_total = np.concatenate(bck_laser_index_total)
+
+    return bck_points_total,bck_laser_index_total
 
 # # # Simulated function to continuously read packets (Simulating Core 2)
 def read_packets_offline(raw_data_queue,pcap_file_path):
@@ -271,7 +309,8 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
             ts,buf = next(eth_reader)
             eth = dpkt.ethernet.Ethernet(buf)
         except:
-            continue
+            # when it's empty, reload current pcap
+            eth_reader = load_pcap(pcap_file_path)
         if eth.type == 2048: # for ipv4
             if (type(eth.data.data) == dpkt.udp.UDP):# for ipv4
                 data = eth.data.data.data
