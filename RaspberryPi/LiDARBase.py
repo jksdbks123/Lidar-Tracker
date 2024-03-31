@@ -284,21 +284,16 @@ def get_pcd_colored_laser_ind(Td_map,Labeling_map,vertical_limits,thred_map_inde
 
     return XYZ,Labels,LaserInds
 
-def get_static_bck_points_laser_index(thred_map,vertical_limits):
-
-   
+def get_static_bck_points(thred_map,vertical_limits):
 
     bck_points_total = []
-    bck_laser_index_total = []
     for i in range(thred_map.shape[0]):
         Labeling_map = thred_map[i] > 0
-        bck_points,Labels,LaserInds = get_pcd_colored_laser_ind(thred_map[i],Labeling_map,vertical_limits,thred_map_index)
+        bck_points,Labels = get_pcd_colored(thred_map[i],Labeling_map,vertical_limits)
         bck_points_total.append(bck_points[Labels])
-        bck_laser_index_total.append(LaserInds[Labels])
     bck_points_total = np.concatenate(bck_points_total)
-    bck_laser_index_total = np.concatenate(bck_laser_index_total)
 
-    return bck_points_total,bck_laser_index_total
+    return bck_points_total
 
 # # # Simulated function to continuously read packets (Simulating Core 2)
 def read_packets_offline(raw_data_queue,pcap_file_path):

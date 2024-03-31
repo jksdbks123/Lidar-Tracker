@@ -10,25 +10,44 @@ import time
 import socket
 import math
 import pickle
-from shapely.geometry import LineString
+from shapely.geometry import LineString,Point
 from shapely.ops import unary_union
+import geopandas as gpd
 
 
 class LaneDrawer:
     def __init__(self):
         self.current_lane_points = []  # List of points defining the current lane centerline
         self.current_lane_widths = []
+        # self.lane_laser_indecies = [] # A list: n x k: each element records the laser id
+        # self.lane_occupation_indicators = [] # n x k: True -> Occupied by vehicle False -> Nothing
+        self.lane_section_foreground_point_counts = []
         self.lane_points = []  # n x k x poly points
         self.lane_widths = [] # n x k - 1 
         self.lane_subsections_poly = [] # n x k x poly lane segments
-        self.lane_laser_indices = []
         self.lane_end_points = []
         self.lane_width = 12 * 0.3048  # Default lane width in feet
         self.drawing_lanes = False # mode on
         self.start_drawing_lanes = False # start a drawing session
         self.current_lane_connection = None
+        self.lane_gdf = None # for counting foreground points in polys
         self.read_lanes()
 
+    def remove_last_record(self):
+        if self.lane_section_foreground_point_counts:
+            self.lane_section_foreground_point_counts.pop()
+        # if self.lane_occupation_indicators:
+        #     self.lane_occupation_indicators.pop()
+        if self.lane_points:
+            self.lane_points.pop()
+        if self.lane_widths:
+            self.lane_widths.pop()
+        if self.lane_subsections_poly:
+            self.lane_subsections_poly.pop()
+        if self.lane_end_points:
+            self.lane_end_points.pop()
+        self.save()
+        
     def read_lanes(self):
         if os.path.exists('./lane_dic.pkl') and os.path.exists('./lane_width_dic.pkl') and os.path.exists('./lane_poly.pkl') and os.path.exists('./lane_end_points.pkl'):
             with open("./lane_dic.pkl", "rb") as f:
@@ -60,6 +79,11 @@ class LaneDrawer:
             pickle.dump(self.lane_subsections_poly, f, pickle.HIGHEST_PROTOCOL)
         with open('./lane_end_points.pkl', 'wb') as f:
             pickle.dump(self.lane_end_points, f, pickle.HIGHEST_PROTOCOL)
+            
+    def update_lane_gdf(self):
+        if self.lane_subsections_poly:
+            self.lane_gdf = get_lane_gdf(self.lane_subsections_poly)
+            print('Lane zone updated')
 
     def clear(self):
         self.current_lane_points.clear()
@@ -70,9 +94,8 @@ class LaneDrawer:
         self.drawing_lanes = False
         self.lane_end_points.clear()
         self.lane_subsections_poly.clear()
+        self.lane_section_foreground_point_counts.clear()
             
-            
-        
 class BarDrawer:
     def __init__(self):
 
@@ -99,6 +122,7 @@ class BarDrawer:
                 x1,y1 = line[0]
                 x2,y2 = line[1]
                 f.writelines(f'{x1} {y1} {x2} {y2}\n')
+
     def clear(self):
         self.lines.clear()
         self.line_counts.clear()
@@ -106,7 +130,6 @@ class BarDrawer:
         self.start_drawing_lines = False
         self.current_line_connection = None
             
-
 class Slider:
     def __init__(self, screen, position, label, min_value, max_value,default_value=0.5,if_int = False, if_odd = False):
         self.screen = screen
@@ -309,8 +332,36 @@ def create_subsection_polygons(centerline, widths, subsection_length):
 
     return subsection_polygons
 
+def get_lane_gdf(lane_subsections_poly):
+    lane_polygons_with_id = []
+    for lane_index, lane in enumerate(lane_subsections_poly):
+        for subsection_index, poly in enumerate(lane):
+            lane_polygons_with_id.append({'lane_id': lane_index, 'subsection_id': subsection_index, 'geometry': poly})
+    
+    # Create a GeoDataFrame for lane polygons with identifiers
+    lane_gdf = gpd.GeoDataFrame(lane_polygons_with_id)
+    return lane_gdf
 
 
-    def convert_coordinates(self, x, y):
-        """Converts y-coordinate to simulate origin at bottom-left."""
-        return x, self.screen.get_height()  - y
+def get_lane_section_foreground_point_counts(lane_subsections_poly,lane_gdf,point_data,point_label):
+    foreground_points = point_data[point_label == 1]
+    # Convert foreground points to GeoDataFrame
+    points_gdf = gpd.GeoDataFrame([{'geometry': Point(xy)} for xy in foreground_points])
+    
+    # Perform spatial join to find which points lie within which polygons
+    joined_gdf = gpd.sjoin(points_gdf, lane_gdf, how="inner", predicate="within")
+    
+    # Count points in each polygon, reset index to make 'index_right' a column
+    counts_per_polygon = joined_gdf.groupby('index_right').size().reset_index(name='counts')
+    
+    # Merge counts back into lane_gdf to associate each lane and subsection with its count
+    lane_gdf = lane_gdf.merge(counts_per_polygon, left_index=True, right_on='index_right', how='left').fillna(0)
+    
+    # Rearrange data into the desired output structure, Lane_laser_indexes
+    lane_section_foreground_point_counts = []
+    for lane_index in range(len(lane_subsections_poly)):
+        lane_sections = lane_gdf[lane_gdf['lane_id'] == lane_index].sort_values(by='subsection_id')
+        section_counts = lane_sections['counts'].tolist()
+        lane_section_foreground_point_counts.append(section_counts)
+
+    return lane_section_foreground_point_counts
