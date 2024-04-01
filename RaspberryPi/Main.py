@@ -10,10 +10,14 @@ class LidarVisualizer:
     def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,width=1500, height=1000, title='LiDAR Data Visualization'):
         """
         Coordinate Logic:
-        1) Mouse Coord 2) World Coord 3) Screen Coord
+        1) Screen Coord 2) World Coord 
+        
+        World coordinate <-> Zoom + Rotation + Offset + Flip <-> Screen coordinate
 
-        Mouse -> Y-axis upside down -> Screen Coord -> offset and zoom -> World
-
+        Point data structure: np.array nx2
+        Poly: [(xy),(xy),...]
+        Line: [(x1,y1),(x2,y2)]
+        
         """
         pygame.init()
         self.screen = pygame.display.set_mode((width, height))
@@ -38,24 +42,28 @@ class LidarVisualizer:
         self.tracking_process_stop_event = None
         self.thred_map = None
         self.static_bck_points = None
-
-        if os.path.exists(r'./thred_map.npy'):
-            self.thred_map = np.load(r'./thred_map.npy')
-            self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
-            print("Background loaded")
         
         self.if_background_need_update = False 
 
         self.mot = None
-        self.zoom = 1.0
-        self.offset = np.array([0, 0])
+        self.zoom :float = 1.0
+        self.offset = np.array([0, 0]).astype(float)
         self.dragging = False
+        self.is_rotating = False
+        self.rotation_angle = 0
         self.last_mouse_pos = (0, 0)
-
-        # adjusted_points = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
-        for point in self.static_bck_points:
+        self.config_dir = r'./config_files'
+        if not os.path.exists(self.config_dir):
+            os.mkdir(self.config_dir)
+        self.thred_map_path = os.path.join(self.config_dir,'thred_map.npy')
+        if os.path.exists(self.thred_map_path):
+            self.thred_map = np.load(self.thred_map_path)
+            self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
+            print("Background loaded")
+        static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom, self.offset,
+                                                    self.rotation_angle, self.screen.get_height())
+        for point in static_bck_points_screen:
             x,y = point
-            x,y = self.convert_coordinates(x,y)
             pygame.draw.circle(self.background_surface, (255,255,255), (x,y), 2)
         self.screen.blit(self.background_surface, (0, 0))
 
@@ -107,16 +115,16 @@ class LidarVisualizer:
         # Background parameters
         self.bck_radius = 0.2
 
-    def convert_coordinates(self, x, y):
-        """Converts y-coordinate to simulate origin at bottom-left."""
-        return x, self.screen.get_height()  - y
+    
 
     def handle_events(self):
         self.any_slider_active = False  # Reset the flag at the start of each event loop
         for event in pygame.event.get():
             
             if event.type == pygame.QUIT:
+                
                 self.running = False
+                
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     self.running = False
@@ -134,26 +142,39 @@ class LidarVisualizer:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button for dragging
                         self.dragging = True
-                        mouse_pos = event.pos
-                        mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
-                        self.last_mouse_pos = mouse_pos
+                        mouse_pos = event.pos # screen location
+                        self.last_mouse_pos = mouse_pos 
+
+                    elif event.button == 2:
+                        self.is_rotating = True
+                        self.last_mouse_pos = event.pos
                     elif event.button == 4:  # Mouse wheel up to zoom in
                         self.zoom *= 1.1
                         self.if_background_need_update = True
                     elif event.button == 5:  # Mouse wheel down to zoom out
                         self.zoom /= 1.1
                         self.if_background_need_update = True
+        
                 elif event.type == pygame.MOUSEBUTTONUP:
                     if event.button == 1:  # Stop dragging on left mouse button release
                         self.dragging = False
+                    elif event.button == 2:  # Stop rotating on middle mouse button release
+                        self.is_rotating = False
                 elif event.type == pygame.MOUSEMOTION:
                     if self.dragging:
                         self.if_background_need_update = True
                         mouse_pos = event.pos
-                        mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
                         movement = np.array(mouse_pos) - np.array(self.last_mouse_pos)
+                        movement[1] = -movement[1]
                         self.offset += movement
                         self.last_mouse_pos = mouse_pos
+                    elif self.is_rotating:
+                        # Calculate rotation based on horizontal mouse movement
+                        current_mouse_pos = event.pos
+                        dx = current_mouse_pos[0] - self.last_mouse_pos[0]
+                        self.rotation_angle += dx * 0.1  # Adjust rotation speed factor as needed
+                        self.last_mouse_pos = current_mouse_pos
+                        self.if_background_need_update = True
 
             if self.bar_drawer.drawing_lines:
                 
@@ -164,29 +185,23 @@ class LidarVisualizer:
                     if hover_flag:
                         if not self.bar_drawer.start_drawing_lines:
                             self.bar_drawer.start_drawing_lines = True
-                            mouse_pos = event.pos
-                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
-                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
-                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
-                            self.bar_drawer.current_line_start = (world_x,world_y)
+                            mouse_pos = np.array([event.pos])
+                            world_pos = screen_to_world(mouse_pos,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                            self.bar_drawer.current_line_start = (world_pos[0][0],world_pos[0][1])
                         else:
                             # Finish drawing the line
-                            mouse_pos = event.pos
-                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
-                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
-                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
-                            self.bar_drawer.lines.append((self.bar_drawer.current_line_start, (world_x,world_y)))
+                            mouse_pos = np.array([event.pos])
+                            world_pos = screen_to_world(mouse_pos,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                            self.bar_drawer.lines.append((self.bar_drawer.current_line_start, (world_pos[0][0],world_pos[0][1])))
                             self.bar_drawer.line_counts.append(0)
                             self.bar_drawer.start_drawing_lines = False
                             self.bar_drawer.current_line_start = None
                             self.bar_drawer.save()
                 
                 if self.bar_drawer.start_drawing_lines and event.type == pygame.MOUSEMOTION:
-                    mouse_pos = event.pos
-                    mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
-                    world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
-                    world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
-                    self.bar_drawer.current_line_connection = (self.bar_drawer.current_line_start,(world_x, world_y))
+                    mouse_pos = np.array([event.pos])
+                    world_pos = screen_to_world(mouse_pos,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                    self.bar_drawer.current_line_connection = (self.bar_drawer.current_line_start,(world_pos[0][0],world_pos[0][1]))
             """
             Left click to create a polyline
             Right click to discard current step
@@ -204,92 +219,82 @@ class LidarVisualizer:
                     if event.key == pygame.K_d:
                         self.lane_drawer.remove_last_record()
                             
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: # add spline 
+                if event.type == pygame.MOUSEBUTTONDOWN:
                     hover_flag = True
                     for badget in self.events_handle_items:
                         hover_flag = hover_flag and not badget.is_mouse_over(event.pos)
+
+                    if event.button == 1: # add spline 
                 
-                    if hover_flag: # not hover on the toggle or buttoms
-                        if not self.lane_drawer.start_drawing_lanes:
-                            self.lane_drawer.start_drawing_lanes = True
-                            mouse_pos = event.pos
-                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
-                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
-                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
-                            self.lane_drawer.current_lane_points.append((world_x,world_y))
+                        if hover_flag: # not hover on the toggle or buttoms
+                            if not self.lane_drawer.start_drawing_lanes:
+                                self.lane_drawer.start_drawing_lanes = True
+                                mouse_pos = np.array([event.pos])
+                                world_pos = screen_to_world(mouse_pos,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                                self.lane_drawer.current_lane_points.append((world_pos[0][0],world_pos[0][1]))
+                                
 
-                        else:
-                            # continue add spline points into the list
-                            mouse_pos = event.pos
-                            mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
-                            world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
-                            world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
-                            self.lane_drawer.current_lane_points.append((world_x,world_y))
-                            self.lane_drawer.current_lane_widths.append(self.lane_drawer.lane_width)
+                            else:
+                                # continue add spline points into the list
+                                mouse_pos = np.array([event.pos])
+                                world_pos = screen_to_world(mouse_pos,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                                self.lane_drawer.current_lane_points.append((world_pos[0][0],world_pos[0][1]))
+                                self.lane_drawer.current_lane_widths.append(self.lane_drawer.lane_width)
 
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3: # withdraw last point
-                    # if we are drawing and the list is empty, then pop the last one
-                    if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_points:
-                        self.lane_drawer.current_lane_points.pop() # remove the last one
-                        if self.lane_drawer.current_lane_widths:
-                            self.lane_drawer.current_lane_widths.pop()
-                            
+                    elif event.button == 3:
+                        # if we are drawing and the list is empty, then pop the last one
+                        if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_points:
+                            self.lane_drawer.current_lane_points.pop() # remove the last one
+                            if self.lane_drawer.current_lane_widths:
+                                self.lane_drawer.current_lane_widths.pop()
 
-                    if not self.lane_drawer.current_lane_points:
-                        # if it's empty after we pop out the last one, then quit drawing session
-                        self.lane_drawer.start_drawing_lanes = False
-                        self.lane_drawer.current_lane_connection = None
+                        if not self.lane_drawer.current_lane_points:
+                            # if it's empty after we pop out the last one, then quit drawing session
+                            self.lane_drawer.start_drawing_lanes = False
+                            self.lane_drawer.current_lane_connection = None
 
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2: # middle click
-                    if len(self.lane_drawer.current_lane_points) > 1:
-                        self.lane_drawer.lane_end_points.append(self.lane_drawer.current_lane_points[-1])
-                        lane_multipoly = create_subsection_polygons(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths,0.5)
-                        self.lane_drawer.lane_subsections_poly.append(lane_multipoly)
-                        lane_vertices = []
-                        for poly in lane_multipoly:
-                            lane_vertices.append(list(poly.exterior.coords))
-                        self.lane_drawer.lane_points.append(lane_vertices)
-                        self.lane_drawer.start_drawing_lanes = False
-                        self.lane_drawer.current_lane_connection = None
-                        self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
-                        self.lane_drawer.current_lane_widths = []
-                        self.lane_drawer.save()
-                        self.lane_drawer.update_lane_gdf()   
+                    elif event.button == 2:
+                        if len(self.lane_drawer.current_lane_points) > 1:
+                            self.lane_drawer.lane_end_points.append(self.lane_drawer.current_lane_points[-1])
+                            lane_multipoly = create_subsection_polygons(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths,0.5)
+                            self.lane_drawer.lane_subsections_poly.append(lane_multipoly)
+                            lane_vertices = []
+                            for poly in lane_multipoly:
+                                lane_vertices.append(list(poly.exterior.coords))
+                            self.lane_drawer.lane_points.append(lane_vertices)
+                            self.lane_drawer.start_drawing_lanes = False
+                            self.lane_drawer.current_lane_connection = None
+                            self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
+                            self.lane_drawer.current_lane_widths = []
+                            self.lane_drawer.save()
+                            self.lane_drawer.update_lane_gdf()   
 
                 if self.lane_drawer.start_drawing_lanes and event.type == pygame.MOUSEMOTION and self.lane_drawer.current_lane_points:
-                    mouse_pos = event.pos
-                    mouse_pos = self.convert_coordinates(mouse_pos[0],mouse_pos[1])
-                    world_x = (mouse_pos[0] - self.offset[0]) / self.zoom
-                    world_y = (mouse_pos[1] - self.offset[1]) / self.zoom
-                    self.lane_drawer.current_lane_connection = (self.lane_drawer.current_lane_points[-1],(world_x, world_y))
+                    mouse_pos = np.array([event.pos])
+                    world_pos = screen_to_world(mouse_pos,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                    self.lane_drawer.current_lane_connection = (self.lane_drawer.current_lane_points[-1],(world_pos[0][0],world_pos[0][1]))
 
                             
-    def draw_manual_elements(self,point_data,point_label):
+    def draw_manual_elements(self,data_raw,point_label):
         """
         Current Drawing Sessions
         """
         if self.lane_drawer.start_drawing_lanes and self.lane_drawer.current_lane_connection is not None:
-            
+            # world coord
             his_cur_centerline = self.lane_drawer.current_lane_points + [self.lane_drawer.current_lane_connection[1]]
             his_cur_width = self.lane_drawer.current_lane_widths + [self.lane_drawer.lane_width]
-            his_poly = create_bufferzone_vertex(his_cur_centerline,his_cur_width)
-            his_poly = adjust_for_zoom_and_offset(his_poly,self.zoom,self.offset)
-            his_poly_converted = []
-            for x,y in his_poly:
-                his_poly_converted.append(self.convert_coordinates(x,y))
-            pygame.draw.polygon(self.screen, (0, 255, 0), his_poly_converted)
+            his_cur_poly = create_bufferzone_vertex(his_cur_centerline,his_cur_width)
+            his_cur_poly = world_to_screen(np.array(his_cur_poly),self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+            his_cur_poly = [(x,y) for x,y in his_cur_poly]
+            pygame.draw.polygon(self.screen, (0, 255, 0), his_cur_poly)
 
         if self.bar_drawer.start_drawing_lines and self.bar_drawer.current_line_connection is not None:
             
             start_x, start_y = self.bar_drawer.current_line_connection[0]
             end_x, end_y = self.bar_drawer.current_line_connection[1]
-            adjusted_start_x = (start_x * self.zoom) + self.offset[0]
-            adjusted_start_y = (start_y * self.zoom) + self.offset[1]
-            adjusted_end_x = (end_x * self.zoom) + self.offset[0]
-            adjusted_end_y = (end_y * self.zoom) + self.offset[1]
-            adjusted_start_x,adjusted_start_y = self.convert_coordinates(adjusted_start_x,adjusted_start_y)
-            adjusted_end_x,adjusted_end_y = self.convert_coordinates(adjusted_end_x,adjusted_end_y)
-            pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
+            cur_bar = np.array([(start_x, start_y),(end_x, end_y)])
+            cur_bar = world_to_screen(cur_bar,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+            pygame.draw.line(self.screen, (122, 128, 214), (cur_bar[0][0], cur_bar[0][1]), (cur_bar[1][0], cur_bar[1][1]), 5)
         
         """
         Historical Drawing Sessions
@@ -299,19 +304,14 @@ class LidarVisualizer:
             count = self.bar_drawer.line_counts[i]
             start_x, start_y = line[0]
             end_x, end_y = line[1]
-            
-            adjusted_start_x = (start_x * self.zoom) + self.offset[0]
-            adjusted_start_y = (start_y * self.zoom) + self.offset[1]
-            adjusted_end_x = (end_x * self.zoom) + self.offset[0]
-            adjusted_end_y = (end_y * self.zoom) + self.offset[1]
-            adjusted_start_x,adjusted_start_y = self.convert_coordinates(adjusted_start_x,adjusted_start_y)
-            adjusted_end_x,adjusted_end_y = self.convert_coordinates(adjusted_end_x,adjusted_end_y)
+            cur_bar = np.array([(start_x, start_y),(end_x, end_y)])
             # Draw the line
-            pygame.draw.line(self.screen, (122, 128, 214), (adjusted_start_x, adjusted_start_y), (adjusted_end_x, adjusted_end_y), 5)
-            
+            cur_bar = world_to_screen(cur_bar,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+
+            pygame.draw.line(self.screen, (122, 128, 214), (cur_bar[0][0], cur_bar[0][1]), (cur_bar[1][0], cur_bar[1][1]), 5)
             # Calculate midpoint for the count text, adjusted for zoom and offset
-            mid_point_x = ((adjusted_start_x + adjusted_end_x) / 2)
-            mid_point_y = ((adjusted_start_y + adjusted_end_y) / 2)
+            mid_point_x = ((cur_bar[0][0] + cur_bar[1][0]) / 2)
+            mid_point_y = ((cur_bar[0][1] + cur_bar[1][1]) / 2)
             # Render the count text
             count_surf = self.object_label_font.render(f'id{i}:{count}', True, (200, 128, 20))
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
@@ -320,51 +320,44 @@ class LidarVisualizer:
             if self.switch_queue_monitoring_mode.state:
                 lane_section_foreground_point_counts = get_lane_section_foreground_point_counts(self.lane_drawer.lane_subsections_poly,
                                                                                                 self.lane_drawer.lane_gdf,
-                                                                                                point_data,point_label)
+                                                                                                data_raw,point_label)
                 self.lane_drawer.lane_section_foreground_point_counts = lane_section_foreground_point_counts
 
             for i,lane_poly_points in enumerate(self.lane_drawer.lane_points):
                 for j,seg_poly_points in enumerate(lane_poly_points):
-                    poly = adjust_for_zoom_and_offset(seg_poly_points,self.zoom,self.offset)
-                    poly_converted = []
-                    for x,y in poly:
-                        poly_converted.append(self.convert_coordinates(x,y))
+                    seg_poly_points = world_to_screen(np.array(seg_poly_points),self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                    seg_poly_points = [(x,y) for x,y in seg_poly_points]
                     color = (0, 255, 0)
                     if self.switch_queue_monitoring_mode.state:
                         if self.lane_drawer.lane_section_foreground_point_counts[i][j] > 10:
                             color = (255, 0, 0) # red
-                    pygame.draw.polygon(self.screen, color, poly_converted)
+                    pygame.draw.polygon(self.screen, color, seg_poly_points)
 
                 label_surface = self.object_label_font.render(f'Lane {i}', False, (255,65,212))
-                x,y = self.lane_drawer.lane_end_points[i]
-                label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
-                label_pos_x,label_pos_y = self.convert_coordinates(label_pos[0],label_pos[1])
-                self.screen.blit(label_surface,(label_pos_x,label_pos_y))
+                lane_end_point = np.array([self.lane_drawer.lane_end_points[i]])
+                lane_end_point = world_to_screen(lane_end_point,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
+                self.screen.blit(label_surface,(lane_end_point[0][0],lane_end_point[0][1]))
             
 
     def draw(self, data_raw, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
-        # data = (data.T * self.zoom + self.offset[:, None]).T # nx2 
-        data = adjust_for_zoom_and_offset_numpy(data_raw,self.zoom,self.offset)
-
+        # data_raw: nx2 world coord
+        data_raw_screen = world_to_screen(data_raw,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
         if self.switch_foreground_mode.state:
-            for coord,l in zip(data,point_label):
+            for coord,l in zip(data_raw_screen,point_label):
                 x,y = coord
-                # x,y = self.convert_coordinates(x,y)
-                x,y = self.convert_coordinates(x,y)
                 pygame.draw.circle(self.screen, tuple(color_map[l]), (x, y), 2)
 
         elif self.switch_bck_recording_mode.state:
-            for x, y in data:
-                x,y = self.convert_coordinates(x,y)
+            for x, y in data_raw_screen:
                 pygame.draw.circle(self.screen, (255,255,255), (x, y), 2)
         else:
             if self.if_background_need_update and self.thred_map is not None:
                 self.background_surface.fill((0,0,0))
-                static_bck_points_adjusted = adjust_for_zoom_and_offset_numpy(self.static_bck_points,self.zoom,self.offset)
-                for point in static_bck_points_adjusted:
+                static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom,self.offset,self.rotation_angle,self.screen.get_height()) 
+
+                for point in static_bck_points_screen:
                     x,y = point
-                    x,y = self.convert_coordinates(x,y)
                     pygame.draw.circle(self.background_surface, (255,255,255), (x, y), 2)
                 self.if_background_need_update = False
             self.screen.blit(self.background_surface, (0, 0))
@@ -372,32 +365,33 @@ class LidarVisualizer:
             
             if self.switch_tracking_mode.state:
                 # point_label is correspondance to the obj_id
-                data = data[point_label != -1]
+                data_raw_screen = data_raw_screen[point_label != -1]
                 point_label = point_label[point_label != -1]
                 for obj_id in tracking_dic.keys():
                     color_vec = color_map[obj_id%len(color_map)]
                     if self.if_objid:
-                        cur_traj = tracking_dic[obj_id].mea_seq[-1] # -1 happens here sometimes
+                        cur_traj = tracking_dic[obj_id].mea_seq[-1] # -1 happens here sometimes, world coord
                         if cur_traj is not None:
                             label_surface = self.object_label_font.render(str(obj_id), False, (255,65,212))
-                            x,y = (cur_traj[0][0][0] + cur_traj[1][0][0])/2 , (cur_traj[0][1][0] + cur_traj[1][1][0])/2
-                            label_pos = (x * self.zoom + self.offset[0],y * self.zoom + self.offset[1])
+                            coord_mea = np.array([[(cur_traj[0][0][0] + cur_traj[1][0][0])/2,
+                                       (cur_traj[0][1][0] + cur_traj[1][1][0])/2]])
+                            coord_mea = world_to_screen(coord_mea)
+                            label_pos = (coord_mea[0][0],coord_mea[0][1])
                             self.screen.blit(label_surface,label_pos)
 
-                    for coord in data[point_label == obj_id]:
+                    for coord in data_raw_screen[point_label == obj_id]:
                         x,y = coord
-                        x,y = self.convert_coordinates(x,y)
                         pygame.draw.circle(self.screen, color_vec, (x, y), 2)
 
                     his_coords = tracking_dic[obj_id].mea_seq[-10:]
+                    
                     for coord in his_coords:
                         if coord is not None:
-                            x = (coord[0][0][0] + coord[1][0][0]) / 2
-                            y = (coord[0][1][0] + coord[1][1][0]) / 2
-                            x = x * self.zoom +  self.offset[0]
-                            y = y * self.zoom +  self.offset[1]
-                            x,y = self.convert_coordinates(x,y)
-                            pygame.draw.circle(self.screen, tuple(color_vec), (x, y), 4)
+                            coord_mea = np.array([[(coord[0][0][0] + coord[1][0][0])/2,
+                                       (coord[0][1][0] + coord[1][1][0])/2]])
+                            coord_mea = world_to_screen(coord_mea)
+                            coord_mea = (coord_mea[0][0],coord_mea[0][1])
+                            pygame.draw.circle(self.screen, tuple(color_vec), coord_mea, 4)
 
                     if len(tracking_dic[obj_id].post_seq) > 1:
                         prev_pos = tracking_dic[obj_id].post_seq[-2][0].flatten()[:2]
@@ -408,11 +402,10 @@ class LidarVisualizer:
                                 break
             else:
                 
-                for coord,l in zip(data,point_label):
+                for coord,l in zip(data_raw_screen,point_label):
                     if l == 0:
                         continue
                     x,y = coord
-                    x,y = self.convert_coordinates(x,y)
                     pygame.draw.circle(self.screen, tuple(color_map[1]), (x, y), 2)
 
         for item in self.events_handle_items:
@@ -501,7 +494,7 @@ class LidarVisualizer:
             # Start the background generation process
             self.background_data_process = Process(target=generate_and_save_background, args=(self.background_data,))
             self.background_data_process.start()
-            self.thred_map = np.load(r'./thred_map.npy')
+            self.thred_map = np.load(self.thred_map_path)
             print("Started background generation process.")
         else:
             print("No background data to process.")
@@ -520,7 +513,7 @@ class LidarVisualizer:
     def update_background(self):
         # Check if the background process has finished and thred_map is not loaded yet
         if self.background_data_process and not self.background_data_process.is_alive() and not self.thred_map_loaded:
-            self.thred_map = np.load(r'./thred_map.npy')
+            self.thred_map = np.load(self.thred_map_path)
             self.thred_map_loaded = True
             print("thred_map.npy loaded")
             self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
@@ -584,6 +577,8 @@ class LidarVisualizer:
             print('Tracking Terminated...')
 
         pygame.quit()
+
+
 
 def main(mode = 'online',pcap_file_path = None):
     # pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'

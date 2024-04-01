@@ -19,8 +19,6 @@ class LaneDrawer:
     def __init__(self):
         self.current_lane_points = []  # List of points defining the current lane centerline
         self.current_lane_widths = []
-        # self.lane_laser_indecies = [] # A list: n x k: each element records the laser id
-        # self.lane_occupation_indicators = [] # n x k: True -> Occupied by vehicle False -> Nothing
         self.lane_section_foreground_point_counts = []
         self.lane_points = []  # n x k x poly points
         self.lane_widths = [] # n x k - 1 
@@ -31,13 +29,16 @@ class LaneDrawer:
         self.start_drawing_lanes = False # start a drawing session
         self.current_lane_connection = None
         self.lane_gdf = None # for counting foreground points in polys
+
+        self.lane_dic_path = r'./config_files/lane_dic.pkl'
+        self.lane_width_dic_path = r'./config_files/lane_width_dic.pkl'
+        self.lane_poly_path = r'./config_files/lane_poly.pkl'
+        self.lane_end_points_path = r'./config_files/lane_end_points.pkl'
         self.read_lanes()
 
     def remove_last_record(self):
         if self.lane_section_foreground_point_counts:
             self.lane_section_foreground_point_counts.pop()
-        # if self.lane_occupation_indicators:
-        #     self.lane_occupation_indicators.pop()
         if self.lane_points:
             self.lane_points.pop()
         if self.lane_widths:
@@ -49,18 +50,19 @@ class LaneDrawer:
         self.save()
         
     def read_lanes(self):
-        if os.path.exists('./lane_dic.pkl') and os.path.exists('./lane_width_dic.pkl') and os.path.exists('./lane_poly.pkl') and os.path.exists('./lane_end_points.pkl'):
-            with open("./lane_dic.pkl", "rb") as f:
+        
+        if os.path.exists(self.lane_dic_path) and os.path.exists(self.lane_width_dic_path) and os.path.exists(self.lane_poly_path) and os.path.exists(self.lane_end_points_path):
+            with open(self.lane_dic_path, "rb") as f:
                 lane_dic = pickle.load(f)
                 for key in lane_dic.keys():
                     self.lane_points.append(lane_dic[key])
-            with open("./lane_width_dic.pkl", "rb") as f:
+            with open(self.lane_width_dic_path, "rb") as f:
                 lane_widths = pickle.load(f)
                 for key in lane_widths.keys():
                     self.lane_widths.append(lane_widths[key])
-            with open('./lane_poly.pkl', 'rb') as f:
+            with open(self.lane_poly_path, 'rb') as f:
                 self.lane_subsections_poly = pickle.load(f)
-            with open('./lane_end_points.pkl', 'rb') as f:
+            with open(self.lane_end_points_path, 'rb') as f:
                 self.lane_end_points = pickle.load(f)
 
     def save(self):
@@ -71,13 +73,13 @@ class LaneDrawer:
             lane_dic[i] = lane_points
         for i,width_series in enumerate(self.lane_widths):
             lane_width_dic[i] = width_series
-        with open('./lane_dic.pkl', "wb") as f:
+        with open(self.lane_dic_path, "wb") as f:
             pickle.dump(lane_dic, f)
-        with open('./lane_width_dic.pkl', "wb") as f:
+        with open(self.lnae_width_dic_path, "wb") as f:
             pickle.dump(lane_width_dic, f)
-        with open('./lane_poly.pkl', 'wb') as f:
+        with open(self.lane_poly_path, 'wb') as f:
             pickle.dump(self.lane_subsections_poly, f, pickle.HIGHEST_PROTOCOL)
-        with open('./lane_end_points.pkl', 'wb') as f:
+        with open(self.lane_end_points_path, 'wb') as f:
             pickle.dump(self.lane_end_points, f, pickle.HIGHEST_PROTOCOL)
             
     def update_lane_gdf(self):
@@ -105,11 +107,13 @@ class BarDrawer:
         self.drawing_lines = False # mode on
         self.start_drawing_lines = False # currently in a line drawing session
         self.current_line_connection = None
+        self.bar_path = r'./config_files/bars.txt'
         self.read_bars()
+        
 
     def read_bars(self):
-        if os.path.exists('./bars.txt'):
-            with open('./bars.txt', 'r') as f:
+        if os.path.exists(self.bar_path):
+            with open(self.bar_path, 'r') as f:
                 lines = f.readlines()
                 for line in lines:
                     x1,y1,x2,y2 = line.split(' ')
@@ -117,7 +121,7 @@ class BarDrawer:
                     self.line_counts.append(0)
         
     def save(self):
-        with open('./bars.txt','w') as f:
+        with open(self.bar_path,'w') as f:
             for line in self.lines:
                 x1,y1 = line[0]
                 x2,y2 = line[1]
@@ -263,16 +267,6 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
         return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
     return ccw(seg1_start, seg2_start, seg2_end) != ccw(seg1_end, seg2_start, seg2_end) and ccw(seg1_start, seg1_end, seg2_start) != ccw(seg1_start, seg1_end, seg2_end)
 
-def adjust_for_zoom_and_offset(points, zoom, offset):
-    adjusted_points = []
-    for point in points:
-        adjusted_x = (point[0] * zoom) + offset[0]
-        adjusted_y = (point[1] * zoom) + offset[1]
-        adjusted_points.append((adjusted_x, adjusted_y))
-    return adjusted_points
-
-def adjust_for_zoom_and_offset_numpy(points, zoom, offset):
-    return points * zoom + offset
 
 def create_bufferzone_vertex(centerline,width): # n, n -1
     segment_buffers = []
@@ -285,7 +279,7 @@ def create_bufferzone_vertex(centerline,width): # n, n -1
     # Merge all segment buffers into a single polygon
     merged_buffer = unary_union(segment_buffers)
     exterior = list(merged_buffer.exterior.coords)
-    return exterior
+    return exterior # list([])
 
 def calculate_segment_lengths_and_cumulative_lengths(centerline):
     lengths = []
@@ -365,3 +359,73 @@ def get_lane_section_foreground_point_counts(lane_subsections_poly,lane_gdf,poin
         lane_section_foreground_point_counts.append(section_counts)
 
     return lane_section_foreground_point_counts
+
+
+def convert_coordinates_numpy(screen_height, point):
+        """Converts y-coordinate to simulate origin at bottom-left."""
+        return point[:,0], screen_height  - y
+
+
+def rotate_points_around_center_numpy(points, angle_degrees, center):
+    """Rotates an array of points around a given center."""
+    angle_radians = np.radians(angle_degrees)
+
+    # Translate points to origin (center of rotation)
+    translated_points = points - center
+
+    # Rotation matrix
+    cos_angle = np.cos(angle_radians)
+    sin_angle = np.sin(angle_radians)
+    rotation_matrix = np.array([[cos_angle, -sin_angle], [sin_angle, cos_angle]])
+
+    # Apply rotation
+    rotated_translated_points = np.dot(translated_points, rotation_matrix)
+
+    # Translate points back
+    rotated_points = rotated_translated_points + center
+
+    return rotated_points
+
+def screen_to_world(coords, zoom, offset, rotation_angle, screen_height):
+    # Flip y-axis
+    coords[:, 1] = screen_height - coords[:, 1]
+    
+    # Reverse offset
+    coords -= offset
+    
+    # Reverse zoom
+    coords /= zoom
+    
+    # Reverse rotation around the world origin (0, 0)
+    angle_radians = np.radians(-rotation_angle)
+    rotation_matrix = np.array([
+        [np.cos(angle_radians), -np.sin(angle_radians)],
+        [np.sin(angle_radians), np.cos(angle_radians)]
+    ])
+    coords = np.dot(coords, rotation_matrix)
+    
+    return coords
+
+
+def world_to_screen(coords, zoom, offset, rotation_angle, screen_height):
+    # Apply rotation around the world origin (0, 0)
+    angle_radians = np.radians(rotation_angle)
+    rotation_matrix = np.array([
+        [np.cos(angle_radians), -np.sin(angle_radians)],
+        [np.sin(angle_radians), np.cos(angle_radians)]
+    ])
+    coords = np.dot(coords, rotation_matrix)
+    
+    # Apply zoom
+    coords *= zoom
+    
+    # Apply offset
+    coords += offset
+    
+    # Flip y-axis
+    coords[:, 1] = screen_height - coords[:, 1]
+    
+    return coords
+# Example usage for rotating all points in the scene
+# pivot = np.array([screen.get_width() / 2, screen.get_height() / 2])  # Rotate around screen center
+# rotated_points = rotate_points(np.array(your_points), rotation_angle, pivot)
