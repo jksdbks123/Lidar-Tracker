@@ -34,6 +34,7 @@ class LaneDrawer:
         self.lane_width_dic_path = r'./config_files/lane_width_dic.pkl'
         self.lane_poly_path = r'./config_files/lane_poly.pkl'
         self.lane_end_points_path = r'./config_files/lane_end_points.pkl'
+        # self.lnae_width_dic_path = r'./config_files/' 
         self.read_lanes()
 
     def remove_last_record(self):
@@ -75,7 +76,7 @@ class LaneDrawer:
             lane_width_dic[i] = width_series
         with open(self.lane_dic_path, "wb") as f:
             pickle.dump(lane_dic, f)
-        with open(self.lnae_width_dic_path, "wb") as f:
+        with open(self.lane_width_dic_path, "wb") as f:
             pickle.dump(lane_width_dic, f)
         with open(self.lane_poly_path, 'wb') as f:
             pickle.dump(self.lane_subsections_poly, f, pickle.HIGHEST_PROTOCOL)
@@ -388,6 +389,7 @@ def rotate_points_around_center_numpy(points, angle_degrees, center):
 
 def screen_to_world(coords, zoom, offset, rotation_angle, screen_height):
     # Flip y-axis
+    coords = coords.astype(float)
     coords[:, 1] = screen_height - coords[:, 1]
     
     # Reverse offset
@@ -409,6 +411,7 @@ def screen_to_world(coords, zoom, offset, rotation_angle, screen_height):
 
 def world_to_screen(coords, zoom, offset, rotation_angle, screen_height):
     # Apply rotation around the world origin (0, 0)
+    coords = coords.astype(float)
     angle_radians = np.radians(rotation_angle)
     rotation_matrix = np.array([
         [np.cos(angle_radians), -np.sin(angle_radians)],
