@@ -38,6 +38,7 @@ class LaneDrawer:
         self.read_lanes()
 
     def remove_last_record(self):
+        
         if self.lane_section_foreground_point_counts:
             self.lane_section_foreground_point_counts.pop()
         if self.lane_points:
