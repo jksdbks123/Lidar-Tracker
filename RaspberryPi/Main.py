@@ -362,7 +362,7 @@ class LidarVisualizer:
                     seg_poly_points = [(x,y) for x,y in seg_poly_points]
                     color = (0, 255, 0)
                     if self.switch_queue_monitoring_mode.state:
-                        if self.lane_drawer.lane_section_foreground_point_counts[i][j] > 4:
+                        if self.lane_drawer.lane_section_foreground_point_counts[i][j] > 3:
                             color = (255, 0, 0) # red
                     pygame.draw.polygon(self.screen, color, seg_poly_points)
 
