@@ -36,7 +36,7 @@ def get_merged_activation(activation_start,activation_end,lane_activation):
     lane_activation = lane_activation.copy()
     activation_start,activation_end = find_concecutive_activation(lane_activation)
     for i in range(1,len(activation_end)):
-        if activation_start[i] - activation_end[i-1] < 6:
+        if activation_start[i] - activation_end[i-1] < 10:
             lane_activation[activation_end[i-1]:activation_start[i]] = True
     return lane_activation
 
