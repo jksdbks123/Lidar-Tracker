@@ -43,6 +43,10 @@ def main(pcap_file_path,lane_drawer,out_path):
     td_gen = parse_packets(packets_gen)
     print('Loading Tdmaps')
     for Td_map in tqdm(td_gen):
+        if type(Td_map) != np.ndarray:
+            continue
+        if Td_map.shape != (32,1800):
+            continue
         Td_maps.append(Td_map)
 
     
