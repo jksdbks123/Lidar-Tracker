@@ -32,6 +32,9 @@ def main(pcap_file_path,lane_drawer,out_path):
     fig_folder = os.path.join(out_folder,'figures')
     if not os.path.exists(fig_folder):
         os.makedirs(fig_folder)
+    bck_folder = os.path.join(out_folder,'bck_maps')
+    if not os.path.exists(bck_folder):
+        os.makedirs(bck_folder)
     print(out_folder,fig_folder)
     Td_maps = []
     packets_gen = read_packets_offline(pcap_file_path)
@@ -51,18 +54,23 @@ def main(pcap_file_path,lane_drawer,out_path):
 
     
     background_data = np.array(Td_maps)
-    print('Generating Background')
-    thred_map = gen_bckmap(np.array(background_data), N = 10,d_thred = 0.1,bck_n = 3)
-    # save thred_map as .npy file in out_folder
-    np.save(os.path.join(out_folder,'thred_map.npy'),thred_map)
-    
+    bck_maps = []
+    # at each 1000 frames, generate a new background
+    for i in range(0,len(background_data),1000):
+        thred_map = gen_bckmap(background_data[i:i+1000], N = 10,d_thred = 0.1,bck_n = 3)
+        bck_maps.append(thred_map)
+        np.save(os.path.join(bck_folder,f'thred_map_{i}.npy'),thred_map)
 
     time_space_series = [] # t x laen# x lane_section#
     
-    for Td_map in tqdm(Td_maps):
+    for i,Td_map in tqdm(enumerate(Td_maps)):
         
+        thred_map = bck_maps[i//1000]
         data_raw,point_labels,tracking_dic = get_foreground_point_cloud(thred_map,bck_radius,
                                                                                 Td_map,vertical_limits)
+        if (point_labels == 1).sum() == 0:
+            data_raw,point_labels = np.zeros((1,2)),np.ones(1)
+
         lane_section_foreground_point_counts = get_lane_section_foreground_point_counts(lane_drawer.lane_subsections_poly,
                                                                                     lane_drawer.lane_gdf,
                                                                                     data_raw,point_labels)

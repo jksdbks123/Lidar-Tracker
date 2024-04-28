@@ -30,7 +30,7 @@ def get_thred(temp,N = 10,d_thred = 0.1,bck_n = 3):
 
 def gen_bckmap(aggregated_maps, N, d_thred, bck_n):
     thred_map = np.zeros((bck_n,32,1800))
-    for i in tqdm(range(thred_map.shape[1])):
+    for i in range(thred_map.shape[1]):
         for j in range(thred_map.shape[2]):
             thred_map[:,i,j] = get_thred(aggregated_maps[:,i,j],N = N,d_thred = d_thred,bck_n = bck_n)
     return thred_map
