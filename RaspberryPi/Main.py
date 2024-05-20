@@ -308,7 +308,7 @@ class LidarVisualizer:
                     self.lane_drawer.current_lane_connection = (self.lane_drawer.current_lane_points[-1],(world_pos[0][0],world_pos[0][1]))
 
                             
-    def draw_manual_elements(self,data_raw,point_label):
+    def draw_manual_elements(self,data_raw,point_label,Td_map):
         """
         Current Drawing Sessions
         """
@@ -351,10 +351,18 @@ class LidarVisualizer:
         
         if self.lane_drawer.lane_points:
             if self.switch_queue_monitoring_mode.state:
-                lane_section_foreground_point_counts = get_lane_section_foreground_point_counts(self.lane_drawer.lane_subsections_poly,
-                                                                                                self.lane_drawer.lane_gdf,
-                                                                                                data_raw,point_label)
-                self.lane_drawer.lane_section_foreground_point_counts = lane_section_foreground_point_counts
+                # lane_section_foreground_point_counts = get_lane_section_foreground_point_counts(self.lane_drawer.lane_subsections_poly,
+                #                                                                                 self.lane_drawer.lane_gdf,
+                #                                                                                 data_raw,point_label)
+                
+                lane_occupation_ind = get_occupation_ind(Td_map,self.lane_drawer.lane_unit_range_ranging_Tdmap,7,0.3,self.thred_map)
+                # fit i_lane x j_section 
+                self.lane_drawer.lane_gdf['occupation_ind'] = lane_occupation_ind
+                lane_occupation_ind_ = []
+                for lane_id,g in self.lane_drawer.lane_gdf.groupby('lane_id'):
+                    lane_occupation_ind_.append(g.occupation_ind.to_list())
+                
+                # self.lane_drawer.lane_section_foreground_point_counts = lane_section_foreground_point_counts
 
             for i,lane_poly_points in enumerate(self.lane_drawer.lane_points):
                 for j,seg_poly_points in enumerate(lane_poly_points):
@@ -362,7 +370,7 @@ class LidarVisualizer:
                     seg_poly_points = [(x,y) for x,y in seg_poly_points]
                     color = (0, 255, 0)
                     if self.switch_queue_monitoring_mode.state:
-                        if self.lane_drawer.lane_section_foreground_point_counts[i][j] > 3:
+                        if lane_occupation_ind_[i][j]:
                             color = (255, 0, 0) # red
                     pygame.draw.polygon(self.screen, color, seg_poly_points)
 
@@ -372,7 +380,7 @@ class LidarVisualizer:
                 self.screen.blit(label_surface,(lane_end_point[0][0],lane_end_point[0][1]))
             
 
-    def draw(self, data_raw, point_label = None, tracking_dic = None):
+    def draw(self, Td_map, data_raw, point_label = None, tracking_dic = None):
         self.screen.fill((0, 0, 0))
         # data_raw: nx2 world coord
         data_raw_screen = world_to_screen(data_raw,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
@@ -413,7 +421,7 @@ class LidarVisualizer:
             self.screen.blit(self.background_surface, (0, 0))
             # self.screen.blit(self.background_image_surface, self.bg_rect)            
             
-            self.draw_manual_elements(data_raw,point_label)
+            self.draw_manual_elements(data_raw,point_label,Td_map)
             
             if self.switch_tracking_mode.state:
                 # point_label is correspondance to the obj_id
@@ -617,7 +625,7 @@ class LidarVisualizer:
             self.update_background() # This is for update background map itself
             time_a = time.time()
             self.screen.fill((0, 0, 0))
-            self.draw(point_cloud_data,point_labels,tracking_dic)
+            self.draw(Td_map,point_cloud_data,point_labels,tracking_dic)
             self.frame_process_time_info.update_text(f'resq:{self.tracking_result_queue.qsize()},pcq:{self.point_cloud_queue.qsize()},render:{(time.time() - time_a)*1000:.1f}ms,tracking:{time_cums * 1000:.1f}')
             
                 
@@ -691,7 +699,7 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
+    pcap_file_path = r'../../../Data/9thVir/2024-03-14-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode,pcap_file_path = pcap_file_path)
     # mode = 'online'

@@ -13,7 +13,7 @@ import pickle
 from shapely.geometry import LineString,Point
 from shapely.ops import unary_union
 import geopandas as gpd
-
+# from LiDARBase import theta
 
 class LaneDrawer:
     def __init__(self):
@@ -87,6 +87,7 @@ class LaneDrawer:
     def update_lane_gdf(self):
         if self.lane_subsections_poly:
             self.lane_gdf = get_lane_gdf(self.lane_subsections_poly)
+            self.lane_unit_range_ranging_Tdmap = get_lane_unit_range_ranging_Tdmap(self.lane_gdf)
             print('Lane zone updated')
 
     def clear(self):
@@ -337,6 +338,63 @@ def get_lane_gdf(lane_subsections_poly):
     # Create a GeoDataFrame for lane polygons with identifiers
     lane_gdf = gpd.GeoDataFrame(lane_polygons_with_id)
     return lane_gdf
+
+def get_lane_unit_range_ranging_Tdmap(lane_gdf):
+    # create lane_unit_range_ranging_Tdmap
+    lane_unit_range_ranging_Tdmap = []
+
+    for unit_ind in range(len(lane_gdf)):
+        lane_unit = lane_gdf.iloc[unit_ind]
+        x_coords,y_coords = lane_unit.geometry.exterior.coords.xy
+        coords = np.c_[x_coords,y_coords]
+        
+        azimuth_unit = np.arctan2(coords[:,0],coords[:,1]) * 180 / np.pi
+        azimuth_unit[azimuth_unit < 0] += 360
+        min_azimuth = np.min(azimuth_unit)
+        max_azimuth = np.max(azimuth_unit)
+        min_ind = int(min_azimuth / 0.2)
+        max_ind = int(max_azimuth / 0.2)
+
+        dis = np.sum(coords**2,axis = 1)**0.5
+        min_dis = np.min(dis)
+        max_dis = np.max(dis)
+        lane_unit_range_ranging_Tdmap.append([min_ind,max_ind,min_dis,max_dis])
+
+    return lane_unit_range_ranging_Tdmap
+
+Data_order = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
+                            [-11.31,1.4],[0,-1.4],[-0.667,4.2],[-8.843,-1.4],
+                            [-7.254,1.4],[0.333,-4.2],[-0.333,1.4],[-6.148,-1.4],
+                            [-5.333,4.2],[1.333,-1.4],[0.667,4.2],[-4,-1.4],
+                            [-4.667,1.4],[1.667,-4.2],[1,1.4],[-3.667,-4.2],
+                            [-3.333,4.2],[3.333,-1.4],[2.333,1.4],[-2.667,-1.4],
+                            [-3,1.4],[7,-1.4],[4.667,1.4],[-2.333,-4.2],
+                            [-2,4.2],[15,-1.4],[10.333,1.4],[-1.333,-1.4]
+                            ])
+laser_id = np.full((32,12),np.arange(32).reshape(-1,1).astype('int'))
+omega = Data_order[:,0]
+theta = np.sort(omega)
+
+def get_occupation_ind(Td_map,lane_unit_range_ranging_Tdmap,count_thred,bck_radius,thred_map):
+    Foreground_map = ~(np.abs(Td_map - thred_map) <= bck_radius).any(axis = 0)
+    Foreground_map = Foreground_map.astype(int)
+    Td_map_cos = np.cos(theta * np.pi/180).reshape(-1,1) * Td_map
+    occupation_ind = []
+    for min_ind,max_ind,min_dis,max_dis in lane_unit_range_ranging_Tdmap:
+        if max_ind - min_ind > Td_map.shape[1]/2:
+            occupation_map = np.concatenate([Foreground_map[:,:min_ind],Foreground_map[:,max_ind:]],axis = 1)
+            dis_map = np.concatenate([Td_map_cos[:,:min_ind],Td_map_cos[:,max_ind:]],axis = 1)
+        else:
+            occupation_map = Foreground_map[:,min_ind:max_ind]
+            dis_map = Td_map_cos[:,min_ind:max_ind]
+        
+        dis_map_ = dis_map * occupation_map
+        occupation_flag = ((dis_map_ < max_dis) * (dis_map_ > min_dis)).sum() > count_thred
+        occupation_ind.append(occupation_flag)
+    occupation_ind = np.array(occupation_ind)
+
+
+    return occupation_ind
 
 
 def get_lane_section_foreground_point_counts(lane_subsections_poly,lane_gdf,point_data,point_label):
