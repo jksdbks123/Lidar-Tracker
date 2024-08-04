@@ -3,7 +3,7 @@ from sklearn.cluster._dbscan_inner import dbscan_inner
 from numpy.lib.stride_tricks import sliding_window_view
 
 class Raster_DBSCAN():
-    def __init__(self,Td_map_szie,window_size,eps,min_samples):
+    def __init__(self,window_size,eps,min_samples,Td_map_szie):
         """
         This method applys the vectorization calculation, 
         where the TD map is chunked as multiple parts and corresponding neighbors in each center of chunk are counted and recorded.
@@ -15,9 +15,8 @@ class Raster_DBSCAN():
         Step.2 -> Neigborhoods calculation
         Step.3 -> dbscan_inner()
         """
-        
-        self.Td_map_size = Td_map_szie
         self.window_size = window_size #(height,width)
+        self.Td_map_size = Td_map_szie
         self.eps = eps
         self.min_samples = min_samples
         self.Height_fringe = int(self.window_size[0]/2) 
@@ -39,19 +38,20 @@ class Raster_DBSCAN():
 
         rows,cols = np.where(Foreground_map)
         indices = np.arange(len(rows),dtype = np.int64)
-        self.Index_map = -1*np.ones(shape = Foreground_map.shape,dtype=np.int64)
+        self.Index_map = -1 * np.ones(shape = Foreground_map.shape,dtype=np.int64)
         self.Index_map[rows,cols] = indices # A map with the index of foreground point 
         
-        # Horizontal padding 
-        Foreground_map_offset = np.concatenate([self.Foreground_map[:,-self.Width_fringe:],
+        # Horizontal padding
+        
+        Foreground_map_offset = np.concatenate([np.full((self.Foreground_map.shape[0],self.Width_fringe),False),
                                                 self.Foreground_map,
-                                                self.Foreground_map[:,:self.Width_fringe]],axis = 1)
-        Index_map_offset = np.concatenate([self.Index_map[:,-self.Width_fringe:],
+                                                np.full((self.Foreground_map.shape[0],self.Width_fringe),False)],axis = 1)
+        Index_map_offset = np.concatenate([np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int64),
                                         self.Index_map,
-                                        self.Index_map[:,:self.Width_fringe]],axis = 1)
-        Td_map_offset = np.concatenate([self.Td_map[:,-self.Width_fringe:],
+                                        np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int64)],axis = 1)
+        Td_map_offset = np.concatenate([np.full((self.Td_map.shape[0],self.Width_fringe),200),
                                         self.Td_map,
-                                        self.Td_map[:,:self.Width_fringe]],axis = 1)
+                                        np.full((self.Td_map.shape[0],self.Width_fringe),200)],axis = 1)
 
         # Vertical padding 
         Foreground_map_offset = np.concatenate([self.Height_fringe_offset_fore,
@@ -67,6 +67,7 @@ class Raster_DBSCAN():
         Sub_indmap = sliding_window_view(Index_map_offset,self.window_size).reshape(-1,self.window_size[0],self.window_size[1])
         Sub_tdmap = sliding_window_view(Td_map_offset,self.window_size).reshape(-1,self.window_size[0],self.window_size[1])
         Sub_foremap = sliding_window_view(Foreground_map_offset,self.window_size).reshape(-1,self.window_size[0],self.window_size[1])
+
         # Window inds that are valid as Foregound, and only 
         # self.Sub_foremap,self.Sub_indmap,self.Sub_tdmap = Sub_foremap,Sub_indmap,Sub_tdmap
         valid_windows = Sub_foremap[:,self.Height_fringe ,self.Width_fringe] 
@@ -85,11 +86,10 @@ class Raster_DBSCAN():
             dbscan_inner(core_samples, neighborhoods, Labels)
         except:
             pass
-        try:
-            Labeling_map = self.Labeling_map_template.copy()
-            Labeling_map[rows,cols] = Labels
-        except:
-            print(len(rows),len(cols),len(Labels))
+
+        Labeling_map = self.Labeling_map_template.copy()
+
+        Labeling_map[rows,cols] = Labels
         # self.Labeling_map = Labeling_map
         
         return Labeling_map

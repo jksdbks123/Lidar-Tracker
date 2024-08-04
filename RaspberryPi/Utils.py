@@ -3,7 +3,7 @@ import numpy as np
 import os
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
-import cv2
+# import cv2
 import dpkt
 from sklearn.cluster import DBSCAN
 import time
