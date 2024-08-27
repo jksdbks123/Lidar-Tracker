@@ -1,8 +1,7 @@
 
 import numpy as np
-from numpy.core.fromnumeric import shape
+# from numpy.core.fromnumeric import shape
 import open3d as op3
-from scipy.optimize.optimize import main
 from scipy.spatial import distance
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
