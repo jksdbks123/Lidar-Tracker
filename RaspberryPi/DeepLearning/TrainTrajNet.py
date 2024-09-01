@@ -11,10 +11,15 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 from tqdm import tqdm
 from Models import *
+import json
+# import focal loss
+from torchvision.ops import sigmoid_focal_loss
 
-def train_model(model_save_folder,model_name, model, train_loader, val_loader, criterion, optimizer, num_epochs, device, patience=5):
+def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device, early_stopping):
 
-    early_stopping = EarlyStopping(patience=patience, verbose=True, path=os.path.join(model_save_folder, model_name))
+    
+    training_curve = {'train_loss': [], 'val_loss': []}
+
     for epoch in range(num_epochs):
         # Training phase
         model.train()
@@ -41,6 +46,7 @@ def train_model(model_save_folder,model_name, model, train_loader, val_loader, c
             train_bar.set_postfix(post_fix)
         
         avg_train_loss = train_loss / len(train_loader)
+        training_curve['train_loss'].append(avg_train_loss)
         # avg_activity_loss = train_activity_loss / len(train_loader)
         print(f'Epoch {epoch+1}/{num_epochs}, Train Loss: {avg_train_loss:.4f}')
         # Validation phase
@@ -63,48 +69,16 @@ def train_model(model_save_folder,model_name, model, train_loader, val_loader, c
                 val_bar.set_postfix(post_fix)
         
         avg_val_loss = val_loss / len(val_loader)
+        training_curve['val_loss'].append(avg_val_loss)
         # avg_val_activity_loss = val_activity_loss / len(val_loader)
         
         print(f'Epoch {epoch+1}/{num_epochs}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}')
         # Early stopping check
-        early_stopping(avg_val_loss, model)
+        early_stopping(avg_val_loss, model, epoch,training_curve)
         if early_stopping.early_stop:
+            # save the training curve
             print("Early stopping triggered")
             break
-0
-class EarlyStopping:
-    def __init__(self, patience=5, min_delta=0.001, verbose=False, path='checkpoint.pt'):
-        self.patience = patience
-        self.min_delta = min_delta # Minimum change in the monitored quantity to qualify as an improvement
-        self.verbose = verbose
-        self.path = path
-        self.best_score = None
-        self.counter = 0
-        self.early_stop = False
-
-    def __call__(self, val_loss, model):
-        score = -val_loss
-
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model)
-            
-        elif score < self.best_score + self.min_delta:
-            self.counter += 1
-            if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            
-            self.save_checkpoint(val_loss, model)
-            self.best_score = score
-            self.counter = 0
-
-    def save_checkpoint(self, val_loss, model):
-        if self.verbose:
-            print(f'Validation loss decreased ({self.best_score:.6f} --> {-val_loss:.6f}). Saving model ...')
-        torch.save(model.state_dict(), self.path)
 
 if __name__ == '__main__':
 
@@ -112,27 +86,66 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 32
     lane_unit = 200
-    time_span = 10
+    time_span = 100
     hidden_size = 64
     num_layers = 2
     input_size = lane_unit
-    learning_rate = 0.0001
+    learning_rate = 1e-3
+    weight_decay = 1e-5
+    dropout = 0.5
     num_epochs = 100
-    model = BidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers).to(device)
-    # criterion = RangeWeightedBCELoss().to(device)
-    criterion = EnhancedSpatialLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    alpha= 0.95
+    gamma= 4
+    model = BidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers,droupout=dropout).to(device)
+    # model = UnidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers).to(device)
+    criterion = FocalLoss(alpha,gamma).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    
     # Create datasets
-    mocel_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0826\models"
-    if not os.path.exists(mocel_save_path):
-        os.makedirs(mocel_save_path)
-    model_name = f'lstm_encoder_decoder_64_bi_t_10_hidden_128.pth'
-    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0826\train", time_span=time_span)
+    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0830\models"
+    if not os.path.exists(model_save_path):
+        os.makedirs(model_save_path)
+    # new training folder will be named as "train_num"
+    # read the history training folder and get the latest training folder
+    history_train_list = os.listdir(model_save_path)
+    # only keep folder
+    history_train_list = [x for x in history_train_list if os.path.isdir(os.path.join(model_save_path, x))]
+    history_train_list.sort()
+    if len(history_train_list) == 0:
+        train_num = 0
+    else:
+        train_num = int(history_train_list[-1].split('_')[-1]) + 1
+    model_save_path = os.path.join(model_save_path, f'train_{train_num}')
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path= model_save_path, min_delta=1)
+    os.makedirs(model_save_path)
+    # save the training parameters as .json
+    with open(os.path.join(model_save_path, 'training_parameters.json'), 'w') as f:
+        json.dump({
+            'patience': patience,
+            'device': device.type,
+            'batch_size': batch_size,
+            'lane_unit': lane_unit,
+            'time_span': time_span,
+            'hidden_size': hidden_size,
+            'num_layers': num_layers,
+            'focal_alpha' : alpha,
+            'focal_gamma' : gamma,
+            'input_size': input_size,
+            'dropout': dropout,
+            'learning_rate': learning_rate,
+            'weight_decay': weight_decay,
+            'num_epochs': num_epochs,
+            'loss_func': criterion.__class__.__name__,
+            'optimizer': optimizer.__class__.__name__,
+            'model': model.__class__.__name__
+        }, f)
+    
+    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0830\100_frame\train", time_span=time_span)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
-    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0826\val", time_span=time_span)
+    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0830\100_frame\val", time_span=time_span)
     val_loader = DataLoader(val_dataset, batch_size=32, num_workers=8)
 
     # Train the model
-    train_model(mocel_save_path,model_name, model, train_loader, val_loader, criterion, optimizer, num_epochs, device)
+    train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device, early_stopping)
 
     print("Training complete")

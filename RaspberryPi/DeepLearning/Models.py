@@ -10,23 +10,18 @@ import os
 # from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 from tqdm import tqdm
-from torch.nn.functional import binary_cross_entropy_with_logits
+import json
 
 class EnhancedSpatialLoss(nn.Module):
-    def __init__(self, alpha=0.6, beta=0.2, gamma=0.2):
+    def __init__(self, alpha=0.4, beta=0.1):
         super(EnhancedSpatialLoss, self).__init__()
         self.alpha = alpha  # Weight for element-wise BCE loss
         self.beta = beta    # Weight for temporal consistency loss
-        self.gamma = gamma  # Weight for spatial consistency loss
+        # self.gamma = gamma  # Weight for spatial consistency loss
 
     def forward(self, predictions, targets):
         # Element-wise BCE loss
         bce_loss = F.binary_cross_entropy(predictions, targets, reduction='mean')
-        
-        # Temporal consistency loss (horizontal differential)
-        temporal_loss = F.mse_loss(predictions[:, 1:] - predictions[:, :-1],
-                                   targets[:, 1:] - targets[:, :-1],
-                                   reduction='mean')
         
         # Spatial consistency loss (vertical differential)
         spatial_loss = F.mse_loss(predictions[:, :, 1:] - predictions[:, :, :-1],
@@ -34,33 +29,90 @@ class EnhancedSpatialLoss(nn.Module):
                                   reduction='mean')
         
         # Combine losses
-        total_loss = self.alpha * bce_loss + self.beta * temporal_loss + self.gamma * spatial_loss
+        total_loss = self.alpha * bce_loss + self.beta * spatial_loss
         loss_dict = {
             'total_loss': total_loss,
             'bce_loss': bce_loss,
-            'temporal_loss': temporal_loss,
+            # 'temporal_loss': temporal_loss,
             'spatial_loss': spatial_loss
         }
         
         return loss_dict
-
+#PyTorch
 class FocalLoss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2):
+    """
+    alpha: a float value between 0 and 1 representing a weighting factor used to deal with class imbalance. Positive classes and negative classes have alpha and (1 - alpha) as their weighting factors respectively. Defaults to 0.25.
+    gamma: a positive float value representing the tunable focusing parameter, defaults to 2.
+
+    """
+
+    def __init__(self, alpha=0.25, gamma=2.0, reduction='sum'):
         super(FocalLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
+        self.reduction = reduction
 
     def forward(self, inputs, targets):
-        BCE_loss = binary_cross_entropy_with_logits(inputs, targets, reduction='none')
-        pt = torch.exp(-BCE_loss)
-        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+        # Ensure inputs are probabilities
+        BCE_loss = F.binary_cross_entropy(inputs, targets, reduction='none')
+        
+        # Here, pt is directly the predicted probability
+        pt = inputs * targets + (1 - inputs) * (1 - targets)
+        
+        # Calculate focal loss
+        focal_loss = self.alpha * (1 - pt)**self.gamma * BCE_loss
+        
+        if self.reduction == 'mean':
+            focal_loss = torch.mean(focal_loss)
+        elif self.reduction == 'sum':
+            focal_loss =  torch.sum(focal_loss)
         loss_dict = {
-            'total_loss': torch.mean(F_loss),
+            'total_loss': focal_loss,
         }
         return loss_dict
+        
+class UnidirectionalLSTMLaneReconstructor(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers,droupout=0.2):
+        super(UnidirectionalLSTMLaneReconstructor, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+
+        # Unidirectional Encoder LSTM
+        self.encoder = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=False)
+
+        # Decoder LSTM
+        self.decoder = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True)
+
+        self.dropout = nn.Dropout(droupout)
+        # Output layer
+        self.output_layer = nn.Linear(hidden_size, input_size)
+
+        # Activation function
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # x shape: (batch_size, time_span, num_lane_unit)
+        batch_size, num_lane_unit, time_span = x.size()
+        x = x.view(batch_size, time_span, num_lane_unit)
+
+        # Encode the input sequence
+        encoder_outputs, (hidden, cell) = self.encoder(x)
+
+        # Decoder
+        decoder_outputs, _ = self.decoder(encoder_outputs, (hidden, cell))
+        decoder_outputs = self.dropout(decoder_outputs)
+
+        # Apply output layer
+        outputs = self.output_layer(decoder_outputs)
+
+        # Apply sigmoid to get values between 0 and 1
+        reconstructed = self.sigmoid(outputs)
+        reconstructed = reconstructed.reshape(-1, num_lane_unit, time_span)
+        return reconstructed
 
 class BidirectionalLSTMLaneReconstructor(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers):
+    def __init__(self, input_size, hidden_size, num_layers, droupout=0.2):
         super(BidirectionalLSTMLaneReconstructor, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -72,8 +124,10 @@ class BidirectionalLSTMLaneReconstructor(nn.Module):
         # Decoder LSTM
         self.decoder = nn.LSTM(hidden_size * 2, hidden_size * 2, num_layers, batch_first=True)
 
+        self.dropout = nn.Dropout(droupout)
         # Output layer
         self.output_layer = nn.Linear(hidden_size * 2, input_size)
+
 
         # Activation function
         self.sigmoid = nn.Sigmoid()
@@ -93,7 +147,7 @@ class BidirectionalLSTMLaneReconstructor(nn.Module):
 
         # Decode
         decoder_outputs, _ = self.decoder(encoder_outputs, (hidden, cell))
-
+        decoder_outputs = self.dropout(decoder_outputs)
         # Apply output layer
         outputs = self.output_layer(decoder_outputs)
 
@@ -102,229 +156,6 @@ class BidirectionalLSTMLaneReconstructor(nn.Module):
         reconstructed = reconstructed.reshape(-1,num_lane_unit, time_span)
         return reconstructed
 
-
-class AttentionModule(nn.Module):
-    def __init__(self, hidden_size):
-        super(AttentionModule, self).__init__()
-        self.hidden_size = hidden_size
-        self.attn = nn.Linear(hidden_size * 2, hidden_size)
-        self.v = nn.Linear(hidden_size, 1, bias=False)
-
-    def forward(self, hidden, encoder_outputs):
-        # hidden: (batch_size, hidden_size)
-        # encoder_outputs: (batch_size, time_span, hidden_size)
-        
-        time_span = encoder_outputs.size(1)
-        
-        # Repeat hidden state time_span times
-        hidden = hidden.unsqueeze(1).repeat(1, time_span, 1)
-        
-        # Calculate attention scores
-        energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))
-        attention = self.v(energy).squeeze(2)
-        
-        # Apply softmax to get attention weights
-        return F.softmax(attention, dim=1)
-
-class LSTMTrajectoryReconstructorWithAttention(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers):
-        super(LSTMTrajectoryReconstructorWithAttention, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        # Encoder LSTM
-        self.encoder = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
-
-        # Attention module
-        self.attention = AttentionModule(hidden_size * 2)  # *2 for bidirectional
-
-        # Decoder LSTM
-        self.decoder = nn.LSTM(hidden_size * 2, hidden_size, num_layers, batch_first=True)
-
-        # Output layer
-        self.output_layer = nn.Linear(hidden_size, input_size)
-
-        # Activation function
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        # x shape: (batch_size, num_lane_unit, time_span)
-        batch_size, num_lane_unit, time_span = x.size()
-
-        # Reshape input to (batch_size * num_lane_unit, time_span, 1)
-        x_reshaped = x.view(batch_size * num_lane_unit, time_span, 1)
-
-        # Encode the input sequence
-        encoder_outputs, (hidden, cell) = self.encoder(x_reshaped)
-
-        # Prepare hidden state for attention (combine forward and backward)
-        hidden_for_attn = torch.cat([hidden[-2], hidden[-1]], dim=1)
-
-        # Calculate attention weights
-        attn_weights = self.attention(hidden_for_attn, encoder_outputs)
-
-        # Apply attention weights to encoder outputs
-        context = torch.bmm(attn_weights.unsqueeze(1), encoder_outputs)
-
-        # Repeat context for each time step
-        context_repeated = context.repeat(1, time_span, 1)
-
-        # Decode all steps at once
-        decoder_output, _ = self.decoder(context_repeated, (hidden[-self.num_layers:], cell[-self.num_layers:]))
-
-        # Apply output layer to all time steps
-        outputs = self.output_layer(decoder_output)
-
-        # Reshape outputs to (batch_size, num_lane_unit, time_span)
-        outputs = outputs.view(batch_size, num_lane_unit, time_span)
-
-        # Apply sigmoid to get values between 0 and 1
-        reconstructed = self.sigmoid(outputs)
-
-        return reconstructed, attn_weights
-
-class LSTMTrajectoryReconstructor(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers):
-        super(LSTMTrajectoryReconstructor, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        # Encoder LSTM
-        self.encoder = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
-
-        # Decoder LSTM
-        self.decoder = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
-
-        # Output layer
-        self.output_layer = nn.Linear(hidden_size, input_size)
-
-        # Activation function
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        # x shape: (batch_size, num_lane_unit, time_span)
-        batch_size, num_lane_unit, time_span = x.size()
-
-        # Reshape input to (batch_size * num_lane_unit, time_span, 1)
-        x_reshaped = x.view(batch_size * num_lane_unit, time_span, 1)
-
-        # Encode the input sequence
-        _, (hidden, cell) = self.encoder(x_reshaped)
-
-        # Create decoder input: all zeros, shape (batch_size * num_lane_unit, time_span, hidden_size)
-        decoder_input = torch.zeros(batch_size * num_lane_unit, time_span, self.hidden_size, device=x.device)
-
-        # Decode all steps at once
-        decoder_output, _ = self.decoder(decoder_input, (hidden, cell))
-
-
-
-        # Apply output layer to all time steps
-        outputs = self.output_layer(decoder_output)
-
-        # Reshape outputs to (batch_size, num_lane_unit, time_span)
-        outputs = outputs.view(batch_size, num_lane_unit, time_span)
-
-        # Apply sigmoid to get values between 0 and 1
-        reconstructed = self.sigmoid(outputs)
-
-        return reconstructed
-
-class BidirectionalLSTMTrajectoryReconstructor(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers):
-        super(BidirectionalLSTMTrajectoryReconstructor, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-
-        # Bidirectional Encoder LSTM
-        self.encoder = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
-
-        # Decoder LSTM (unidirectional for simplicity)
-        self.decoder = nn.LSTM(hidden_size * 2, hidden_size * 2, num_layers, batch_first=True)
-
-        # Output layer
-        self.output_layer = nn.Linear(hidden_size * 2, input_size)
-
-        # Activation function
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        # x shape: (batch_size, num_lane_unit, time_span)
-        batch_size, num_lane_unit, time_span = x.size()
-
-        # Reshape input to (batch_size * num_lane_unit, time_span, 1)
-        x_reshaped = x.view(batch_size * num_lane_unit, time_span, self.input_size)
-
-        # Encode the input sequence
-        encoder_outputs, (hidden, cell) = self.encoder(x_reshaped)
-
-        # Prepare hidden and cell states for the decoder
-        # Concatenate forward and backward states
-        hidden = hidden.view(self.num_layers, 2, -1, self.hidden_size)
-        hidden = torch.cat([hidden[:, 0, :, :], hidden[:, 1, :, :]], dim=2)
-        cell = cell.view(self.num_layers, 2, -1, self.hidden_size)
-        cell = torch.cat([cell[:, 0, :, :], cell[:, 1, :, :]], dim=2)
-
-        # Decode
-        decoder_outputs, _ = self.decoder(encoder_outputs, (hidden, cell))
-
-        # Apply output layer
-        outputs = self.output_layer(decoder_outputs)
-
-        # Reshape outputs
-        outputs = outputs.view(batch_size, num_lane_unit, time_span)
-
-        # Apply sigmoid to get values between 0 and 1
-        reconstructed = self.sigmoid(outputs)
-        return reconstructed
-
-    
-class ConsistentTrajectoryLoss(nn.Module):
-    def __init__(self,num_lane_units = 200):
-        super(ConsistentTrajectoryLoss, self).__init__()
-        # further range should have higher weights, say linearly increasing from 0 to 1 accoridng to the dimension of the lane_unit 200
-        weights = torch.linspace(0, 1, num_lane_units)
-        weights = weights / weights.sum()
-        weights = weights.view(1, -1, 1)
-        self.bce_loss = nn.BCELoss(weight=weights) # Binary Cross-Entropy Loss
-        
-
-    def forward(self, predictions, targets):
-        # predictions: (batch, 200, future_len)
-        # targets: (batch, 200, future_len)
-        # input_series: (batch, 200, his_len)
-        # 1. Binary Cross-Entropy Loss
-        bce_loss = self.bce_loss(predictions, targets)
-        # Combine losses
-        total_loss = bce_loss
-        loss_dict = {
-            'total_loss': total_loss,
-        }
-        return loss_dict
-
-
-class RangeWeightedBCELoss(nn.Module):
-    def __init__(self, num_lane_units = 200, max_weight=1):
-        super(RangeWeightedBCELoss, self).__init__()
-        self.num_lane_units = num_lane_units
-        self.max_weight = max_weight
-        
-        # Create weights that linearly increase from 1 to max_weight
-        self.weights = torch.linspace(1, max_weight, num_lane_units)
-        self.weights = self.weights.view(-1, 1)
-
-        self.bce_loss = nn.BCELoss(weight=self.weights) # Binary Cross-Entropy Loss
-
-        
-    def forward(self, predictions, targets):
-        total_loss = self.bce_loss(predictions, targets)
-        loss_dict = {
-            'total_loss': total_loss,
-        }
-        return loss_dict
 
 
 class TrajDataset(Dataset):
@@ -353,14 +184,55 @@ class TrajDataset(Dataset):
         post_occ_path = os.path.join(self.folder_path, 'post_occ_label', file_name)
         post_occ_label = np.load(post_occ_path)
         post_occ_label = post_occ_label[:,:self.time_span]
-
+        
+        speed_label_path = os.path.join(self.folder_path, 'speed_label', file_name)
+        speed_label = np.load(speed_label_path)
+        speed_label = speed_label[:,:self.time_span]
         # Convert to PyTorch tensors
         target_tensor = torch.FloatTensor(target)
         post_occ_tensor = torch.FloatTensor(post_occ_label)
+        speed_tensor = torch.FloatTensor(speed_label)
 
 
         return {
             'post_occ_X': post_occ_tensor,
-            # 'occ_mask_X': occ_mask_tensor,
+            'speed_target': speed_tensor,
             'target': target_tensor
         }
+
+class EarlyStopping:
+    def __init__(self, patience=5, min_delta=0.001, verbose=False, path='./'):
+        self.patience = patience
+        self.min_delta = min_delta # Minimum change in the monitored quantity to qualify as an improvement
+        self.verbose = verbose
+        self.path = path
+        self.best_score = None
+        self.counter = 0
+        self.early_stop = False
+
+    def __call__(self, val_loss, model, epoch, training_curve):
+        score = -val_loss
+
+        with open(os.path.join(self.path, 'training_curve.json'), 'w') as f:
+                json.dump(training_curve, f)
+
+        if self.best_score is None:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model, epoch)
+            
+        elif score < self.best_score + self.min_delta:
+            self.counter += 1
+            if self.verbose:
+                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.save_checkpoint(val_loss, model, epoch)
+            self.best_score = score
+            self.counter = 0
+
+    def save_checkpoint(self, val_loss, model, epoch):
+        if self.verbose:
+            print(f'Validation loss decreased ({self.best_score:.6f} --> {-val_loss:.6f}). Saving model ...')
+        torch.save(model.state_dict(), os.path.join(self.path, f'checkpoint_{epoch}.pth'))
+
