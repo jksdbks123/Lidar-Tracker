@@ -14,6 +14,10 @@ from shapely.geometry import LineString,Point
 from shapely.ops import unary_union
 import geopandas as gpd
 # from LiDARBase import theta
+from queue import Queue, Full
+from collections import deque
+import threading
+import multiprocessing
 
 class LaneDrawer:
     def __init__(self):
@@ -234,7 +238,7 @@ class InfoBox:
     def draw(self):
         # Draw the background box
         pygame.draw.rect(self.screen, self.background_color, self.rect)
-        # Prepare and draw the text
+        # Prepare and draw the text 
         text_surf = self.font.render(self.text, True, self.text_color)
         text_rect = text_surf.get_rect(center=self.rect.center)
         self.screen.blit(text_surf, text_rect)
@@ -488,6 +492,79 @@ def world_to_screen(coords, zoom, offset, rotation_angle, screen_height):
     coords[:, 1] = screen_height - coords[:, 1]
     
     return coords
-# Example usage for rotating all points in the scene
-# pivot = np.array([screen.get_width() / 2, screen.get_height() / 2])  # Rotate around screen center
-# rotated_points = rotate_points(np.array(your_points), rotation_angle, pivot)
+
+
+
+class BoundedManagerQueue:
+    def __init__(self, manager, maxsize):
+        self.queue = manager.Queue()
+        self.maxsize = maxsize
+        self.size = manager.Value('i', 0)
+        self.lock = manager.Lock()
+
+    def qsize(self):
+        with self.lock:
+            return self.size.value
+
+    def empty(self):
+        with self.lock:
+            return self.size.value == 0
+
+    def full(self):
+        with self.lock:
+            return self.size.value == self.maxsize
+
+    def put(self, item, block=True, timeout=None):
+        if not block:
+            with self.lock:
+                if self.size.value >= self.maxsize:
+                    raise multiprocessing.queues.Full
+                self._put(item)
+            return
+
+        if timeout is None:
+            deadline = None
+        else:
+            deadline = time.time() + timeout
+
+        while True:
+            with self.lock:
+                if self.size.value < self.maxsize:
+                    self._put(item)
+                    return
+            
+            if deadline is not None:
+                if time.time() > deadline:
+                    raise multiprocessing.queues.Full
+            time.sleep(0.01)  # Short sleep to prevent busy waiting
+
+    def get(self, block=True, timeout=None):
+        if not block:
+            with self.lock:
+                if self.size.value == 0:
+                    raise multiprocessing.queues.Empty
+                return self._get()
+
+        if timeout is None:
+            deadline = None
+        else:
+            deadline = time.time() + timeout
+
+        while True:
+            with self.lock:
+                if self.size.value > 0:
+                    return self._get()
+            
+            if deadline is not None:
+                if time.time() > deadline:
+                    raise multiprocessing.queues.Empty
+            time.sleep(0.01)  # Short sleep to prevent busy waiting
+
+    def _put(self, item):
+        self.queue.put(item)
+        self.size.value += 1
+
+    def _get(self):
+        item = self.queue.get()
+        self.size.value -= 1
+        return item

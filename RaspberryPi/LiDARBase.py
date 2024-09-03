@@ -366,10 +366,10 @@ def parse_packets(raw_data_queue, point_cloud_queue):
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     
-                    point_cloud_queue.put_nowait(Td_map[arg_omega,:]) #32*1800
+                    point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
                 else:
                     
-                    point_cloud_queue.put_nowait(Td_map) #32*1800
+                    point_cloud_queue.put(Td_map) #32*1800
 
                 culmulative_azimuth_values = []
                 culmulative_laser_ids = []

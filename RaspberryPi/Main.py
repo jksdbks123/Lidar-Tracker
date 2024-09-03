@@ -22,12 +22,10 @@ class LidarVisualizer:
         pygame.init()
         self.screen = pygame.display.set_mode((width, height))
         self.background_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-
         self.vertical_limits = [0,31] # Vertical range (for 32 lines)
         pygame.display.set_caption(title)
         pygame.font.init()  # Initialize the font module
         self.object_label_font = pygame.font.SysFont('Comic Sans MS', 20)
-        
         self.running = True
         self.point_cloud_queue = point_cloud_queue # point cloud queue
         self.tracking_result_queue = tracking_result_queue
@@ -111,13 +109,14 @@ class LidarVisualizer:
         # bottom 
         self.density_slider = Slider(self.screen, (1200, 900, 200, 20), "PC density",0,1,default_value=1)
         self.frame_process_time_info = InfoBox(self.screen,(1200,840,250,30),'0ms')
+        self.queue_length_info = InfoBox(self.screen,(1200,780,250,30),'Queue Length: 0')
         self.db_window_width_slider =  Slider(self.screen, (50, 900, 200, 20), "eps_width",2,30, default_value=0.4, if_int = True, if_odd = True)
         self.db_window_height_slider =  Slider(self.screen, (300, 900, 200, 20), "eps_height",2,30, default_value=0.2, if_int = True, if_odd = True)
         self.db_min_samples_slider =  Slider(self.screen, (50, 840, 200, 20), "min_samples",2,50, default_value=0.1, if_int = True)
         self.db_eps_dis_slider =  Slider(self.screen, (300, 840, 200, 20), "eps_dis",0,5, default_value=0.2)
         self.update_tracking_param_buttom = Button(self.screen,(550,900,100,30),'Update Param',self.update_tracking_param)
         
-        self.info_boxes = [self.bck_length_info,self.frame_process_time_info,self.lane_width_info]
+        self.info_boxes = [self.bck_length_info,self.frame_process_time_info,self.queue_length_info,self.lane_width_info]
         self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
         self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode,self.switch_queue_monitoring_mode,self.switch_background_adjustment_mode] 
 
@@ -584,8 +583,8 @@ class LidarVisualizer:
         while self.running:
             
             self.handle_events()
-            time_cums = 0
-            
+            tracking_cums = 0
+            bf_cums = 0
             if self.switch_bck_recording_mode.state:
                 Td_map = self.point_cloud_queue.get()
                 self.background_data.append(Td_map)
@@ -598,14 +597,11 @@ class LidarVisualizer:
                                                                                         Td_map,self.vertical_limits)
                 # pc,label (0/1),None 
             elif self.switch_tracking_mode.state:
-                Tracking_pool,Labeling_map,Td_map,time_cums = self.tracking_result_queue.get()
+                Tracking_pool,Labeling_map,Td_map,tracking_cums = self.tracking_result_queue.get()
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
                 # pc, label (obj_id)
                 tracking_dic = Tracking_pool
 
-            # elif self.switch_queue_monitoring_mode.state:
-            #     Td_map = self.point_cloud_queue.get()
-            #     point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits) 
             else: # default
                 Td_map = self.point_cloud_queue.get()
                 
@@ -614,7 +610,6 @@ class LidarVisualizer:
                                                                                             Td_map,self.vertical_limits)
                     # pc,label (0/1), None
                 else:
-                    
                     point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
                     # pc,None, None
 
@@ -622,8 +617,13 @@ class LidarVisualizer:
             time_a = time.time()
             self.screen.fill((0, 0, 0))
             self.draw(Td_map,point_cloud_data,point_labels,tracking_dic)
-            self.frame_process_time_info.update_text(f'resq:{self.tracking_result_queue.qsize()},pcq:{self.point_cloud_queue.qsize()},render:{(time.time() - time_a)*1000:.1f}ms,tracking:{time_cums * 1000:.1f}')
+
+            raw_queue_size = self.raw_data_queue.qsize()
+            point_cloud_queue_size = self.point_cloud_queue.qsize()
+            tracking_cums = f'{tracking_cums * 1000:.1f}'
             
+            self.frame_process_time_info.update_text(f'rq:{raw_queue_size},pq:{point_cloud_queue_size},rd:{(time.time() - time_a)*1000:.1f}ms,tracking:{tracking_cums * 1000:.1f}')
+            # self.queue_length_info.update_text(f'raw_q: {)}')
                 
                       
     def quit(self):
@@ -644,7 +644,7 @@ def main(mode = 'online',pcap_file_path = None):
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
-            raw_data_queue = manger.Queue() # Packet Queue
+            raw_data_queue = BoundedManagerQueue(manger,10000) # Packet Queue
             point_cloud_queue = manger.Queue()
             tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
             tracking_parameter_dict = manger.dict({})
