@@ -94,7 +94,7 @@ class LidarVisualizer:
         self.switch_foreground_mode = ToggleButton(self.screen, (20, 140, 100, 30), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
         self.switch_queue_monitoring_mode = ToggleButton(self.screen, (20, 200, 100, 30), 'Queue Monitor Off', 'Queue Monitor On', self.toggle_queue_monitor)
         # left middle
-        self.switch_background_adjustment_mode = ToggleButton(self.screen, (20, 500, 100, 30), 'Lock BckImage', 'Unlock BckImage',self.background_adjustment)
+        self.switch_background_adjustment_mode = ToggleButton(self.screen, (20, 500, 100, 30), 'Background Calibration On', 'Background Calibration On',self.background_adjustment)
         self.switch_drawing_lines_mode = ToggleButton(self.screen, (20, 550, 100, 30), 'Bar Edit Off', 'Bar Edit On',self.draw_lines)
         self.buttom_clear_lines = Button(self.screen,(20,600,100,30),'Clear Lines',self.bar_drawer.clear)
         self.switch_drawing_lanes_mode = ToggleButton(self.screen, (20, 650, 100, 30), 'Lane Edit Off', 'Lane Edit On',self.draw_lanes)
@@ -598,6 +598,7 @@ class LidarVisualizer:
                 # pc,label (0/1),None 
             elif self.switch_tracking_mode.state:
                 Tracking_pool,Labeling_map,Td_map,tracking_cums = self.tracking_result_queue.get()
+                tracking_cums = 1000 * tracking_cums
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
                 # pc, label (obj_id)
                 tracking_dic = Tracking_pool
@@ -620,9 +621,8 @@ class LidarVisualizer:
 
             raw_queue_size = self.raw_data_queue.qsize()
             point_cloud_queue_size = self.point_cloud_queue.qsize()
-            tracking_cums = f'{tracking_cums * 1000:.1f}'
             
-            self.frame_process_time_info.update_text(f'rq:{raw_queue_size},pq:{point_cloud_queue_size},rd:{(time.time() - time_a)*1000:.1f}ms,tracking:{tracking_cums * 1000:.1f}')
+            self.frame_process_time_info.update_text(f'rq:{raw_queue_size},pq:{point_cloud_queue_size},render:{(time.time() - time_a)*1000:.1f}ms,tracking:{tracking_cums:.1f}')
             # self.queue_length_info.update_text(f'raw_q: {)}')
                 
                       
@@ -635,7 +635,6 @@ class LidarVisualizer:
             self.tracking_prcess.join()
             self.tracking_prcess = None
             print('Tracking Terminated...')
-
         pygame.quit()
 
 def main(mode = 'online',pcap_file_path = None):
@@ -644,8 +643,8 @@ def main(mode = 'online',pcap_file_path = None):
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
-            raw_data_queue = BoundedManagerQueue(manger,10000) # Packet Queue
-            point_cloud_queue = manger.Queue()
+            raw_data_queue = manger.Queue(5000) # Packet Queue
+            point_cloud_queue = manger.Queue(100)
             tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
             tracking_parameter_dict = manger.dict({})
             tracking_param_update_event = Event()
@@ -684,16 +683,11 @@ def main(mode = 'online',pcap_file_path = None):
             visualizer.tracking_prcess.terminate()
         packet_reader_process.join()
         packet_parser_process.join()
-        if visualizer.tracking_prcess and visualizer.tracking_prcess.is_alive():
-            visualizer.tracking_process_stop_event.set()
-            visualizer.tracking_prcess.join()
-            visualizer.tracking_prcess = None
-            print('Tracking Terminated...')
-        visualizer.tracking_prcess.join()
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'../../2024-03-14-23-30-00.pcap'
+    # pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
+    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode, pcap_file_path=pcap_file_path)
     # mode = 'online'
