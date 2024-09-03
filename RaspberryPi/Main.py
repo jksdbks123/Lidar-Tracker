@@ -27,6 +27,7 @@ class LidarVisualizer:
         pygame.display.set_caption(title)
         pygame.font.init()  # Initialize the font module
         self.object_label_font = pygame.font.SysFont('Comic Sans MS', 20)
+        
         self.running = True
         self.point_cloud_queue = point_cloud_queue # point cloud queue
         self.tracking_result_queue = tracking_result_queue
@@ -57,12 +58,6 @@ class LidarVisualizer:
         
         self.dragging = False
         self.is_rotating = False
-        
-        # self.original_background_image = pygame.image.load('./config_files/background.png').convert()
-        # self.background_image_surface = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
-        # self.background_image_surface.blit(self.original_background_image, (0, 0))
-        # self.background_image_surface.set_alpha(128)
-        # self.bg_rect = self.original_background_image.get_rect(center=(self.screen.get_width()/2 + self.offset[0], self.screen.get_height()/2 - self.offset[1]))
 
         self.last_mouse_pos = (0, 0)
         self.config_dir = r'./config_files'
@@ -124,12 +119,12 @@ class LidarVisualizer:
         
         self.info_boxes = [self.bck_length_info,self.frame_process_time_info,self.lane_width_info]
         self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
+        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode,self.switch_queue_monitoring_mode,self.switch_background_adjustment_mode] 
+
         self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,
                                     self.switch_object_id,self.update_tracking_param_buttom,
                                     self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines,self.buttom_clear_lanes,self.switch_drawing_lanes_mode,self.switch_queue_monitoring_mode,
-                                    self.switch_background_adjustment_mode] # buttoms and toggles
-        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode,self.switch_queue_monitoring_mode,self.switch_background_adjustment_mode] 
-        # Background parameters
+                                    self.switch_background_adjustment_mode] # buttoms and toggles        # Background parameters
         self.bck_radius = 0.2
 
     
@@ -435,7 +430,8 @@ class LidarVisualizer:
                             label_surface = self.object_label_font.render(str(obj_id), False, (255,65,212))
                             coord_mea = np.array([[(cur_traj[0][0][0] + cur_traj[1][0][0])/2,
                                        (cur_traj[0][1][0] + cur_traj[1][1][0])/2]])
-                            coord_mea = world_to_screen(coord_mea)
+                            
+                            coord_mea = world_to_screen(coord_mea, self.zoom, self.offset, self.rotation_angle, self.screen.get_height())
                             label_pos = (coord_mea[0][0],coord_mea[0][1])
                             self.screen.blit(label_surface,label_pos)
 
@@ -449,7 +445,7 @@ class LidarVisualizer:
                         if coord is not None:
                             coord_mea = np.array([[(coord[0][0][0] + coord[1][0][0])/2,
                                        (coord[0][1][0] + coord[1][1][0])/2]])
-                            coord_mea = world_to_screen(coord_mea)
+                            coord_mea = world_to_screen(coord_mea, self.zoom, self.offset, self.rotation_angle, self.screen.get_height())
                             coord_mea = (coord_mea[0][0],coord_mea[0][1])
                             pygame.draw.circle(self.screen, tuple(color_vec), coord_mea, 4)
 
@@ -642,8 +638,6 @@ class LidarVisualizer:
 
         pygame.quit()
 
-
-
 def main(mode = 'online',pcap_file_path = None):
     # pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
     
@@ -699,8 +693,8 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
+    pcap_file_path = r'../../2024-03-14-23-30-00.pcap'
     mode = 'offline'
-    main(mode=mode,pcap_file_path = pcap_file_path)
+    main(mode=mode, pcap_file_path=pcap_file_path)
     # mode = 'online'
     # main(mode=mode)
