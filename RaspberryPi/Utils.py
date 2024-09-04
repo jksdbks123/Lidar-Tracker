@@ -493,3 +493,14 @@ def world_to_screen(coords, zoom, offset, rotation_angle, screen_height):
     
     return coords
 
+
+def get_bg_manipulated(background_image,rotation_bck,zoom_bck,offset_bck,screen):
+
+    # Draw background image
+    rotated_bg = pygame.transform.rotate(background_image, -np.degrees(rotation_bck))
+    scaled_bg = pygame.transform.scale(rotated_bg, 
+                                        (int(rotated_bg.get_width() * zoom_bck),
+                                        int(rotated_bg.get_height() * zoom_bck)))
+    bg_rect = scaled_bg.get_rect(center=(screen.get_width()/2 + offset_bck[0],
+                                            screen.get_height()/2 - offset_bck[1]))
+    return scaled_bg,bg_rect

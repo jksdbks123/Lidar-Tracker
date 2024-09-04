@@ -5,6 +5,8 @@ import cv2
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
 color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
+# red 0, blue 1
+color_map_foreground = np.array([[255,0,0],[0,0,255]])
 thred_map_index = np.arange(32*1800).reshape((32,1800))
 class detected_obj():
     def __init__(self):

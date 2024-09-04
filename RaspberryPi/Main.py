@@ -7,7 +7,8 @@ from LiDARBase import *
 from MOT_TD_BCKONLIONE import MOT
 
 class LidarVisualizer:
-    def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,tracking_parameter_dict,tracking_param_update_event,width=1500, height=1000, title='LiDAR Data Visualization'):
+    def __init__(self,point_cloud_queue, tracking_result_queue,raw_data_queue,
+                 tracking_parameter_dict,tracking_param_update_event,width=1500, height=1000, title='LiDAR Data Visualization'):
         """
         Coordinate Logic:
         1) Screen Coord 2) World Coord 
@@ -34,7 +35,6 @@ class LidarVisualizer:
         self.tracking_param_update_event = tracking_param_update_event
         self.catch_background = False
         self.thred_map_loaded = False
-        self.if_objid = False
         self.background_data = [] 
         self.background_data_process = None
         self.tracking_prcess = None
@@ -50,13 +50,15 @@ class LidarVisualizer:
         self.offset = np.array([0, 0]).astype(float)
         self.rotation_angle = 0
         
-        self.ref_bck_zoom = self.zoom
-        self.ref_bck_offset = np.array(self.offset)
-        self.ref_bck_rotation_angle = self.rotation_angle
+        self.zoom_bck :float = 1.0
+        self.offset_bck = np.array([0, 0]).astype(float)
+        self.rotation_angle_bck = 0
+
         
+        
+        self.if_space_pressed = False
         self.dragging = False
         self.is_rotating = False
-
         self.last_mouse_pos = (0, 0)
         self.config_dir = r'./config_files'
         if not os.path.exists(self.config_dir):
@@ -66,12 +68,17 @@ class LidarVisualizer:
             self.thred_map = np.load(self.thred_map_path)
             self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
             print("Background loaded")
-
-        static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom, self.offset,
+        # this is a Surface object
+        self.background_image = pygame.image.load(r'./config_files/background.png')
+        self.manipulated_bg_img,self.bg_img_rect = get_bg_manipulated(self.background_image, self.rotation_angle_bck, self.zoom_bck, self.offset_bck, self.screen)
+        # self.background_surface.blit(self.manipulated_bg_img,self.bg_img_rect)
+        self.static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom, self.offset,
                                                     self.rotation_angle, self.screen.get_height())
-        for point in static_bck_points_screen:
+        for point in self.static_bck_points_screen:
             x,y = point
             pygame.draw.circle(self.background_surface, (255,255,255), (x,y), 2)
+        # draw a blue rect on the background surface to indicate the background area according to the self.bg_corner_screen
+        
         self.screen.blit(self.background_surface, (0, 0))
 
         self.any_slider_active = False  # Track if any slider is active
@@ -93,6 +100,8 @@ class LidarVisualizer:
         self.switch_object_id = ToggleButton(self.screen, (140, 80, 50, 30), 'ObjID Off', 'ObjID On', self.toggle_objid_switch)
         self.switch_foreground_mode = ToggleButton(self.screen, (20, 140, 100, 30), 'Raw Point Cloud', 'Foreground Points', self.toggle_foreground)
         self.switch_queue_monitoring_mode = ToggleButton(self.screen, (20, 200, 100, 30), 'Queue Monitor Off', 'Queue Monitor On', self.toggle_queue_monitor)
+        self.switch_calibrate_background_img_mode = ToggleButton(self.screen, (20, 260, 100, 30), 'Cal Bck Img', 'Off Cal', self.toggle_calibrate_background_img)
+        self.switch_show_background_img_mode = ToggleButton(self.screen, (20, 320, 100, 30), 'Show Bck Img', 'Hide Bck Img', self.toggle_show_background_img)
         # left middle
         self.switch_background_adjustment_mode = ToggleButton(self.screen, (20, 500, 100, 30), 'Background Calibration On', 'Background Calibration On',self.background_adjustment)
         self.switch_drawing_lines_mode = ToggleButton(self.screen, (20, 550, 100, 30), 'Bar Edit Off', 'Bar Edit On',self.draw_lines)
@@ -118,12 +127,15 @@ class LidarVisualizer:
         
         self.info_boxes = [self.bck_length_info,self.frame_process_time_info,self.queue_length_info,self.lane_width_info]
         self.slider_bars = [self.db_window_width_slider,self.db_window_height_slider,self.db_min_samples_slider,self.db_eps_dis_slider,self.density_slider]
-        self.toggle_buttons = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode,self.switch_queue_monitoring_mode,self.switch_background_adjustment_mode] 
+        self.toggle_buttons_exclusive = [self.switch_bck_recording_mode,self.switch_foreground_mode,self.switch_tracking_mode,
+                               self.switch_drawing_lanes_mode,self.switch_drawing_lines_mode,self.switch_queue_monitoring_mode,
+                               self.switch_background_adjustment_mode,self.switch_show_background_img_mode] # switches that you don't want to be toggled at the same time
+        self.toggle_buttons_indenpendent = [self.switch_object_id,self.switch_calibrate_background_img_mode] # switches that you want to be toggled at the same time
 
         self.events_handle_items = [self.switch_bck_recording_mode,self.switch_tracking_mode,self.switch_foreground_mode,
                                     self.switch_object_id,self.update_tracking_param_buttom,
                                     self.gen_bck_bottom,self.switch_drawing_lines_mode,self.buttom_clear_lines,self.buttom_clear_lanes,self.switch_drawing_lanes_mode,self.switch_queue_monitoring_mode,
-                                    self.switch_background_adjustment_mode] # buttoms and toggles        # Background parameters
+                                    self.switch_background_adjustment_mode,self.switch_calibrate_background_img_mode,self.switch_show_background_img_mode] # buttoms and toggles      
         self.bck_radius = 0.2
 
     
@@ -137,10 +149,7 @@ class LidarVisualizer:
                 self.running = False
                 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_q:
-                    # alignment_config = [self.offset,self.zoom,self.rotation_angle]
-                    # with open(r'./config_files/alignment.pkl', "wb") as f:
-                    #     pickle.dump(alignment_config, f)                    
+                if event.key == pygame.K_q:                  
                     self.running = False
 
             for item in self.events_handle_items:
@@ -153,6 +162,11 @@ class LidarVisualizer:
 
             # Block panning and zooming when a slider is being adjusted
             if not self.any_slider_active and not self.bar_drawer.drawing_lines and not self.lane_drawer.drawing_lanes:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    self.if_space_pressed = True
+                elif event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+                    self.if_space_pressed = False
+
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:  # Left mouse button for dragging
                         self.dragging = True
@@ -163,16 +177,19 @@ class LidarVisualizer:
                         self.last_mouse_pos = event.pos
                         
                     elif event.button == 4:  # Mouse wheel up to zoom in
-                        self.zoom *= 1.1
+                        if self.switch_calibrate_background_img_mode.state & self.if_space_pressed:
+                            self.zoom_bck *= 1.05
+                        else:
+                            self.zoom *= 1.05
                         self.if_background_need_update = True
-                        if not self.switch_background_adjustment_mode.state:
-                            self.if_background_img_need_update = True                                
+                         
                         
                     elif event.button == 5:  # Mouse wheel down to zoom out
-                        self.zoom /= 1.1
+                        if self.switch_calibrate_background_img_mode.state & self.if_space_pressed:
+                            self.zoom_bck /= 1.05
+                        else:
+                            self.zoom /= 1.05
                         self.if_background_need_update = True
-                        if not self.switch_background_adjustment_mode.state:
-                            self.if_background_img_need_update = True 
         
                 elif event.type == pygame.MOUSEBUTTONUP:
                     if event.button == 1:  # Stop dragging on left mouse button release
@@ -181,27 +198,28 @@ class LidarVisualizer:
                         self.is_rotating = False
                 elif event.type == pygame.MOUSEMOTION:
                     if self.dragging:
-                        self.if_background_need_update = True
                         mouse_pos = event.pos
                         movement = np.array(mouse_pos) - np.array(self.last_mouse_pos)
                         movement[1] = -movement[1]
-                        self.offset += movement
+                        if self.switch_calibrate_background_img_mode.state & self.if_space_pressed:
+                            self.if_background_need_update = True
+                            self.offset_bck += movement
+                        else:
+                            self.offset += movement
                         self.last_mouse_pos = mouse_pos
-
-                        if not self.switch_background_adjustment_mode.state:
-                            self.if_background_img_need_update = True
-                            # Recalculate the position for world origin on screen after updating offset
-                            
+                        self.if_background_need_update = True
 
                     elif self.is_rotating:
                         # Calculate rotation based on horizontal mouse movement
                         current_mouse_pos = event.pos
                         dx = current_mouse_pos[0] - self.last_mouse_pos[0]
-                        self.rotation_angle += dx * 0.1  # Adjust rotation speed factor as needed
+                        if self.switch_calibrate_background_img_mode.state & self.if_space_pressed:
+                            self.rotation_angle_bck += dx * 0.1
+                        else:
+                            self.rotation_angle += dx * 0.1  # Adjust rotation speed factor as needed
                         self.last_mouse_pos = current_mouse_pos
                         self.if_background_need_update = True
-                        if not self.switch_background_adjustment_mode.state:
-                            self.if_background_img_need_update = True
+                        
 
             if self.bar_drawer.drawing_lines:
                 
@@ -386,35 +404,33 @@ class LidarVisualizer:
         elif self.switch_bck_recording_mode.state:
             for x, y in data_raw_screen:
                 pygame.draw.circle(self.screen, (255,255,255), (x, y), 2)
-        else:
-            
-            # if self.if_background_img_need_update :
-            #     # Zoom and rotate the background image
-            #     if not self.switch_background_adjustment_mode.state:
-            #         transformed_image = pygame.transform.rotozoom(self.original_background_image, -self.rotation_angle, self.zoom)
-            #     # else:
-            #     #     transformed_image = pygame.transform.rotozoom(self.original_background_image, -self.ref_bck_rotation_angle, self.ref_bck_zoom)
-            #     # Create a new surface to hold the transformed background image
-            #         self.background_image_surface = pygame.Surface(transformed_image.get_size(), pygame.SRCALPHA)
-            #         self.background_image_surface.blit(transformed_image, (0, 0))
-            #         self.background_image_surface.set_alpha(128)
-            #         screen_pos_for_world_origin = world_to_screen(np.array([[0,0]]), self.zoom, self.offset, self.rotation_angle, self.screen.get_height())[0]
-            #         self.bg_rect = self.background_image_surface.get_rect(center=(screen_pos_for_world_origin[0], screen_pos_for_world_origin[1]))
-            #         self.if_background_img_need_update = False
             
 
-            if self.if_background_need_update and self.thred_map is not None:
+        elif self.switch_calibrate_background_img_mode.state:
+            if self.if_background_need_update:
                 self.background_surface.fill((0,0,0))
-                static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom,self.offset,self.rotation_angle,self.screen.get_height()) 
-
-                for point in static_bck_points_screen:
-                    x,y = point
-                    pygame.draw.circle(self.background_surface, (255,255,255), (x, y), 2)
+                self.manipulated_bg_img,self.bg_img_rect = get_bg_manipulated(self.background_image, self.rotation_angle_bck, self.zoom_bck, self.offset_bck, self.screen)
+                self.background_surface.blit(self.manipulated_bg_img,self.bg_img_rect)
                 self.if_background_need_update = False
-
+                
+                
             self.screen.blit(self.background_surface, (0, 0))
-            # self.screen.blit(self.background_image_surface, self.bg_rect)            
+            self.draw_manual_elements(data_raw,point_label,Td_map)
+            for coord,l in zip(data_raw_screen,point_label):
+                x,y = coord
+                pygame.draw.circle(self.screen, tuple(color_map_foreground[l]), (x, y), 2)
             
+            
+        else:
+            if  self.thred_map is not None:
+                if self.if_background_need_update:
+                    self.background_surface.fill((0,0,0))
+                    static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom,self.offset,self.rotation_angle,self.screen.get_height()) 
+                    for point in static_bck_points_screen:
+                        x,y = point
+                        pygame.draw.circle(self.background_surface, (255,255,255), (x, y), 2)
+                    self.if_background_need_update = False
+            self.screen.blit(self.background_surface, (0, 0))
             self.draw_manual_elements(data_raw,point_label,Td_map)
             
             if self.switch_tracking_mode.state:
@@ -423,7 +439,7 @@ class LidarVisualizer:
                 point_label = point_label[point_label != -1]
                 for obj_id in tracking_dic.keys():
                     color_vec = color_map[obj_id%len(color_map)]
-                    if self.if_objid:
+                    if self.switch_object_id.state:
                         cur_traj = tracking_dic[obj_id].mea_seq[-1] # -1 happens here sometimes, world coord
                         if cur_traj is not None:
                             label_surface = self.object_label_font.render(str(obj_id), False, (255,65,212))
@@ -498,7 +514,7 @@ class LidarVisualizer:
 
 
     def deactivate_other_toggles(self,activate_button):
-        for button in self.toggle_buttons:
+        for button in self.toggle_buttons_exclusive:
             if button != activate_button:
                 button.set_state()
 
@@ -536,14 +552,23 @@ class LidarVisualizer:
                     self.tracking_result_queue.get_nowait()
                 print('Tracking Terminated...')
 
-
+    def toggle_calibrate_background_img(self,state):
+        self.if_background_need_update = True
+        if state:
+            print('Show Background Image')
+    def toggle_show_background_img(self,state):
+        self.if_background_img_need_update = True
+        if state:
+            print('Show Background Image')
+        else:
+            print('Hide Background Image')
     def toggle_foreground(self,state):
         if state:
             self.deactivate_other_toggles(self.switch_foreground_mode)
         print('Show Foreground Points')
 
     def toggle_objid_switch(self,state):
-        self.if_objid = ~self.if_objid
+        pass
 
     def start_background_generation(self):
         if self.background_data:
@@ -591,7 +616,7 @@ class LidarVisualizer:
                 self.bck_length_info.update_text(f"Data Length: {len(self.background_data)}")
                 point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
                 # pc,None,None
-            elif self.switch_foreground_mode.state:
+            elif self.switch_foreground_mode.state or self.switch_calibrate_background_img_mode.state:
                 Td_map = self.point_cloud_queue.get()
                 point_cloud_data,point_labels,tracking_dic = get_foreground_point_cloud(self.thred_map,self.bck_radius,
                                                                                         Td_map,self.vertical_limits)
@@ -686,8 +711,8 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    # pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
-    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
+    pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
+    # pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode, pcap_file_path=pcap_file_path)
     # mode = 'online'
