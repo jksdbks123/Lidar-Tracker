@@ -23,7 +23,7 @@ class Raster_DBSCAN():
         self.Width_fringe = int(self.window_size[1]/2) # azimuth
         self.Td_map = None #Two-Dimentional Map   
         self.Foreground_map = None # A mask  indicating those pixels are required to be clustered
-        self.Labeling_map_template = -1*np.ones(Td_map_szie,dtype = np.int64)
+        self.Labeling_map_template = -1*np.ones(Td_map_szie,dtype = np.int16)
         self.Index_map = None # an intermediate variable
         self.Height_fringe_offset_fore = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),False) 
         self.Height_fringe_offset_td = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),200) 

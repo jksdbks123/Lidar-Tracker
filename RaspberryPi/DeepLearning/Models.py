@@ -188,16 +188,23 @@ class TrajDataset(Dataset):
         speed_label_path = os.path.join(self.folder_path, 'speed_label', file_name)
         speed_label = np.load(speed_label_path)
         speed_label = speed_label[:,:self.time_span]
+
+        traj_id_label_path = os.path.join(self.folder_path, 'traj_id_label', file_name)
+        traj_id_label = np.load(traj_id_label_path)
+        traj_id_label = traj_id_label[:,:self.time_span]
+
         # Convert to PyTorch tensors
         target_tensor = torch.FloatTensor(target)
         post_occ_tensor = torch.FloatTensor(post_occ_label)
         speed_tensor = torch.FloatTensor(speed_label)
+        traj_id_tensor = torch.FloatTensor(traj_id_label)
 
 
         return {
             'post_occ_X': post_occ_tensor,
             'speed_target': speed_tensor,
-            'target': target_tensor
+            'target': target_tensor,
+            'traj_id': traj_id_tensor
         }
 
 class EarlyStopping:
