@@ -88,7 +88,7 @@ if __name__ == '__main__':
     lane_unit = 200
     time_span = 100
     hidden_size = 64
-    num_layers = 2
+    num_layers = 3
     input_size = lane_unit
     learning_rate = 1e-3
     weight_decay = 1e-5
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     else:
         train_num = int(history_train_list[-1].split('_')[-1]) + 1
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
-    early_stopping = EarlyStopping(patience=patience, verbose=True, path= model_save_path, min_delta=1)
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path= model_save_path, min_delta=5)
     os.makedirs(model_save_path)
     # save the training parameters as .json
     with open(os.path.join(model_save_path, 'training_parameters.json'), 'w') as f:

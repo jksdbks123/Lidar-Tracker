@@ -711,7 +711,7 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
+    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'# mac
     # pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode, pcap_file_path=pcap_file_path)
