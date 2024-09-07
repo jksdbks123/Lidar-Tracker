@@ -413,7 +413,6 @@ class LidarVisualizer:
                 self.background_surface.blit(self.manipulated_bg_img,self.bg_img_rect)
                 self.if_background_need_update = False
                 
-                
             self.screen.blit(self.background_surface, (0, 0))
             self.draw_manual_elements(data_raw,point_label,Td_map)
             for coord,l in zip(data_raw_screen,point_label):
@@ -711,7 +710,7 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'# mac
+    pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
     # pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode, pcap_file_path=pcap_file_path)
