@@ -85,7 +85,7 @@ if __name__ == '__main__':
     patience = 8 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 32
-    lane_unit = 200
+    lane_unit = 500
     time_span = 100
     hidden_size = 64
     num_layers = 3
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     weight_decay = 1e-5
     dropout = 0.5
     num_epochs = 100
-    alpha= 0.95
+    alpha= 0.97
     gamma= 4
     model = BidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers,droupout=dropout).to(device)
     # model = UnidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers).to(device)
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
     # Create datasets
-    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0830\models"
+    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0906_2res\models"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)
     # new training folder will be named as "train_num"
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     else:
         train_num = int(history_train_list[-1].split('_')[-1]) + 1
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
-    early_stopping = EarlyStopping(patience=patience, verbose=True, path= model_save_path, min_delta=5)
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path= model_save_path, min_delta=1)
     os.makedirs(model_save_path)
     # save the training parameters as .json
     with open(os.path.join(model_save_path, 'training_parameters.json'), 'w') as f:
@@ -140,9 +140,9 @@ if __name__ == '__main__':
             'model': model.__class__.__name__
         }, f)
     
-    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0830\100_frame\train", time_span=time_span)
+    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0906_2res\100_frame\train", time_span=time_span)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
-    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0830\100_frame\val", time_span=time_span)
+    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0906_2res\100_frame\val", time_span=time_span)
     val_loader = DataLoader(val_dataset, batch_size=32, num_workers=8)
 
     # Train the model

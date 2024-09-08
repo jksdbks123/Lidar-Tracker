@@ -213,21 +213,25 @@ class EarlyStopping:
         self.min_delta = min_delta # Minimum change in the monitored quantity to qualify as an improvement
         self.verbose = verbose
         self.path = path
-        self.best_score = None
+        self.best_loss = None
         self.counter = 0
         self.early_stop = False
 
     def __call__(self, val_loss, model, epoch, training_curve):
-        score = -val_loss
+    
 
         with open(os.path.join(self.path, 'training_curve.json'), 'w') as f:
                 json.dump(training_curve, f)
 
-        if self.best_score is None:
-            self.best_score = score
+        if self.best_loss is None:
+            self.best_score = val_loss
             self.save_checkpoint(val_loss, model, epoch)
             
-        elif score < self.best_score + self.min_delta:
+        elif self.best_score - val_loss <= self.min_delta:
+            if self.val_loss < self.best_score:
+                self.best_score = val_loss
+                self.save_checkpoint(val_loss, model, epoch)
+                self.counter = 0
             self.counter += 1
             if self.verbose:
                 print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
@@ -235,7 +239,7 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.save_checkpoint(val_loss, model, epoch)
-            self.best_score = score
+            self.best_score = val_loss
             self.counter = 0
 
     def save_checkpoint(self, val_loss, model, epoch):
