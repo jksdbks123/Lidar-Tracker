@@ -26,8 +26,8 @@ class Raster_DBSCAN():
         self.Labeling_map_template = -1*np.ones(Td_map_szie,dtype = np.int16)
         self.Index_map = None # an intermediate variable
         self.Height_fringe_offset_fore = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),False) 
-        self.Height_fringe_offset_td = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),200) 
-        self.Heigh_fringe_offset_index = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),-1,dtype = np.int64) 
+        self.Height_fringe_offset_td = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),200, dtype=np.float16) 
+        self.Heigh_fringe_offset_index = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),-1,dtype = np.int32) 
 
         
         
@@ -37,8 +37,8 @@ class Raster_DBSCAN():
         self.Foreground_map = Foreground_map
 
         rows,cols = np.where(Foreground_map)
-        indices = np.arange(len(rows),dtype = np.int64)
-        self.Index_map = -1 * np.ones(shape = Foreground_map.shape,dtype=np.int64)
+        indices = np.arange(len(rows),dtype = np.int32)
+        self.Index_map = -1 * np.ones(shape = Foreground_map.shape,dtype=np.int32)
         self.Index_map[rows,cols] = indices # A map with the index of foreground point 
         
         # Horizontal padding
@@ -46,12 +46,12 @@ class Raster_DBSCAN():
         Foreground_map_offset = np.concatenate([np.full((self.Foreground_map.shape[0],self.Width_fringe),False),
                                                 self.Foreground_map,
                                                 np.full((self.Foreground_map.shape[0],self.Width_fringe),False)],axis = 1)
-        Index_map_offset = np.concatenate([np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int64),
+        Index_map_offset = np.concatenate([np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int32),
                                         self.Index_map,
-                                        np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int64)],axis = 1)
-        Td_map_offset = np.concatenate([np.full((self.Td_map.shape[0],self.Width_fringe),200),
+                                        np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int32)],axis = 1)
+        Td_map_offset = np.concatenate([np.full((self.Td_map.shape[0],self.Width_fringe),200,dtype=np.float16),
                                         self.Td_map,
-                                        np.full((self.Td_map.shape[0],self.Width_fringe),200)],axis = 1)
+                                        np.full((self.Td_map.shape[0],self.Width_fringe),200,dtype=np.float16)],axis = 1)
 
         # Vertical padding 
         Foreground_map_offset = np.concatenate([self.Height_fringe_offset_fore,
