@@ -608,7 +608,6 @@ class LidarVisualizer:
             
             self.handle_events()
             tracking_cums = 0
-            bf_cums = 0
             if self.switch_bck_recording_mode.state:
                 Td_map = self.point_cloud_queue.get()
                 self.background_data.append(Td_map)
@@ -622,7 +621,7 @@ class LidarVisualizer:
                 # pc,label (0/1),None 
             elif self.switch_tracking_mode.state:
                 Tracking_pool,Labeling_map,Td_map,tracking_cums = self.tracking_result_queue.get()
-                print(Labeling_map.max())
+                # print(Labeling_map.max())
                 tracking_cums = 1000 * tracking_cums
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
                 # pc, label (obj_id)
