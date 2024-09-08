@@ -27,7 +27,7 @@ class Raster_DBSCAN():
         self.Index_map = None # an intermediate variable
         self.Height_fringe_offset_fore = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),False) 
         self.Height_fringe_offset_td = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),200, dtype=np.float16) 
-        self.Heigh_fringe_offset_index = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),-1,dtype = np.int32) 
+        self.Heigh_fringe_offset_index = np.full((self.Height_fringe,Td_map_szie[1] + 2 * self.Width_fringe),-1,dtype = np.int16) 
 
         
         
@@ -37,8 +37,8 @@ class Raster_DBSCAN():
         self.Foreground_map = Foreground_map
 
         rows,cols = np.where(Foreground_map)
-        indices = np.arange(len(rows),dtype = np.int32)
-        self.Index_map = -1 * np.ones(shape = Foreground_map.shape,dtype=np.int32)
+        indices = np.arange(len(rows),dtype = np.int64)
+        self.Index_map = -1 * np.ones(shape = Foreground_map.shape,dtype=np.int64)
         self.Index_map[rows,cols] = indices # A map with the index of foreground point 
         
         # Horizontal padding
@@ -46,9 +46,9 @@ class Raster_DBSCAN():
         Foreground_map_offset = np.concatenate([np.full((self.Foreground_map.shape[0],self.Width_fringe),False),
                                                 self.Foreground_map,
                                                 np.full((self.Foreground_map.shape[0],self.Width_fringe),False)],axis = 1)
-        Index_map_offset = np.concatenate([np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int32),
+        Index_map_offset = np.concatenate([np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int16),
                                         self.Index_map,
-                                        np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int32)],axis = 1)
+                                        np.full((self.Index_map.shape[0],self.Width_fringe),-1,dtype = np.int16)],axis = 1)
         Td_map_offset = np.concatenate([np.full((self.Td_map.shape[0],self.Width_fringe),200,dtype=np.float16),
                                         self.Td_map,
                                         np.full((self.Td_map.shape[0],self.Width_fringe),200,dtype=np.float16)],axis = 1)
@@ -86,10 +86,18 @@ class Raster_DBSCAN():
             dbscan_inner(core_samples, neighborhoods, Labels)
         except:
             pass
-
         Labeling_map = self.Labeling_map_template.copy()
-
+        # Labels = Labels.astype(int)
         Labeling_map[rows,cols] = Labels
         # self.Labeling_map = Labeling_map
         
         return Labeling_map
+
+# if __name__ == '__main__':
+#     # Test the Raster_DBSCAN
+#     Td_map = np.random.rand(32,1800)
+#     Foreground_map = np.random.rand(32,1800) > 0.5
+#     db = Raster_DBSCAN(window_size=(5,5),eps = 0.1,min_samples=5,Td_map_szie=(32,1800))
+#     Labeling_map = db.fit_predict(Td_map,Foreground_map)
+#     print(Labeling_map)
+#     pass

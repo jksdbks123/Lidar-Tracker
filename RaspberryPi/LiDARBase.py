@@ -84,7 +84,6 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  mot.Global_id = 0
                  start_tracking_time = time.time()
             
-
         result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a))
 
     print('Terminated tracking process')
@@ -201,7 +200,7 @@ def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,vertical_limits):
     Xs = np.concatenate(Xs)
     Ys = np.concatenate(Ys)
         
-    Labels = np.concatenate(Labels).astype('int')
+    Labels = np.concatenate(Labels)
     # Colors = np.full((len(Labels),3),np.array([[153,153,153]])/256)
     for key in Tracking_pool:
         label_cur_frame = Tracking_pool[key].label_seq[-1]

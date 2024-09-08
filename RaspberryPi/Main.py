@@ -548,7 +548,7 @@ class LidarVisualizer:
                 self.tracking_prcess.join()
                 self.tracking_prcess = None
                 while not self.tracking_result_queue.empty():
-                    self.tracking_result_queue.get_nowait()
+                    self.tracking_result_queue.get()
                 print('Tracking Terminated...')
 
     def toggle_calibrate_background_img(self,state):
@@ -622,6 +622,7 @@ class LidarVisualizer:
                 # pc,label (0/1),None 
             elif self.switch_tracking_mode.state:
                 Tracking_pool,Labeling_map,Td_map,tracking_cums = self.tracking_result_queue.get()
+                print(Labeling_map.max())
                 tracking_cums = 1000 * tracking_cums
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
                 # pc, label (obj_id)
@@ -710,8 +711,8 @@ def main(mode = 'online',pcap_file_path = None):
         visualizer.quit()
 
 if __name__ == '__main__':
-    pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
-    # pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
+    # pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
+    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode, pcap_file_path=pcap_file_path)
     # mode = 'online'
