@@ -301,7 +301,7 @@ class LidarVisualizer:
                     elif event.button == 2:
                         if len(self.lane_drawer.current_lane_points) > 1:
                             self.lane_drawer.lane_end_points.append(self.lane_drawer.current_lane_points[-1])
-                            lane_multipoly = create_subsection_polygons(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths,0.2)
+                            lane_multipoly = create_subsection_polygons(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths,0.5)
                             self.lane_drawer.lane_subsections_poly.append(lane_multipoly)
                             lane_vertices = []
                             for poly in lane_multipoly:

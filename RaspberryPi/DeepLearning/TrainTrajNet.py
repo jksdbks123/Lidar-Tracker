@@ -17,7 +17,6 @@ from torchvision.ops import sigmoid_focal_loss
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device, early_stopping):
 
-    
     training_curve = {'train_loss': [], 'val_loss': []}
 
     for epoch in range(num_epochs):
@@ -85,12 +84,12 @@ if __name__ == '__main__':
     patience = 8 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 32
-    lane_unit = 500
+    lane_unit = 200 # in default, the model is trained in 100 meters, so each lane unit is 0.5 meters
     time_span = 100
-    hidden_size = 64
-    num_layers = 3
+    hidden_size = 128
+    num_layers = 2
     input_size = lane_unit
-    learning_rate = 1e-3
+    learning_rate = 1e-4
     weight_decay = 1e-5
     dropout = 0.5
     num_epochs = 100
@@ -99,10 +98,11 @@ if __name__ == '__main__':
     model = BidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers,droupout=dropout).to(device)
     # model = UnidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers).to(device)
     criterion = FocalLoss(alpha,gamma).to(device)
+    # criterion = SpeedFocalLoss(alpha,gamma).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
     # Create datasets
-    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0906_2res\models"
+    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0911_5res_lanechange_freeflow&signal\models"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)
     # new training folder will be named as "train_num"
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     else:
         train_num = int(history_train_list[-1].split('_')[-1]) + 1
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
-    early_stopping = EarlyStopping(patience=patience, verbose=True, path= model_save_path, min_delta=1)
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path= model_save_path, min_delta=5)
     os.makedirs(model_save_path)
     # save the training parameters as .json
     with open(os.path.join(model_save_path, 'training_parameters.json'), 'w') as f:
@@ -140,9 +140,9 @@ if __name__ == '__main__':
             'model': model.__class__.__name__
         }, f)
     
-    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0906_2res\100_frame\train", time_span=time_span)
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
-    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0906_2res\100_frame\val", time_span=time_span)
+    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0911_5res_lanechange_freeflow&signal\100_frame\train", time_span=time_span)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=16)
+    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0911_5res_lanechange_freeflow&signal\100_frame\val", time_span=time_span)
     val_loader = DataLoader(val_dataset, batch_size=32, num_workers=8)
 
     # Train the model

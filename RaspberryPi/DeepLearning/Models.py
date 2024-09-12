@@ -70,7 +70,7 @@ class FocalLoss(nn.Module):
             'total_loss': focal_loss,
         }
         return loss_dict
-        
+
 class UnidirectionalLSTMLaneReconstructor(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers,droupout=0.2):
         super(UnidirectionalLSTMLaneReconstructor, self).__init__()
@@ -229,9 +229,8 @@ class EarlyStopping:
             
         elif self.best_score - val_loss <= self.min_delta:
             if self.val_loss < self.best_score:
-                self.best_score = val_loss
                 self.save_checkpoint(val_loss, model, epoch)
-                self.counter = 0
+                self.best_score = val_loss
             self.counter += 1
             if self.verbose:
                 print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
