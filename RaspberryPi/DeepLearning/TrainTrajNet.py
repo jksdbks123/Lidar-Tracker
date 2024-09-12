@@ -102,7 +102,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
     # Create datasets
-    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0911_5res_lanechange_freeflow&signal\models"
+    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0913_5res_lanechange_signal\models"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)
     # new training folder will be named as "train_num"
@@ -140,9 +140,9 @@ if __name__ == '__main__':
             'model': model.__class__.__name__
         }, f)
     
-    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0911_5res_lanechange_freeflow&signal\100_frame\train", time_span=time_span)
+    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0913_5res_lanechange_signal\100_frame\train", time_span=time_span)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=16)
-    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0911_5res_lanechange_freeflow&signal\100_frame\val", time_span=time_span)
+    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0913_5res_lanechange_signal\100_frame\val", time_span=time_span)
     val_loader = DataLoader(val_dataset, batch_size=32, num_workers=8)
 
     # Train the model

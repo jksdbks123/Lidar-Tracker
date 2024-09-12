@@ -224,13 +224,15 @@ class EarlyStopping:
                 json.dump(training_curve, f)
 
         if self.best_loss is None:
-            self.best_score = val_loss
+            self.best_loss = val_loss
             self.save_checkpoint(val_loss, model, epoch)
             
-        elif self.best_score - val_loss <= self.min_delta:
-            if self.val_loss < self.best_score:
+            
+            
+        elif self.best_loss - val_loss <= self.min_delta:
+            if self.val_loss < self.best_loss:
                 self.save_checkpoint(val_loss, model, epoch)
-                self.best_score = val_loss
+                self.best_loss = val_loss
             self.counter += 1
             if self.verbose:
                 print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
@@ -238,11 +240,11 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.save_checkpoint(val_loss, model, epoch)
-            self.best_score = val_loss
+            self.best_loss = val_loss
             self.counter = 0
 
     def save_checkpoint(self, val_loss, model, epoch):
         if self.verbose:
-            print(f'Validation loss decreased ({self.best_score:.6f} --> {-val_loss:.6f}). Saving model ...')
+            print(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model ...')
         torch.save(model.state_dict(), os.path.join(self.path, f'checkpoint_{epoch}.pth'))
 
