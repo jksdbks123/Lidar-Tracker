@@ -230,7 +230,7 @@ class EarlyStopping:
             
             
         elif self.best_loss - val_loss <= self.min_delta:
-            if self.val_loss < self.best_loss:
+            if val_loss < self.best_loss:
                 self.save_checkpoint(val_loss, model, epoch)
                 self.best_loss = val_loss
             self.counter += 1

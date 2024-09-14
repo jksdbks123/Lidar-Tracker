@@ -86,14 +86,14 @@ if __name__ == '__main__':
     batch_size = 32
     lane_unit = 200 # in default, the model is trained in 100 meters, so each lane unit is 0.5 meters
     time_span = 100
-    hidden_size = 128
+    hidden_size = 256
     num_layers = 2
     input_size = lane_unit
     learning_rate = 1e-4
     weight_decay = 1e-5
     dropout = 0.5
     num_epochs = 100
-    alpha= 0.97
+    alpha= 0.95
     gamma= 4
     model = BidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers,droupout=dropout).to(device)
     # model = UnidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers).to(device)
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
     # Create datasets
-    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0913_5res_lanechange_signal\models"
+    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\models"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)
     # new training folder will be named as "train_num"
@@ -140,9 +140,9 @@ if __name__ == '__main__':
             'model': model.__class__.__name__
         }, f)
     
-    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0913_5res_lanechange_signal\100_frame\train", time_span=time_span)
+    train_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\100_frame\train", time_span=time_span)
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=16)
-    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0913_5res_lanechange_signal\100_frame\val", time_span=time_span)
+    val_dataset = TrajDataset(data_dir=r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\100_frame\val", time_span=time_span)
     val_loader = DataLoader(val_dataset, batch_size=32, num_workers=8)
 
     # Train the model
