@@ -86,7 +86,7 @@ if __name__ == '__main__':
     batch_size = 32
     lane_unit = 200 # in default, the model is trained in 100 meters, so each lane unit is 0.5 meters
     time_span = 100
-    hidden_size = 256
+    hidden_size = 128
     num_layers = 2
     input_size = lane_unit
     learning_rate = 1e-4
