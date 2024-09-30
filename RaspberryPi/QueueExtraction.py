@@ -177,13 +177,6 @@ def main(pcap_file_path,lane_drawer,out_path):
 if __name__ == '__main__':
     lane_drawer = LaneDrawer() # lane drawer for queue detection
     lane_drawer.update_lane_gdf()
-    # pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap'
-    # out_path = 'D:\LiDAR_Data\9thVir_out'
-    # main(pcap_file_path,lane_drawer,out_path)
-
-
-    
-    
 
     input_folder = r'D:\LiDAR_Data\9thVir'
     out_folder = r'D:\LiDAR_Data\9thVir_out'
