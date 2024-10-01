@@ -157,8 +157,8 @@ def main(pcap_file_path,lane_drawer,save_path):
     Td_maps = np.array(Td_maps)
 
     thred_map = gen_bckmap(Td_maps, N = 10,d_thred = 0.1,bck_n = 3)   
-    np.save('./thred_map.npy',thred_map)
-    thred_map = np.load('./thred_map.npy')
+    # np.save('./thred_map.npy',thred_map)
+    # thred_map = np.load('./thred_map.npy')
     # create lane_unit_range_ranging_Tdmap
     lane_unit_cos_dis_Tdmap = np.zeros((2,32,1800))
     lane_unit_index_Tdmap = -1 * np.ones((32,1800), dtype = np.int16)
@@ -197,7 +197,7 @@ def main(pcap_file_path,lane_drawer,save_path):
     time_space_series = [] # t x lane# x lane_section#
     for Td_map in tqdm(Td_maps):
         activation_profile = []
-        occupation_ind = get_occupation_ind(Td_map,lane_unit_range_ranging_Tdmap,count_thred)
+        occupation_ind = get_occupation_ind(Td_map,lane_unit_range_ranging_Tdmap,count_thred,bck_radius, thred_map)
 
         for lane_id,g in lane_gdf.groupby('lane_id'):
             activation_profile.append(occupation_ind[g.index])
@@ -212,8 +212,10 @@ def main(pcap_file_path,lane_drawer,save_path):
             lane_activation_profile.append(lane_activation_cur)
         lane_activation_profile = np.array(lane_activation_profile,dtype=int)
         lane_activation_profile_T = lane_activation_profile.T
-
-        np.save(os.path.join(save_path,out_folder_name,'lane_{}.npy'.format(lane_ind)),lane_activation_profile_T)
+        half_time_folder = os.path.join(save_path,out_folder_name)
+        if not os.path.exists(half_time_folder):
+            os.makedirs(half_time_folder)
+        np.save(os.path.join(half_time_folder,'lane_{}.npy'.format(lane_ind)),lane_activation_profile_T)
 
 if __name__ == '__main__':
 
@@ -223,4 +225,4 @@ if __name__ == '__main__':
     input_folder = r'D:\LiDAR_Data\9thVir'
     out_folder = r'D:\TimeSpaceDiagramDataset\9th&vir_314'
     pcap_path_list = [os.path.join(input_folder,file) for file in os.listdir(input_folder) if file.endswith('.pcap')]
-    p_umap(partial(main,lane_drawer = lane_drawer,save_path = out_folder), pcap_path_list,num_cpus = 4)
+    p_umap(partial(main,lane_drawer = lane_drawer,save_path = out_folder), pcap_path_list,num_cpus = 5)
