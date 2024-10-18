@@ -6,8 +6,11 @@ from LiDARBase import *
 from MOT_TD_BCKONLIONE import MOT
 import time
 import sys
+
 def track_point_clouds(mot,point_cloud_queue,result_queue):
+    time_curves = []
     start_tracking_time = time.time()
+    frame_count = 0
     while True:
         Td_map =  point_cloud_queue.get()
         # some steps
@@ -30,9 +33,15 @@ def track_point_clouds(mot,point_cloud_queue,result_queue):
                  mot.Tracking_pool = {}
                  mot.Global_id = 0
                  start_tracking_time = time.time()
-            
-            print(f"Tracking time cost: {tracking_time_cost * 1000}",flush=True)
+            time_curves.append(tracking_time_cost * 1000)
+            frame_count += 1
+            print(f"Tracking time cost: {tracking_time_cost * 1000}",end='\r',flush=True)
             sys.stdout.flush()
+        if frame_count > 100:
+            # save the time curves
+            np.save('time_curves.npy',np.array(time_curves))
+            # exit the process
+            break
         # result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a))
 
 def main(pcap_file_path,thred_map_path,win_size,min_samples,eps_dis):
@@ -60,8 +69,8 @@ def main(pcap_file_path,thred_map_path,win_size,min_samples,eps_dis):
         print("All processes are done!")
 
 if __name__ == '__main__':
-    pcap_file_path = r"D:\LiDAR_Data\9thVir\2024-03-14-23-30-00.pcap"
-    thred_map_path = r"D:\CodeRepos\Lidar-Tracker\RaspberryPi\config_files\thred_map.npy"
+    pcap_file_path = r"./2024-03-14-23-30-00.pcap"
+    thred_map_path = r"./config_files/thred_map.npy"
     win_size = 5
     min_samples = 5
     eps_dis = 0.5

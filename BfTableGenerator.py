@@ -8,7 +8,6 @@ import pandas as pd
 import os
 import time 
 import sys 
-import cv2
 from VisulizerTools import *
 from DDBSCAN import Raster_DBSCAN
 class TDmapLoader():

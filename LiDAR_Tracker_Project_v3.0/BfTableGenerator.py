@@ -1,14 +1,8 @@
-from multiprocessing.spawn import import_main_path
-from tqdm import tqdm
-import matplotlib.pyplot as plt
+
 import dpkt
 import numpy as np
 import open3d as op3 
-import pandas as pd
-import os
-import time 
-import sys 
-import cv2
+
 from VisulizerTools import *
 from DDBSCAN import Raster_DBSCAN
 
@@ -73,6 +67,7 @@ class TDmapLoader():
                 dataPointIndex = y % 16
                 timing_offsets[y][x] = (full_firing_cycle * dataBlockIndex) +(single_firing * dataPointIndex)
         return np.array(timing_offsets).T
+
 
     def calc_precise_azimuth(self,azimuth_per_block):
 
@@ -238,21 +233,12 @@ class TDmapLoader():
                                 culmulative_distances.append(distances)
                                 culmulative_intensities.append(intensities)
                                 
-                            
-                            
-                                
-                                
-                                
-                                
-
-                                
-
-                                
-                            
-
 def get_image(Td_map,Inten_map):
     Image = np.concatenate([Td_map[:,:,np.newaxis],Inten_map[:,:,np.newaxis]],axis = -1)
     return Image
+
+
+
 
 if __name__ == "__main__":
     # background_object = cv2.createBackgroundSubtractorMOG2(varThreshold=10)

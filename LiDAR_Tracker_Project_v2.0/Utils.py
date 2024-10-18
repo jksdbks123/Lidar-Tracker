@@ -2,13 +2,12 @@
 import numpy as np
 from numpy.core.fromnumeric import shape
 import open3d as op3
-from scipy.optimize.optimize import main
 from scipy.spatial import distance
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 # import torch
 from sklearn.cluster import DBSCAN
-import cv2
+# import cv2
 import json
 import pickle
 import socket
@@ -194,7 +193,6 @@ def get_appearance_features(rows,cols,Td_map): #obtain length height and width
     points_num = len(points)
     rect = cv2.minAreaRect(points.astype('float32'))
     box = cv2.boxPoints(rect)
-    # box = cv2.boxPoints(rect)
     b1 = np.sqrt(np.sum((box[1] - box[0])**2))
     b2 = np.sqrt(np.sum((box[2] - box[1])**2))
     length = b1

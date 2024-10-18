@@ -1,4 +1,3 @@
-from tkinter import SEL
 from DDBSCAN import Raster_DBSCAN
 from Utils import *
 from LiDARBase import *
