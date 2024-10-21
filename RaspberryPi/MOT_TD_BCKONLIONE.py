@@ -2,7 +2,6 @@ from DDBSCAN import Raster_DBSCAN
 from Utils import *
 from LiDARBase import *
 
-
 A = np.array([ # x,y,x',y'
     [1,0,1,0],
     [0,1,0,1],
@@ -53,6 +52,8 @@ class MOT():
         self.cur_unique_label = None
         self.cur_Td_map = None
         self.cur_Labeling_map = None
+        self.clustering_time = 0
+        self.bf_time = 0
         
     def initialization(self,Frame):
         # you should set up some initial status, we should code the logic in the main loop. 
@@ -110,9 +111,11 @@ class MOT():
         unique_label_cur = np.array(unique_label_cur)
         P_cur = np.array(P_cur)
         # state_cur: n x 2 x 4 x 1
+        time_a = time.time()
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
+        time_b = time.time()
         Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-            
+        time_c = time.time() 
             # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
             # app: n x 1 x 7 x 1
             # first repr point refers to the one with lower azimuth id 
@@ -189,4 +192,6 @@ class MOT():
 
         self.cur_Labeling_map = Labeling_map
         self.Td_map_cur = Td_map
+        self.clustering_time = (time_c - time_b)*1000
+        self.bf_time = (time_b - time_a)*1000
         self.CurFrame += 0
