@@ -27,7 +27,7 @@ class LaneDrawer:
         self.lane_points = []  # n x k x poly points
         self.lane_widths = [] # n x k - 1 
         self.lane_subsections_poly = [] # n x k x poly lane segments
-        self.lane_end_points = []
+        self.lane_centerline = []
         self.lane_width = 12 * 0.3048  # Default lane width in feet
         self.drawing_lanes = False # mode on
         self.start_drawing_lanes = False # start a drawing session
@@ -37,8 +37,8 @@ class LaneDrawer:
         self.lane_dic_path = r'./config_files/lane_dic.pkl'
         self.lane_width_dic_path = r'./config_files/lane_width_dic.pkl'
         self.lane_poly_path = r'./config_files/lane_poly.pkl'
-        self.lane_end_points_path = r'./config_files/lane_end_points.pkl'
-        # self.lnae_width_dic_path = r'./config_files/' 
+        self.lane_centerline_path = r'./config_files/lane_centerline.pkl'
+        
         self.read_lanes()
 
     def remove_last_record(self):
@@ -51,13 +51,13 @@ class LaneDrawer:
             self.lane_widths.pop()
         if self.lane_subsections_poly:
             self.lane_subsections_poly.pop()
-        if self.lane_end_points:
-            self.lane_end_points.pop()
+        if self.lane_centerline:
+            self.lane_centerline.pop()
         self.save()
         
     def read_lanes(self):
         
-        if os.path.exists(self.lane_dic_path) and os.path.exists(self.lane_width_dic_path) and os.path.exists(self.lane_poly_path) and os.path.exists(self.lane_end_points_path):
+        if os.path.exists(self.lane_dic_path) and os.path.exists(self.lane_width_dic_path) and os.path.exists(self.lane_poly_path) and os.path.exists(self.lane_centerline_path) :
             with open(self.lane_dic_path, "rb") as f:
                 lane_dic = pickle.load(f)
                 for key in lane_dic.keys():
@@ -68,8 +68,9 @@ class LaneDrawer:
                     self.lane_widths.append(lane_widths[key])
             with open(self.lane_poly_path, 'rb') as f:
                 self.lane_subsections_poly = pickle.load(f)
-            with open(self.lane_end_points_path, 'rb') as f:
-                self.lane_end_points = pickle.load(f)
+            with open(self.lane_centerline_path, 'rb') as f:
+                self.lane_centerline = pickle.load(f)
+
 
     def save(self):
 
@@ -85,8 +86,9 @@ class LaneDrawer:
             pickle.dump(lane_width_dic, f)
         with open(self.lane_poly_path, 'wb') as f:
             pickle.dump(self.lane_subsections_poly, f, pickle.HIGHEST_PROTOCOL)
-        with open(self.lane_end_points_path, 'wb') as f:
-            pickle.dump(self.lane_end_points, f, pickle.HIGHEST_PROTOCOL)
+        with open(self.lane_centerline_path, 'wb') as f:
+            pickle.dump(self.lane_centerline, f, pickle.HIGHEST_PROTOCOL)
+            
             
     def update_lane_gdf(self):
         if self.lane_subsections_poly:
@@ -101,7 +103,7 @@ class LaneDrawer:
         self.lane_widths.clear()
         self.current_lane_connection = None
         self.drawing_lanes = False
-        self.lane_end_points.clear()
+        self.lane_centerline.clear()
         self.lane_subsections_poly.clear()
         self.lane_section_foreground_point_counts.clear()
             

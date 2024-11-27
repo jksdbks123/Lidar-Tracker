@@ -69,14 +69,14 @@ class LidarVisualizer:
             self.static_bck_points = get_static_bck_points(self.thred_map,self.vertical_limits)
             print("Background loaded")
         # this is a Surface object
-        self.background_image = pygame.image.load(r'./config_files/background.png')
+        self.background_image = pygame.image.load(os.path.join(self.config_dir,'background.png'))
         self.manipulated_bg_img,self.bg_img_rect = get_bg_manipulated(self.background_image, self.rotation_angle_bck, self.zoom_bck, self.offset_bck, self.screen)
-        # self.background_surface.blit(self.manipulated_bg_img,self.bg_img_rect)
-        self.static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom, self.offset,
-                                                    self.rotation_angle, self.screen.get_height())
-        for point in self.static_bck_points_screen:
-            x,y = point
-            pygame.draw.circle(self.background_surface, (255,255,255), (x,y), 2)
+        if self.thred_map is not None:
+            self.static_bck_points_screen = world_to_screen(self.static_bck_points,self.zoom, self.offset,
+                                                        self.rotation_angle, self.screen.get_height())
+            for point in self.static_bck_points_screen:
+                x,y = point
+                pygame.draw.circle(self.background_surface, (255,255,255), (x,y), 2)
         # draw a blue rect on the background surface to indicate the background area according to the self.bg_corner_screen
         
         self.screen.blit(self.background_surface, (0, 0))
@@ -300,13 +300,14 @@ class LidarVisualizer:
 
                     elif event.button == 2:
                         if len(self.lane_drawer.current_lane_points) > 1:
-                            self.lane_drawer.lane_end_points.append(self.lane_drawer.current_lane_points[-1])
+                            self.lane_drawer.lane_centerline.append(self.lane_drawer.current_lane_points)
                             lane_multipoly = create_subsection_polygons(self.lane_drawer.current_lane_points,self.lane_drawer.current_lane_widths,0.5)
                             self.lane_drawer.lane_subsections_poly.append(lane_multipoly)
                             lane_vertices = []
                             for poly in lane_multipoly:
                                 lane_vertices.append(list(poly.exterior.coords))
                             self.lane_drawer.lane_points.append(lane_vertices)
+                            self.lane_drawer.lane_widths.append(self.lane_drawer.current_lane_widths)
                             self.lane_drawer.start_drawing_lanes = False
                             self.lane_drawer.current_lane_connection = None
                             self.lane_drawer.current_lane_points = []  # List of points defining the current lane centerline
@@ -362,11 +363,7 @@ class LidarVisualizer:
             self.screen.blit(count_surf, (mid_point_x - count_surf.get_width() / 2, mid_point_y - count_surf.get_height() / 2))
         
         if self.lane_drawer.lane_points:
-            if self.switch_queue_monitoring_mode.state:
-                # lane_section_foreground_point_counts = get_lane_section_foreground_point_counts(self.lane_drawer.lane_subsections_poly,
-                #                                                                                 self.lane_drawer.lane_gdf,
-                #                                                                                 data_raw,point_label)
-                
+            if self.switch_queue_monitoring_mode.state:             
                 lane_occupation_ind = get_occupation_ind(Td_map,self.lane_drawer.lane_unit_range_ranging_Tdmap,7,0.3,self.thred_map)
                 # fit i_lane x j_section 
                 self.lane_drawer.lane_gdf['occupation_ind'] = lane_occupation_ind
@@ -387,7 +384,7 @@ class LidarVisualizer:
                     pygame.draw.polygon(self.screen, color, seg_poly_points)
 
                 label_surface = self.object_label_font.render(f'Lane {i}', False, (255,65,212))
-                lane_end_point = np.array([self.lane_drawer.lane_end_points[i]])
+                lane_end_point = np.array([self.lane_drawer.lane_centerline[i][-1]])
                 lane_end_point = world_to_screen(lane_end_point,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
                 self.screen.blit(label_surface,(lane_end_point[0][0],lane_end_point[0][1]))
             
@@ -471,12 +468,15 @@ class LidarVisualizer:
                                 self.bar_drawer.line_counts[i] += 1
                                 break
             else:
-                
-                for coord,l in zip(data_raw_screen,point_label):
-                    if l == 0:
-                        continue
-                    x,y = coord
-                    pygame.draw.circle(self.screen, tuple(color_map[1]), (x, y), 2)
+                if point_label is not None:
+                    for coord,l in zip(data_raw_screen,point_label):
+                        if l == 0:
+                            continue
+                        x,y = coord
+                        pygame.draw.circle(self.screen, tuple(color_map[1]), (x, y), 2)
+                else:
+                    for x, y in data_raw_screen:
+                        pygame.draw.circle(self.screen, (255,255,255), (x, y), 2)
 
         for item in self.events_handle_items:
             item.draw()
@@ -635,7 +635,9 @@ class LidarVisualizer:
                                                                                             Td_map,self.vertical_limits)
                     # pc,label (0/1), None
                 else:
+                    
                     point_cloud_data,point_labels,tracking_dic = get_ordinary_point_cloud(Td_map,self.vertical_limits)
+
                     # pc,None, None
 
             self.update_background() # This is for update background map itself
@@ -667,8 +669,8 @@ def main(mode = 'online',pcap_file_path = None):
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
-            raw_data_queue = manger.Queue(5000) # Packet Queue
-            point_cloud_queue = manger.Queue(100)
+            raw_data_queue = manger.Queue() # Packet Queue
+            point_cloud_queue = manger.Queue()
             tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
             tracking_parameter_dict = manger.dict({})
             tracking_param_update_event = Event()
@@ -711,7 +713,7 @@ def main(mode = 'online',pcap_file_path = None):
 
 if __name__ == '__main__':
     # pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
-    pcap_file_path = r'D:\LiDAR_Data\9thVir\2024-03-15-06-00-00.pcap'
+    pcap_file_path = r'D:\LiDAR_Data\US50ANDHighlands\2024-03-16-23-30-00.pcap'
     mode = 'offline'
     main(mode=mode, pcap_file_path=pcap_file_path)
     # mode = 'online'
