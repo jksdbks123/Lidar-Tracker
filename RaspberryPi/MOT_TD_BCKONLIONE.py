@@ -37,7 +37,6 @@ class MOT():
         self.eps = tracking_parameter_dict['eps'] 
         self.min_samples = tracking_parameter_dict['min_samples']
         self.missing_thred = missing_thred
-        
         self.db = Raster_DBSCAN(window_size=self.win_size,eps = self.eps,min_samples= self.min_samples,Td_map_szie=(32,1800))
         ###
         self.thred_map = thred_map     
@@ -155,7 +154,6 @@ class MOT():
                             n_offset_dim = 2
                             state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
                             P_init = np.full((2,P_em.shape[0],P_em.shape[1]),P_em)
-
                             create_new_detection(self.Tracking_pool,self.Global_id,P_init,state_init,app_next[n_id],
                             unique_label_next[n_id],mea_next[n_id],self.CurFrame)
                             self.Global_id += 1
@@ -195,3 +193,4 @@ class MOT():
         self.clustering_time = (time_c - time_b)*1000
         self.bf_time = (time_b - time_a)*1000
         self.CurFrame += 0
+

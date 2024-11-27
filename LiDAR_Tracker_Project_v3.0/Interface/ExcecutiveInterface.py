@@ -865,13 +865,8 @@ class Interface():
             pcap_paths.append(os.path.join(input_path,filelist_[i]))
             pcap_names.append(filelist_[i])
         n_cpu = self.cpu_nTab4.get()
-
         print('Begin Pcap Clipping with {} Cpus'.format(n_cpu))
         p_umap(partial(run_clipping,output_path = output_path), pcap_paths,target_frames,pcap_names,num_cpus = n_cpu)
-
-
-        
-
 
 if __name__ == "__main__":
     

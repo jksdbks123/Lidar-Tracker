@@ -8,6 +8,7 @@ color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
 # red 0, blue 1
 color_map_foreground = np.array([[255,0,0],[0,0,255]])
 thred_map_index = np.arange(32*1800).reshape((32,1800))
+
 class detected_obj():
     def __init__(self):
         self.glb_id = None
@@ -32,7 +33,6 @@ def calc_timing_offsets():
             dataBlockIndex = (x * 2) + int((y / 16))
             dataPointIndex = y % 16
             timing_offsets[y][x] = (full_firing_cycle * dataBlockIndex) +(single_firing * dataPointIndex)
-
     return np.array(timing_offsets).T
 
 Data_order = np.array([[-25,1.4],[-1,-4.2],[-1.667,1.4],[-15.639,-1.4],
@@ -119,6 +119,7 @@ def parse_one_packet(data):
 
 def read_uint32(data, idx):
     return data[idx] + data[idx+1]*256 + data[idx+2]*256*256 + data[idx+3]*256*256*256
+
 def read_firing_data(data):
     block_id = data[0] + data[1]*256
     azimuth = (data[2] + data[3] * 256) / 100 # degree

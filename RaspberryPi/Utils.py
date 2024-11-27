@@ -38,7 +38,7 @@ class LaneDrawer:
         self.lane_width_dic_path = r'./config_files/lane_width_dic.pkl'
         self.lane_poly_path = r'./config_files/lane_poly.pkl'
         self.lane_centerline_path = r'./config_files/lane_centerline.pkl'
-        
+
         self.read_lanes()
 
     def remove_last_record(self):
@@ -70,8 +70,6 @@ class LaneDrawer:
                 self.lane_subsections_poly = pickle.load(f)
             with open(self.lane_centerline_path, 'rb') as f:
                 self.lane_centerline = pickle.load(f)
-
-
     def save(self):
 
         lane_dic = {}
