@@ -56,7 +56,6 @@ raw_data_queue: UDP packets from LiDAR snesor
 LidarVisualizer.point_cloud_queue: parsed point cloud frames 
 """
 
-
 def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event):
     start_tracking_time = time.time()
     while not stop_event.is_set():
@@ -83,7 +82,6 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  mot.Tracking_pool = {}
                  mot.Global_id = 0
                  start_tracking_time = time.time()
-            
         result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a))
 
     print('Terminated tracking process')
