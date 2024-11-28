@@ -3,7 +3,6 @@ from tkinter import StringVar, IntVar
 from tkinter import filedialog
 from tkinter.messagebox import showinfo
 
-
 def build_interface(tabs, config, processor, visualizer, tracker, dummy_processor):
     """
     Build the GUI interface for the tabs.
@@ -50,7 +49,7 @@ def build_tab1(tab, config, visualizer,dummy_processor):
             text="Exam LiDAR Date",
             command = dummy_processor.terminate_tasks
         ).grid(column=0, row=2, padx=10, pady=10)
-
+    
     ttk.Label(tab, 
               text= "Packet Start Time:",
               ).grid(column=1, row=2, padx=0, pady=0)

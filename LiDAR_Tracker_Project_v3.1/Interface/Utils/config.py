@@ -12,7 +12,7 @@ Tab 4: PCAP Clipping, clip pcap files. parameters: pcap_folder (selected by file
 class Config:
     CONFIG_FILE = "config.json"
     def __init__(self):
-        self.params = { # Default configuration
+        self.general_params = { # Default configuration
             # filer parameters in four tabs
             "tab1": {'pcap_file': ""},
             "tab2": {'batch_folder': "", 'output_folder': "", 'ref_xyz_file_path': "", 'ref_llh_file_path': "", 'Diff2UTC': -8},
@@ -26,22 +26,22 @@ class Config:
     def load_config(self):
         if os.path.exists(self.CONFIG_FILE):
             with open(self.CONFIG_FILE, "r") as file:
-                self.params = json.load(file)
+                self.general_params = json.load(file)
         # go through all elements, if it ends with file or folder and is empty, set it to empty string
-        for tab in self.params:
-            for param in self.params[tab]:
+        for tab in self.general_params:
+            for param in self.general_params[tab]:
                 if param.endswith("_file") or param.endswith("_folder"):
                     # test if the file or folder exists
-                    if not os.path.exists(self.params[tab][param]):
-                        self.params[tab][param] = ""
-                        
+                    if not os.path.exists(self.general_params[tab][param]):
+                        self.general_params[tab][param] = ""
+
     def save_config(self):
         with open(self.CONFIG_FILE, "w") as file:
-            json.dump(self.params, file, indent=4)
+            json.dump(self.general_params, file, indent=4)
 
     def set_param(self, tab, param, value):
-        self.params[tab][param] = value
+        self.general_params[tab][param] = value
         self.save_config()
 
     def get_param(self, key):
-        return self.params.get(key, "")
+        return self.general_params.get(key, "")

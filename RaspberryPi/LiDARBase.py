@@ -99,9 +99,9 @@ def parse_one_packet(data):
     data = np.frombuffer(data, dtype=np.uint8).astype(np.uint32)
     blocks = data[0:1200].reshape(12, 100)
     Timestamp = read_uint32(data[1200:1204],0)
-    distances = []#12*32
-    intensities = []#12*32
-    azimuth_per_block = [] #(12,0)
+    distances = []# 12*32
+    intensities = []# 12*32
+    azimuth_per_block = [] # (12,0)
     # iteratie through each block
     for i, blk in enumerate(blocks):
         dists, intens, angles = read_firing_data(blk)
