@@ -1,6 +1,9 @@
 from Utils import *
 from DDBSCAN import Raster_DBSCAN
 import cv2
+import sys
+import os
+
 
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
@@ -332,7 +335,6 @@ def parse_packets(raw_data_queue, point_cloud_queue):
     Td_map = np.zeros((32,1800))
     # Intens_map = np.zeros((32,1800))
     next_ts = 0
-    
     ts,raw_packet = raw_data_queue.get()
     distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
     print(Timestamp)
@@ -554,7 +556,6 @@ def extract_xy(Labeling_map,Td_map):
         
     # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
     new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
-
     xy_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,False)
     if len(xy_set) > 0:
         total_labels = np.concatenate([new_uni_labels,new_uni_labels])

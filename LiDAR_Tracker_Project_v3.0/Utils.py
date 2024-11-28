@@ -195,14 +195,13 @@ def get_xy_set(new_uni_labels,Labeling_map,Td_map,if_app):
 
 def extract_xy(Labeling_map,Td_map):
         
-    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
     new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
 
     xy_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,False)
     if len(xy_set) > 0:
         total_labels = np.concatenate([new_uni_labels,new_uni_labels])
         edge_points = np.concatenate([xy_set[:,1,:,0],xy_set[:,0,:,0]])
-        merge_labels = db_merge.fit_predict(edge_points)
+        # merge_labels = db_merge.fit_predict(edge_points)
         unique_merge_labels = np.unique(merge_labels[merge_labels != -1])
         merge_pairs = [total_labels[merge_labels == l] for l in unique_merge_labels]
         for p in merge_pairs:

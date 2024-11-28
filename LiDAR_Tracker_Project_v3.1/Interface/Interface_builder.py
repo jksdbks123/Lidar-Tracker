@@ -1,8 +1,11 @@
 from tkinter import ttk
-from tkinter import StringVar, IntVar
+from tkinter import StringVar, IntVar, BooleanVar
 from tkinter import filedialog
 from tkinter.messagebox import showinfo
-
+from Functions import ExamPcapStartTime
+def update_flag(flag):
+    pass
+    
 def build_interface(tabs, config, processor, visualizer, tracker, dummy_processor):
     """
     Build the GUI interface for the tabs.
@@ -23,6 +26,7 @@ def build_tab1(tab, config, visualizer,dummy_processor):
     """Builds the Tracking Visualization tab."""
     ttk.Label(tab, text="Tracking Visualization").grid(column=0, row=0, padx=10, pady=10)
     pcap_file = StringVar(value=config.get_param("tab1")["pcap_file"])
+    start_date = StringVar(value="0")
     ttk.Entry(tab, textvariable=pcap_file, width=50).grid(column=1, row=0)
     ttk.Button(
         tab,
@@ -47,11 +51,11 @@ def build_tab1(tab, config, visualizer,dummy_processor):
     ttk.Button(
             tab,
             text="Exam LiDAR Date",
-            command = dummy_processor.terminate_tasks
+            command = lambda: start_date.set(f'Start Date:{ExamPcapStartTime.get_pcap_start_time(pcap_file.get())}')
         ).grid(column=0, row=2, padx=10, pady=10)
     
     ttk.Label(tab, 
-              text= "Packet Start Time:",
+              textvariable = start_date
               ).grid(column=1, row=2, padx=0, pady=0)
 
 
@@ -65,7 +69,8 @@ def build_tab2(tab, config, processor):
     ref_xyz_file = StringVar(value=config.get_param("tab2")["ref_xyz_file_path"])
     ref_llh_file = StringVar(value=config.get_param("tab2")["ref_llh_file_path"])
     diff_to_utc = IntVar(value=config.get_param("tab2")["Diff2UTC"])
-
+    if_save_forepoints = BooleanVar(value=config.get_param("tab2")["SaveForepoints"])
+    
     ttk.Label(tab, text="Batch Folder").grid(column=0, row=1)
     ttk.Entry(tab, textvariable=batch_folder, width=50).grid(column=1, row=1)
     ttk.Button(
@@ -100,6 +105,18 @@ def build_tab2(tab, config, processor):
 
     ttk.Label(tab, text="Diff to UTC").grid(column=0, row=5)
     ttk.Entry(tab, textvariable=diff_to_utc, width=10).grid(column=1, row=5)
+    
+    # Checkbox
+    ttk.Checkbutton(
+        tab,
+        text="Enable Additional Processing",
+        variable=if_save_forepoints,
+        command= lambda: update_flag(if_save_forepoints),
+        onvalue=True,
+        offvalue=False
+        
+        
+    ).grid(column=0, row=7, padx=10, pady=10)
 
     # Buttons
     ttk.Button(

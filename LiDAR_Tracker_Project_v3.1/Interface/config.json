@@ -1,13 +1,14 @@
 {
     "tab1": {
-        "pcap_file": "D:/LiDAR_Data/2024-03-16-14-30-00.pcap"
+        "pcap_file": ""
     },
     "tab2": {
         "batch_folder": "",
         "output_folder": "",
         "ref_xyz_file_path": "",
         "ref_llh_file_path": "",
-        "Diff2UTC": -8
+        "Diff2UTC": -8,
+        "SaveForepoints": false
     },
     "tab3": {
         "traj_folder": "",
