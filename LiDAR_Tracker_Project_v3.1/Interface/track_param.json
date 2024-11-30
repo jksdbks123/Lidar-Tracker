@@ -1,0 +1,11 @@
+{
+    "win_width": 13,
+    "win_height": 7,
+    "eps": 1,
+    "min_samples": 10,
+    "missing_thred": 5,
+    "bck_radius": 0.2,
+    "N": 10,
+    "d_thred": 0.1,
+    "bck_n": 3
+}

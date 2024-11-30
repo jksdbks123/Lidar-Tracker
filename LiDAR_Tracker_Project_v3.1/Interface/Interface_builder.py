@@ -1,3 +1,8 @@
+import os
+import sys
+# print script name and system path
+print(sys.argv[0])
+print(sys.path)
 from tkinter import ttk
 from tkinter import StringVar, IntVar, BooleanVar
 from tkinter import filedialog

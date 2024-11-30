@@ -1,15 +1,5 @@
 
-# import sys
-# import os
-
-# # Get the path to the upper-level directory
-
-# dependency_folder = os.path.abspath(os.path.join(os.path.dirname(__file__),'Utils'))
-# # Add the path to sys.path
-# if dependency_folder not in sys.path:
-#     sys.path.append(dependency_folder)
-
-from Utils.LiDARBase import *
+from LiDARBase import *
 from datetime import datetime
 
 def get_pcap_start_time(pcap_file):

@@ -1,3 +1,13 @@
+import sys,os
+# consider we are in the Interface folder, root folder is LiDAR_Tracker_Project_v3.1
+functions_folder_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'Functions'))
+utils_folder_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'Utils'))
+if functions_folder_path not in sys.path:
+    sys.path.append(functions_folder_path)
+if utils_folder_path not in sys.path:
+    sys.path.append(utils_folder_path)
+print(sys.path)
+
 from tkinter import ttk
 import tkinter as tk
 from Interface_builder import build_interface
