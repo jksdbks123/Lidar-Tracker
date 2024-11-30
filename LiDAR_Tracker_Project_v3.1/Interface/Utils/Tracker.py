@@ -5,6 +5,9 @@ from GenBckFile import *
 from SaveTrajectoryTools import save_result
 from ExamPcapStartTime import get_pcap_start_time
 import pandas as pd
+import os
+from p_tqdm import p_umap
+from functools import partial
 
 A = np.array([ # x,y,x',y'
     [1,0,1,0],
@@ -213,28 +216,33 @@ class MOT():
 
 
 def run_single_mot(pcap_file_path,
-                   tracking_parameter_dict,
-                   thred_map,
                    trajectory_path,
                    point_cloud_path,
+                   tracking_parameter_dict,
                    UTC_time_diff,
                    ref_LLH_path,ref_xyz_path,
                    if_save_point_cloud = False):
+    # background map
+    thred_map = gen_bckmap(pcap_file_path, 
+                           N = tracking_parameter_dict['N'],
+                           d_thred = tracking_parameter_dict['d_thred'],
+                           bck_n = tracking_parameter_dict['bck_n'])
     start_timestamp = get_pcap_start_time(pcap_file_path)
-    print(start_timestamp)
     packets_gen = read_packets_offline(pcap_file_path)
     frame_generator = parse_packets(packets_gen)
     
     mot = MOT(tracking_parameter_dict,thred_map)
     mot.if_save_point_cloud = if_save_point_cloud
     mot.trajectory_save_path = trajectory_path
+
+    if not os.path.exists(point_cloud_path):
+        os.mkdir(point_cloud_path)
     mot.UTC_time_diff = UTC_time_diff
     if if_save_point_cloud:
         mot.point_cloud_save_path = point_cloud_path
     mot.start_timestamp = start_timestamp
     while True:
         if not mot.if_initialized:
-            print('Initialization')
             try:
                 frame = next(frame_generator)
             except StopIteration:
@@ -243,9 +251,7 @@ def run_single_mot(pcap_file_path,
             if mot.if_initialized:
                 if if_save_point_cloud:
                     save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
-                break
-    print('Start tracking')
-    
+                break    
     while True:
         try:
             frame = next(frame_generator)
@@ -260,40 +266,66 @@ def run_single_mot(pcap_file_path,
     for r_id in release_ids:
         mot.Off_tracking_pool[r_id] = mot.Tracking_pool.pop(r_id)
 
-    mot.save_trajectory(ref_LLH_path,ref_xyz_path,UTC_time_diff)
+    if len(mot.Off_tracking_pool.keys()) > 0:
+        mot.save_trajectory(ref_LLH_path,ref_xyz_path,UTC_time_diff)
 
 
 def run_batch_mot(batch_pcap_folder,
+                  trajectory_out_folder,
+                  point_cloud_out_folder,
                   tracking_parameter_dict,
-                  thred_map,
-                  trajectory_folder,
-                  point_cloud_folder,
                   UTC_time_diff,
+                    ref_LLH_path,
+                    ref_xyz_path,
+                    n_cpu,
                   if_save_point_cloud = False):
+    if not os.path.exists(trajectory_out_folder):
+        os.mkdir(trajectory_out_folder)
+    if not os.path.exists(point_cloud_out_folder):
+        os.mkdir(point_cloud_out_folder)
+    processed_files = os.listdir(trajectory_out_folder)
+    # keep basename
+    processed_files = [f.split('.')[0] for f in processed_files] # basenames
+    pcap_file_paths_need_process = [os.path.join(batch_pcap_folder,f) for f in os.listdir(batch_pcap_folder) if f.endswith('.pcap') and f.split('.')[0] not in processed_files]
+    if len(pcap_file_paths_need_process) == 0:
+        print('No pcap files need to be processed')
+        return None
+    trajectory_out_paths = [os.path.join(trajectory_out_folder,os.path.basename(f)[:-5]) + '.csv' for f in pcap_file_paths_need_process]
+    point_cloud_out_folders = [os.path.join(point_cloud_out_folder,os.path.basename(f)[:-5]) for f in pcap_file_paths_need_process]
+    for p in point_cloud_out_folders:
+        if not os.path.exists(p):
+            os.mkdir(p)
+    print(pcap_file_paths_need_process)
+    print(trajectory_out_paths)
+    print(point_cloud_out_folders)
+    p_umap(partial(run_single_mot,
+                   tracking_parameter_dict = tracking_parameter_dict,
+                   UTC_time_diff = UTC_time_diff,
+                   ref_LLH_path = ref_LLH_path,
+                   ref_xyz_path = ref_xyz_path,
+                   if_save_point_cloud = if_save_point_cloud),
+                   pcap_file_paths_need_process,
+                   trajectory_out_paths,
+                point_cloud_out_folders,
+                   num_cpus = n_cpu)
     
-    pcap_files = [f for f in os.listdir(batch_pcap_folder) if f.endswith('.pcap')]
-    for pcap_file in pcap_files:
-        base_name = os.path.basename(pcap_file)[:-5]
-        pcap_file_path = os.path.join(batch_pcap_folder,pcap_file)
-
-        trajectory_path = os.path.join(trajectory_folder,pcap_file.replace('.pcap','.txt'))
-        point_cloud_path = os.path.join(point_cloud_folder,pcap_file.replace('.pcap','.pcd'))
-        run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,trajectory_path,point_cloud_path,UTC_time_diff, if_save_point_cloud)
+    
 
 if __name__ == "__main__":
-    pcap_file_path = r'D:\LiDAR_Data\US50ANDHighlands\2024-03-06-13-32-45-R.pcap'
-    # extract date from pcap file
-    base_name = os.path.basename(pcap_file_path)[:-5]
+    # pcap_file_path = r'D:\LiDAR_Data\US50ANDHighlands\2024-03-06-13-32-45-R.pcap'
+    # # extract date from pcap file
+    # base_name = os.path.basename(pcap_file_path)[:-5]
     ref_LLH_path = r'D:\LiDAR_Data\US50ANDHighlands\Calibration\LLE_ref.csv'
     ref_xyz_path = r'D:\LiDAR_Data\US50ANDHighlands\Calibration\xyz_ref.csv'
     traj_out_path = r'D:\LiDAR_Data\US50ANDHighlands\test_traj_out'
-    trajectory_path = os.path.join(traj_out_path,base_name) + '.csv'
+    # trajectory_path = os.path.join(traj_out_path,base_name) + '.csv'
     point_cloud_out_path = r'D:\LiDAR_Data\US50ANDHighlands\test_point_cloud_out'
-    point_cloud_out_path = os.path.join(point_cloud_out_path,base_name)
-    if not os.path.exists(traj_out_path):
-        os.mkdir(traj_out_path)
-    if not os.path.exists(point_cloud_out_path):
-        os.mkdir(point_cloud_out_path)    
+    batch_pcap_folder = r'D:\LiDAR_Data\US50ANDHighlands'
+    # point_cloud_out_path = os.path.join(point_cloud_out_path,base_name)
+    # if not os.path.exists(traj_out_path):
+    #     os.mkdir(traj_out_path)
+    # if not os.path.exists(point_cloud_out_path):
+    #     os.mkdir(point_cloud_out_path)    
     
     tracking_parameter_dict = {
         'win_width': 13,
@@ -307,8 +339,19 @@ if __name__ == "__main__":
         "bck_n" : 3
         }
     UTC_time_diff = -8
-    thred_map = gen_bckmap(pcap_file_path, 
-                           N = tracking_parameter_dict['N'],
-                           d_thred = tracking_parameter_dict['d_thred'],
-                           bck_n = tracking_parameter_dict['bck_n'])
-    run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,trajectory_path,point_cloud_out_path,UTC_time_diff,ref_LLH_path,ref_xyz_path,if_save_point_cloud = True)
+
+    # run_single_mot(pcap_file_path,
+    #                trajectory_path,
+    #                point_cloud_out_path,
+    #                tracking_parameter_dict,
+    #                UTC_time_diff,ref_LLH_path,ref_xyz_path,
+    #                if_save_point_cloud = True)
+    run_batch_mot(batch_pcap_folder,
+                  traj_out_path,
+                  point_cloud_out_path,
+                  tracking_parameter_dict,
+                  UTC_time_diff,
+                    ref_LLH_path,
+                    ref_xyz_path,
+                    n_cpu = 3,
+                  if_save_point_cloud = True)

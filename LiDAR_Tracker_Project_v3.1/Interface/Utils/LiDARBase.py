@@ -283,7 +283,7 @@ def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
         label_id = Tracking_pool[glb_id].label_seq[-1]
         if label_id != -1:
             Labels[Labels == label_id] = glb_id
-            
+
     pcd = np.c_[Xs,Ys,Zs,Labels]
     pcd = pcd[pcd[:,3] != -1]
     
@@ -408,7 +408,6 @@ def parse_packets(packet_gen):
             try:
                 packet = next(packet_gen)
             except StopIteration:
-                print('End of file,1')
                 break_flag = True
                 break
             ts,raw_packet = packet

@@ -8,7 +8,9 @@
         "ref_xyz_file_path": "",
         "ref_llh_file_path": "",
         "Diff2UTC": -8,
-        "SaveForepoints": false
+        "SaveForepoints": false,
+        "point_cloud_folder": "",
+        "point_cloud_folder (.pcd)": "D:/LiDAR_Data/US50ANDHighlands"
     },
     "tab3": {
         "traj_folder": "",
