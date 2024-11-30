@@ -85,7 +85,6 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,pred_state,T,start_ts,t
         timestamps.append(start_ts + (start_frame + i)*0.1)
     frame_ind = np.array(frame_ind).reshape(-1,1)
     timestamps = pd.to_datetime(timestamps,unit='s', utc=True)
-    print(timestamps)
     timestamps = timestamps + pd.Timedelta(time_zone2utc, unit = 'hour')
     objid = (np.ones(len(temp)) * key).astype(int).reshape(-1,1)
     pred_state = np.array(pred_state).reshape(-1,1)
