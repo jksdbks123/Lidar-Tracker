@@ -55,7 +55,6 @@ nbformat==5.1.3
 nest-asyncio==1.5.1
 notebook==6.4.4
 numpy==1.21.2
-open3d==0.13.0
 opencv-python==4.5.3.56
 p-tqdm==1.3.3
 packaging==21.0

@@ -285,6 +285,7 @@ if __name__ == "__main__":
     ref_LLH_path = r'D:\LiDAR_Data\US50ANDHighlands\Calibration\LLE_ref.csv'
     ref_xyz_path = r'D:\LiDAR_Data\US50ANDHighlands\Calibration\xyz_ref.csv'
     traj_out_path = r'D:\LiDAR_Data\US50ANDHighlands\test_traj_out'
+    trajectory_path = os.path.join(traj_out_path,base_name) + '.csv'
     point_cloud_out_path = r'D:\LiDAR_Data\US50ANDHighlands\test_point_cloud_out'
     point_cloud_out_path = os.path.join(point_cloud_out_path,base_name)
     if not os.path.exists(traj_out_path):
@@ -304,10 +305,8 @@ if __name__ == "__main__":
         "bck_n" : 3
         }
     UTC_time_diff = -8
-    print('Generating background map')
     thred_map = gen_bckmap(pcap_file_path, 
                            N = tracking_parameter_dict['N'],
                            d_thred = tracking_parameter_dict['d_thred'],
                            bck_n = tracking_parameter_dict['bck_n'])
-    print('Background map generated, start tracking')
-    run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,traj_out_path,point_cloud_out_path,UTC_time_diff,ref_LLH_path,ref_xyz_path,if_save_point_cloud = True)
+    run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,trajectory_path,point_cloud_out_path,UTC_time_diff,ref_LLH_path,ref_xyz_path,if_save_point_cloud = True)
