@@ -255,6 +255,7 @@ def get_pcd_uncolored(Td_map,vertical_limits):
     XYZ = XYZ[(XYZ[:,0] != 0)&(XYZ[:,1] != 0)]
     return XYZ
 
+
 def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
     Xs = []
     Ys = []
@@ -282,7 +283,10 @@ def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
         label_id = Tracking_pool[glb_id].label_seq[-1]
         if label_id != -1:
             Labels[Labels == label_id] = glb_id
+            
     pcd = np.c_[Xs,Ys,Zs,Labels]
+    pcd = pcd[pcd[:,3] != -1]
+    
     np.save(os.path.join(save_path,f'{frame_ind}.npy'), pcd)
 
 db_merge = DBSCAN(eps = 1.8, min_samples = 2)

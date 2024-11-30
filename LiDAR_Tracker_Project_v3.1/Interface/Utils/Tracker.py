@@ -67,7 +67,6 @@ class MOT():
     def initialization(self,Frame):
         # you should set up some initial status, we should code the logic in the main loop. 
         
-        # self.Td_map_cur = Frame
         Td_map = Frame
         
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
@@ -198,7 +197,7 @@ class MOT():
                     self.Global_id += 1
 
         self.cur_Labeling_map = Labeling_map
-        self.Td_map_cur = Td_map
+        self.cur_Td_map = Td_map
         self.CurFrame += 1
 
     def save_trajectory(self,ref_LLH_path,ref_xyz_path,UTC_time_diff):
@@ -222,6 +221,7 @@ def run_single_mot(pcap_file_path,
                    ref_LLH_path,ref_xyz_path,
                    if_save_point_cloud = False):
     start_timestamp = get_pcap_start_time(pcap_file_path)
+    print(start_timestamp)
     packets_gen = read_packets_offline(pcap_file_path)
     frame_generator = parse_packets(packets_gen)
     
@@ -273,7 +273,9 @@ def run_batch_mot(batch_pcap_folder,
     
     pcap_files = [f for f in os.listdir(batch_pcap_folder) if f.endswith('.pcap')]
     for pcap_file in pcap_files:
+        base_name = os.path.basename(pcap_file)[:-5]
         pcap_file_path = os.path.join(batch_pcap_folder,pcap_file)
+
         trajectory_path = os.path.join(trajectory_folder,pcap_file.replace('.pcap','.txt'))
         point_cloud_path = os.path.join(point_cloud_folder,pcap_file.replace('.pcap','.pcd'))
         run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,trajectory_path,point_cloud_path,UTC_time_diff, if_save_point_cloud)

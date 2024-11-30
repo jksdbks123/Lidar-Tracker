@@ -6,7 +6,6 @@ if functions_folder_path not in sys.path:
     sys.path.append(functions_folder_path)
 if utils_folder_path not in sys.path:
     sys.path.append(utils_folder_path)
-print(sys.path)
 
 from tkinter import ttk
 import tkinter as tk

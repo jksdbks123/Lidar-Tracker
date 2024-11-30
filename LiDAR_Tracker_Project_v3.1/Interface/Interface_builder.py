@@ -1,13 +1,11 @@
 import os
 import sys
 # print script name and system path
-print(sys.argv[0])
-print(sys.path)
 from tkinter import ttk
 from tkinter import StringVar, IntVar, BooleanVar
 from tkinter import filedialog
 from tkinter.messagebox import showinfo
-from Functions import ExamPcapStartTime
+from Utils import ExamPcapStartTime
 def update_flag(flag):
     pass
     
@@ -55,7 +53,7 @@ def build_tab1(tab, config, visualizer,dummy_processor):
     ttk.Button(
             tab,
             text="Exam LiDAR Date",
-            command = lambda: start_date.set(f'Start Date:{ExamPcapStartTime.get_pcap_start_time(pcap_file.get(),unix_time = False)}')
+            command = lambda: start_date.set(f'Start Date (utc):{ExamPcapStartTime.get_pcap_start_time(pcap_file.get(),unix_time = False)}')
         ).grid(column=0, row=2, padx=10, pady=10)
     
     ttk.Label(tab, 

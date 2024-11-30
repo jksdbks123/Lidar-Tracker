@@ -1,6 +1,6 @@
 
 from LiDARBase import *
-from datetime import datetime
+from datetime import datetime,timezone
 
 def get_pcap_start_time(pcap_file,unix_time = True):
     eth_reader = load_pcap(pcap_file)
@@ -22,6 +22,6 @@ def get_pcap_start_time(pcap_file,unix_time = True):
                     if unix_time:
                         return ts
                     else:
-                        ts = datetime.fromtimestamp(ts)
+                        ts = datetime.fromtimestamp(ts,tz=timezone.utc)
                         return ts
                         
