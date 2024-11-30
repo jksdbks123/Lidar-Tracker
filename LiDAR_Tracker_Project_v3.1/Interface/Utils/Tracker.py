@@ -1,5 +1,9 @@
 from Utils.DDBSCAN import Raster_DBSCAN
 from Utils.LiDARBase import *
+from GenBckFile import *
+
+import pandas as pd
+
 A = np.array([ # x,y,x',y'
     [1,0,1,0],
     [0,1,0,1],
@@ -20,7 +24,9 @@ H = np.array([
 When we click on the tracking mode, it creates a MOT object, and trying to initialize the tracking operation by detecting the first frame that some objects exist.
 Once some objects are detected, just forward. 
 """
-
+def save_forepoints(self,Td_map,Labeling_map):
+    # save to pcd file
+    pass
 class MOT():
     def __init__(self,tracking_parameter_dict, thred_map):
         """
@@ -51,8 +57,11 @@ class MOT():
         self.cur_unique_label = None
         self.cur_Td_map = None
         self.cur_Labeling_map = None
+        self.point_cloud_save_path = None
+        self.trajectory_save_path = None
+        self.if_save_point_cloud = None
+        self.UTC_time_diff = None
 
-        
     def initialization(self,Frame):
         # you should set up some initial status, we should code the logic in the main loop. 
         
@@ -109,19 +118,17 @@ class MOT():
         unique_label_cur = np.array(unique_label_cur)
         P_cur = np.array(P_cur)
         # state_cur: n x 2 x 4 x 1
-        time_a = time.time()
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
-        time_b = time.time()
         Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
-        time_c = time.time() 
+
             # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
             # app: n x 1 x 7 x 1
             # first repr point refers to the one with lower azimuth id 
         mea_next,app_next,unique_label_next,Labeling_map = extract_xy(Labeling_map,Td_map)
+
         if len(glb_ids) >0: # we have tracklets in current pool
-             
-             state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) 
-             if len(unique_label_next) > 0: # detected something in next frame
+            state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) 
+            if len(unique_label_next) > 0: # detected something in next frame
                     
                     # app_next : n x 7 x 1
                     State_affinity = get_affinity_IoU(app_cur,app_next,unique_label_next,
@@ -171,7 +178,7 @@ class MOT():
                         for i,glb_id in enumerate(glb_ids):
                             associate_detections(self.Tracking_pool,glb_id,state_cur[i],app_next[i],P_post[i],
                                                 unique_label_next[i],mea_next[i])
-             else:
+            else:
                  for i,glb_id in enumerate(glb_ids):
                     process_fails(self.Tracking_pool,self.Off_tracking_pool,
                                 glb_id,state_cur_[i],P_cur_[i],self.missing_thred)
@@ -182,13 +189,89 @@ class MOT():
                     n_offset_dim = 2
                     state_init = np.concatenate([mea_next[n_id],np.zeros((n_repr,n_offset_dim,1))],axis = 1)
                     P_init = np.full((2,P_em.shape[0],P_em.shape[1]),P_em)
-
                     create_new_detection(self.Tracking_pool,self.Global_id,P_init,state_init,
                                             app_next[n_id],unique_label_next[n_id],mea_next[n_id],self.CurFrame)
                     self.Global_id += 1
 
         self.cur_Labeling_map = Labeling_map
         self.Td_map_cur = Td_map
-        self.clustering_time = (time_c - time_b)*1000
-        self.bf_time = (time_b - time_a)*1000
         self.CurFrame += 0
+
+    def save_trajectory(self,ref_LLH_path,ref_xyz_path):
+        ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
+        if len(np.unique(ref_xyz[:,2])) == 1:
+            np.random.seed(1)
+            offset = np.random.normal(-0.521,3.28,len(ref_LLH))
+            ref_xyz[:,2] += offset
+            ref_LLH[:,2] += offset * 3.2808
+        ref_LLH[:,[0,1]] = ref_LLH[:,[0,1]] * np.pi/180
+        ref_LLH[:,2] = ref_LLH[:,2]/3.2808
+
+
+def run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,trajectory_path,point_cloud_path,UTC_time_diff,if_save_point_cloud = False):
+    packets_gen = read_packets_offline(pcap_file_path)
+    frame_generator = parse_packets(packets_gen)
+    
+    mot = MOT(tracking_parameter_dict,thred_map,if_save_point_cloud)
+    mot.if_save_point_cloud = if_save_point_cloud
+    mot.trajectory_save_path = trajectory_path
+    mot.UTC_time_diff = UTC_time_diff
+    if if_save_point_cloud:
+        mot.point_cloud_save_path = point_cloud_path
+    while True:
+        if not mot.if_initialized:
+            frame = next(frame_generator)
+            if frame is None:
+                raise ValueError("No data in pcap")
+            mot.initialization(frame)
+            if if_save_point_cloud:
+                save_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
+            break
+    while True:
+        frame = next(frame_generator)
+        if frame is None:
+            break
+        mot.mot_tracking_step(frame)
+        if if_save_point_cloud:
+            save_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame)
+
+    # release all objects to off tracking pool
+    release_ids = [glb_id for glb_id in mot.Tracking_pool.keys()]
+    for r_id in release_ids:
+        mot.Off_tracking_pool[r_id] = mot.Tracking_pool.pop(r_id)
+
+    mot.save_trajectory()
+
+
+def run_batch_mot(batch_folder,tracking_parameter_dict,thred_map,trajectory_folder,point_cloud_folder,UTC_time_diff,if_save_point_cloud = False):
+    pcap_files = [f for f in os.listdir(batch_folder) if f.endswith('.pcap')]
+    for pcap_file in pcap_files:
+        pcap_file_path = os.path.join(batch_folder,pcap_file)
+        trajectory_path = os.path.join(trajectory_folder,pcap_file.replace('.pcap','.txt'))
+        point_cloud_path = os.path.join(point_cloud_folder,pcap_file.replace('.pcap','.pcd'))
+        run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,trajectory_path,point_cloud_path,UTC_time_diff,if_save_point_cloud)
+
+if __name__ == "__main__":
+    pcap_file_path = 'D:\LiDAR_Data\US50ANDHighlands\2024-03-16-12-30-00.pcap'
+    traj_out_path = 'D:\LiDAR_Data\US50ANDHighlands\test_traj_out'
+    point_cloud_out_path = 'D:\LiDAR_Data\US50ANDHighlands\test_point_cloud_out'
+    ref_LLH_path,ref_xyz_path = 
+    tracking_parameter_dict = {
+        'win_width': 13,
+        'win_height': 7,
+        'eps': 1,
+        'min_samples': 10,
+        'missing_thred': 5,
+        'bck_radius': 0.2,
+        'N' : 10,
+        'd_thred' : 0.1,
+        "bck_n" : 3
+    }
+    UTC_time_diff = -8
+    print('Generating background map')
+    thred_map = gen_bckmap(pcap_file_path, 
+                           N = tracking_parameter_dict['N'],
+                           d_thred = tracking_parameter_dict['d_thred'],
+                           bck_n = tracking_parameter_dict['bck_n'])
+    print('Background map generated, start tracking')
+    run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,traj_out_path,point_cloud_out_path,UTC_time_diff,if_save_point_cloud = True)

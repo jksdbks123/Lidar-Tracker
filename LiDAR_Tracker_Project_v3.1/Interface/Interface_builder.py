@@ -6,7 +6,7 @@ from Functions import ExamPcapStartTime
 def update_flag(flag):
     pass
     
-def build_interface(tabs, config, processor, visualizer, tracker, dummy_processor):
+def build_interface(tabs, config, processor, visualizer, dummy_processor):
     """
     Build the GUI interface for the tabs.
 
@@ -15,7 +15,6 @@ def build_interface(tabs, config, processor, visualizer, tracker, dummy_processo
         config (Config): Configuration manager for persistent parameters.
         processor (Processor): Processor instance for operations.
         visualizer (Visualizer): Visualizer instance for visualization.
-        tracker (Tracker): Tracker instance for tracking.
     """
     build_tab1(tabs["tab1"], config, visualizer,dummy_processor)
     build_tab2(tabs["tab2"], config, processor)

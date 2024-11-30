@@ -1,9 +1,9 @@
 {
     "tab1": {
-        "pcap_file": ""
+        "pcap_file": "D:/LiDAR_Data/2024-03-16-14-30-00.pcap"
     },
     "tab2": {
-        "batch_folder": "",
+        "batch_folder": "D:/LiDAR_Data/US50ANDHighlands",
         "output_folder": "",
         "ref_xyz_file_path": "",
         "ref_llh_file_path": "",

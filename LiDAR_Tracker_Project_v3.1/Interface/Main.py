@@ -4,7 +4,7 @@ from Interface_builder import build_interface
 from Utils.config import Config
 from Utils.Processing import Processor
 from Utils.Visualizer import Visualizer
-from Utils.Tracker import Tracker
+from Utils.Tracker import MOT
 from Utils.dummy_processing import DummyProcessor
 class Interface:
     def __init__(self):
@@ -26,7 +26,7 @@ class Interface:
 
         self.processor = Processor()
         self.visualizer = Visualizer()
-        self.tracker = Tracker()
+        # self.tracker = MOT()
         self.dummy_processor = DummyProcessor()
 
         tab_name_list = [ "Visualization", "Batch Processing", "Geometry Referencing", "PCAP Clipping"]
@@ -36,7 +36,7 @@ class Interface:
         self.tabControl.pack(expand=1, fill="both")
 
         # Build the interface
-        build_interface(self.tabs, self.config, self.processor, self.visualizer, self.tracker,self.dummy_processor)
+        build_interface(self.tabs, self.config, self.processor, self.visualizer,self.dummy_processor)
 
 if __name__ == "__main__":
     app = Interface()

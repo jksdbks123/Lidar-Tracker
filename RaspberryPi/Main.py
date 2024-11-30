@@ -14,7 +14,6 @@ class LidarVisualizer:
         1) Screen Coord 2) World Coord 
         
         World coordinate <-> Zoom + Rotation + Offset + Flip <-> Screen coordinate
-
         Point data structure: np.array nx2
         Poly: [(xy),(xy),...]
         Line: [(x1,y1),(x2,y2)]

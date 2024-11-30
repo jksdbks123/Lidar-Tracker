@@ -1,5 +1,5 @@
 import numpy as np
-from DDBSCAN import Raster_DBSCAN
+from Utils.DDBSCAN import Raster_DBSCAN
 import cv2
 import sys
 import os
@@ -7,6 +7,7 @@ import time
 import dpkt
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
+from sklearn.cluster import DBSCAN
 
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
@@ -96,10 +97,10 @@ def load_pcap(file_path):
     try:
         fpcap = open(file_path, 'rb')
         eth_reader = dpkt.pcap.Reader(fpcap)
+        return eth_reader
     except Exception as ex:
         print(str(ex))
         return None
-    return eth_reader
 
 def parse_one_packet(data):
     data = np.frombuffer(data, dtype=np.uint8).astype(np.uint32)
@@ -236,31 +237,37 @@ def get_pcd_uncolored(Td_map,vertical_limits):
     XYZ = XYZ[(XYZ[:,0] != 0)&(XYZ[:,1] != 0)]
     return XYZ
 
-def get_pcd_colored(Td_map,Labeling_map,vertical_limits):
-
+def save_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
     Xs = []
     Ys = []
+    Zs = []
     Labels = []
-    for i in range(vertical_limits[0],vertical_limits[1]):
-        longitudes = theta[i]*np.pi / 180
+    for i in range(Td_map.shape[0]):
+        longitudes = theta[i] * np.pi / 180
         latitudes = azimuths * np.pi / 180 
         hypotenuses = Td_map[i] * np.cos(longitudes)
         X = hypotenuses * np.sin(latitudes)
         Y = hypotenuses * np.cos(latitudes)
-        Xs.append(X)
-        Ys.append(Y)
-        Labels.append(Labeling_map[i])
+        Z = Td_map[i] * np.sin(longitudes)
+        Valid_ind = Td_map[i] != 0 
+        Xs.append(X[Valid_ind])
+        Ys.append(Y[Valid_ind])
+        Zs.append(Z[Valid_ind])
+        Labels.append(Labeling_map[i][Valid_ind])
 
     Xs = np.concatenate(Xs)
     Ys = np.concatenate(Ys)
-    Labels = np.concatenate(Labels)
-    XYZ = np.c_[Xs,Ys]
-    Valid_ind = (XYZ[:,0] != 0)&(XYZ[:,1] != 0)
-    Labels = Labels[Valid_ind]
-    XYZ = XYZ[Valid_ind]
+    Zs = np.concatenate(Zs)
+    Labels = np.concatenate(Labels)         
+    
+    for glb_id in Tracking_pool:
+        label_id = Tracking_pool[glb_id].label_seq[-1]
+        if label_id != -1:
+            Labels[Labels == label_id] = glb_id
+    pcd = np.c_[Xs,Ys,Zs,Labels]
+    np.save(os.path.join(save_path,f'{frame_ind}.npy'), pcd)
 
-    return XYZ,Labels    
-
+db_merge = DBSCAN(eps = 1.8, min_samples = 2)
 def extract_xy(Labeling_map,Td_map):
         
     # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
@@ -326,16 +333,15 @@ def get_static_bck_points(thred_map,vertical_limits):
     return bck_points_total
 
 # # # Simulated function to continuously read packets (Simulating Core 2)
-def read_packets_offline(raw_data_queue,pcap_file_path):
+def read_packets_offline(pcap_file_path):
     eth_reader = load_pcap(pcap_file_path)
     while True:
         # Simulate reading a packet from the Ethernet
         try:
             ts,buf = next(eth_reader)
-            eth = dpkt.ethernet.Ethernet(buf)
-        except:
-            # when it's empty, reload current pcap
-            eth_reader = load_pcap(pcap_file_path)
+        except StopIteration:
+            return None
+        eth = dpkt.ethernet.Ethernet(buf)
         if eth.type == 2048: # for ipv4
             if (type(eth.data.data) == dpkt.udp.UDP):# for ipv4
                 data = eth.data.data.data
@@ -344,7 +350,7 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
                     if len(data) != 1206:
                         continue
             # raw_packet = np.random.rand(20000,2) * 600  # Placeholder for actual packet data
-                    raw_data_queue.put((ts,data))
+                    yield (ts,data)
 
 def read_packets_online(sock,raw_data_queue):    
     while True:
@@ -352,7 +358,7 @@ def read_packets_online(sock,raw_data_queue):
         raw_data_queue.put_nowait((time.time(),data))
 
 # Function to parse packets into point cloud data (Simulating Core 3)
-def parse_packets(raw_data_queue, point_cloud_queue):
+def parse_packets(packet_gen):
     
     culmulative_azimuth_values = []
     culmulative_laser_ids = []
@@ -361,25 +367,35 @@ def parse_packets(raw_data_queue, point_cloud_queue):
     Td_map = np.zeros((32,1800))
     # Intens_map = np.zeros((32,1800))
     next_ts = 0
-    ts,raw_packet = raw_data_queue.get()
+    packet = next(packet_gen)
+    if packet is None:
+        return None
+    ts,raw_packet = packet
     distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
-    print(Timestamp)
-    next_ts = Timestamp + 100000
+    next_ts = ts + 0.1 # 0.1sec
     azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
     culmulative_azimuth_values.append(azimuth)
     culmulative_laser_ids.append(laser_id)
     culmulative_distances.append(distances)
             
-    
+    break_flag = False
     while True:
+        if break_flag:
+            break  
         while True:
-            ts,raw_packet = raw_data_queue.get()
+            try:
+                packet = next(packet_gen)
+            except StopIteration:
+                print('End of file,1')
+                break_flag = True
+                break
+            ts,raw_packet = packet
             # Placeholder for parsing logic; here we just pass the data through
             distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
-            # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
+            # flag = lane_drawer.if_rollover(azimuth_per_block,Initial_azimuth)
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
             
-            if Timestamp > next_ts:
+            if ts > next_ts:
                 
                 if len(culmulative_azimuth_values) > 0:
                     
@@ -394,10 +410,9 @@ def parse_packets(raw_data_queue, point_cloud_queue):
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     
-                    point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
+                    yield Td_map[arg_omega,:] #32*1800
                 else:
-                    
-                    point_cloud_queue.put(Td_map) #32*1800
+                    yield Td_map #32*1800
 
                 culmulative_azimuth_values = []
                 culmulative_laser_ids = []
@@ -406,13 +421,14 @@ def parse_packets(raw_data_queue, point_cloud_queue):
 
                 Td_map = np.zeros((32,1800))
                 # Intens_map = np.zeros((32,1800))
-                next_ts += 100000
+                next_ts += 0.1
                 break
             else:
                 culmulative_azimuth_values.append(azimuth)
                 culmulative_laser_ids.append(laser_id)
                 culmulative_distances.append(distances)
                 # culmulative_intensities.append(intensities)
+    return None
 
 def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
     
