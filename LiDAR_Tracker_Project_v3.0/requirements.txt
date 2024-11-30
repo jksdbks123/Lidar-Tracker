@@ -19,7 +19,6 @@ deprecation==2.1.0
 dill==0.3.4
 docopt==0.6.2
 dpkt==1.9.7.2
-dtaidistance==2.3.2
 entrypoints==0.3
 filterpy==1.4.5
 idna==3.2

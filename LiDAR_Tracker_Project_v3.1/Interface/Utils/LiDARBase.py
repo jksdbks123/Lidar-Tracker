@@ -16,18 +16,36 @@ color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
 color_map_foreground = np.array([[255,0,0],[0,0,255]])
 thred_map_index = np.arange(32*1800).reshape((32,1800))
 
+# class detected_obj():
+#     def __init__(self):
+#         self.glb_id = None
+#         self.start_frame = None
+#         self.missing_count = 0 # frame count of out of detection
+#         self.P = None
+#         self.state = None 
+#         self.apperance = None 
+#         self.label_seq = [] # represented labels at each frame 
+#         self.mea_seq = []
+#         self.post_seq = []
+#         self.app_seq = []
+#         self.P_seq = []
+
 class detected_obj():
     def __init__(self):
         self.glb_id = None
         self.start_frame = None
-        self.missing_count = 0 # frame count of out of detection
-        self.P = None
         self.state = None 
         self.apperance = None 
+        self.rows = None
+        self.cols = None # row, col inds in the Td-map 
         self.label_seq = [] # represented labels at each frame 
         self.mea_seq = []
         self.post_seq = []
         self.app_seq = []
+        self.P_seq = []
+        self.pred_state = [] # 0 : measured, 1: pred, 
+        self.P = None
+        self.missing_count = 0
 
 def calc_timing_offsets():
     timing_offsets = np.zeros((32,12))  # Init matrix
@@ -440,6 +458,7 @@ def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
     Tracking_pool[glb_id].post_seq.append(state)
     Tracking_pool[glb_id].app_seq.append(app)
     Tracking_pool[glb_id].missing_count = 0
+    Tracking_pool[glb_id].pred_state.append(0)
 
 def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
     Tracking_pool[glb_id].missing_count += 1
@@ -452,8 +471,9 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
         Tracking_pool[glb_id].P = P_cur_
         Tracking_pool[glb_id].label_seq.append(-1)
         Tracking_pool[glb_id].mea_seq.append(None)
-        Tracking_pool[glb_id].app_seq.append(-1)
+        Tracking_pool[glb_id].app_seq.append(Tracking_pool[glb_id].app_seq[-1])
         Tracking_pool[glb_id].post_seq.append(state_cur_)
+        Tracking_pool[glb_id].pred_state.append(1)
 
 def state_predict(A,Q,state,P):
     """
@@ -493,6 +513,7 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
         new_detection.mea_seq.append(mea_init)
         new_detection.post_seq.append(state_init)
         new_detection.app_seq.append(app_init)
+        new_detection.pred_state.append(0)
         Tracking_pool[Global_id] = new_detection
 
 def if_bck(rows,cols,Td_map,Plane_model):

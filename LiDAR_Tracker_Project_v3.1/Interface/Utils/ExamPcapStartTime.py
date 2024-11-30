@@ -2,7 +2,7 @@
 from LiDARBase import *
 from datetime import datetime
 
-def get_pcap_start_time(pcap_file):
+def get_pcap_start_time(pcap_file,unix_time = True):
     eth_reader = load_pcap(pcap_file)
     while True:
         try:
@@ -19,6 +19,9 @@ def get_pcap_start_time(pcap_file):
                     if len(data) != 1206:
                         continue
                     # convert from unix timestamp to datetime
-                    ts = datetime.fromtimestamp(ts)
-                    return ts
+                    if unix_time:
+                        return ts
+                    else:
+                        ts = datetime.fromtimestamp(ts)
+                        return ts
                         

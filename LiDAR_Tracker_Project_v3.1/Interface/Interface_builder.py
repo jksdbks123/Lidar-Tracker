@@ -55,7 +55,7 @@ def build_tab1(tab, config, visualizer,dummy_processor):
     ttk.Button(
             tab,
             text="Exam LiDAR Date",
-            command = lambda: start_date.set(f'Start Date:{ExamPcapStartTime.get_pcap_start_time(pcap_file.get())}')
+            command = lambda: start_date.set(f'Start Date:{ExamPcapStartTime.get_pcap_start_time(pcap_file.get(),unix_time = False)}')
         ).grid(column=0, row=2, padx=10, pady=10)
     
     ttk.Label(tab, 

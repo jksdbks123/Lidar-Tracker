@@ -69,9 +69,11 @@ class MOT():
         
         # self.Td_map_cur = Frame
         Td_map = Frame
+        
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
         Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
         mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)
+        self.CurFrame += 1
         if len(unique_label_init) == 0:
         # No object in initial frame
             return False
@@ -197,7 +199,7 @@ class MOT():
 
         self.cur_Labeling_map = Labeling_map
         self.Td_map_cur = Td_map
-        self.CurFrame += 0
+        self.CurFrame += 1
 
     def save_trajectory(self,ref_LLH_path,ref_xyz_path,UTC_time_diff):
         ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
@@ -232,16 +234,22 @@ def run_single_mot(pcap_file_path,
     mot.start_timestamp = start_timestamp
     while True:
         if not mot.if_initialized:
-            frame = next(frame_generator)
-            if frame is None:
-                raise ValueError("No data in pcap")
+            print('Initialization')
+            try:
+                frame = next(frame_generator)
+            except StopIteration:
+                break
             mot.initialization(frame)
-            if if_save_point_cloud:
-                save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
-            break
+            if mot.if_initialized:
+                if if_save_point_cloud:
+                    save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
+                break
+    print('Start tracking')
+    
     while True:
-        frame = next(frame_generator)
-        if frame is None:
+        try:
+            frame = next(frame_generator)
+        except StopIteration:
             break
         mot.mot_tracking_step(frame)
         if if_save_point_cloud:
@@ -252,7 +260,7 @@ def run_single_mot(pcap_file_path,
     for r_id in release_ids:
         mot.Off_tracking_pool[r_id] = mot.Tracking_pool.pop(r_id)
 
-    mot.save_trajectory(ref_LLH_path,ref_xyz_path)
+    mot.save_trajectory(ref_LLH_path,ref_xyz_path,UTC_time_diff)
 
 
 def run_batch_mot(batch_pcap_folder,
@@ -271,7 +279,7 @@ def run_batch_mot(batch_pcap_folder,
         run_single_mot(pcap_file_path,tracking_parameter_dict,thred_map,trajectory_path,point_cloud_path,UTC_time_diff, if_save_point_cloud)
 
 if __name__ == "__main__":
-    pcap_file_path = r'D:\LiDAR_Data\US50ANDHighlands\2024-03-16-12-30-00.pcap'
+    pcap_file_path = r'D:\LiDAR_Data\US50ANDHighlands\2024-03-06-13-32-45-R.pcap'
     # extract date from pcap file
     base_name = os.path.basename(pcap_file_path)[:-5]
     ref_LLH_path = r'D:\LiDAR_Data\US50ANDHighlands\Calibration\LLE_ref.csv'

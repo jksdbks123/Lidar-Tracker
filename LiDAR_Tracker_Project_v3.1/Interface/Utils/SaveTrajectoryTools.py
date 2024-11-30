@@ -25,7 +25,7 @@ def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path,start_ts,time_zone2utc)
         for key in Off_tracking_pool: 
             
             sum_file,app_df = get_summary_file_TR(Off_tracking_pool[key].post_seq,
-                                        key,Off_tracking_pool[key].start_frame,Off_tracking_pool[key].app_seq,Off_tracking_pool[key].P_seq,Off_tracking_pool[key].pred_state,T,start_ts,time_zone2utc) 
+                                        key,Off_tracking_pool[key].start_frame,Off_tracking_pool[key].app_seq,Off_tracking_pool[key].pred_state,T,start_ts,time_zone2utc) 
             sums.append(sum_file)
             app_dfs.append(app_df)
             keys.append(key)
@@ -38,7 +38,7 @@ def save_result(Off_tracking_pool,ref_LLH,ref_xyz,f_path,start_ts,time_zone2utc)
             sums = sums.reset_index(drop=True)
             app_dfs = app_dfs.reset_index(drop=True).astype('float64')
 
-            classifier = pickle.load(open('./Classifier/Classifier.sav', 'rb'))
+            classifier = pickle.load(open('./Utils/Classifier/Classifier.sav', 'rb'))
             X_test = np.array(app_dfs.loc[:,['Point_Cnt','Height','Max_Length','Area']])
             pred = classifier.predict(X_test)
             sums = pd.concat([sums,app_dfs,pd.DataFrame(pred.reshape(-1,1),columns=['Class'])],axis = 1)
@@ -57,7 +57,7 @@ def generate_T(ref_LLF,ref_xyz):# generate nec T for coord transformation
     T = np.linalg.inv((A_.T).dot(A_)).dot(A_.T.dot(B))
     return T
 
-def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,pred_state,T,start_ts,time_zone2utc):
+def get_summary_file_TR(post_seq,key,start_frame,app_seq,pred_state,T,start_ts,time_zone2utc):
     
     temp = np.array(post_seq)
     # temp = temp[:-missing_thred]
@@ -88,6 +88,7 @@ def get_summary_file_TR(post_seq,key,start_frame,app_seq,P_seq,pred_state,T,star
     timestamps = timestamps + pd.Timedelta(time_zone2utc, unit = 'hour')
     objid = (np.ones(len(temp)) * key).astype(int).reshape(-1,1)
     pred_state = np.array(pred_state).reshape(-1,1)
+    print(objid.shape,frame_ind.shape,pred_state.shape,est.shape)
     summary = np.concatenate([objid,frame_ind,pred_state,est],axis = 1)
     # obj_id,ts,x,y,z,d,s_x,s_y,s,L,L,H
     summary = pd.DataFrame(summary,columns = column_names_TR_2o)
