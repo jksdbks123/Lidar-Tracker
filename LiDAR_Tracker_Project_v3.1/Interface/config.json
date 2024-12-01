@@ -1,16 +1,17 @@
 {
     "tab1": {
-        "pcap_file": "D:/LiDAR_Data/US50ANDHighlands/2024-03-06-13-32-45-R.pcap"
+        "pcap_file": ""
     },
     "tab2": {
         "batch_folder": "D:/LiDAR_Data/US50ANDHighlands",
         "output_folder": "",
-        "ref_xyz_file_path": "",
-        "ref_llh_file_path": "",
-        "Diff2UTC": -8,
+        "ref_xyz_file_path": "D:/LiDAR_Data/US50ANDHighlands/Calibration/xyz_ref.csv",
+        "ref_llh_file_path": "D:/LiDAR_Data/US50ANDHighlands/Calibration/LLE_ref.csv",
+        "point_cloud_folder": "D:/LiDAR_Data/US50ANDHighlands/test_point_cloud_out",
+        "Diff2UTC": 1,
         "SaveForepoints": false,
-        "point_cloud_folder": "",
-        "point_cloud_folder (.pcd)": "D:/LiDAR_Data/US50ANDHighlands"
+        "n_cpu": 3,
+        "output_traj_folder": "D:/LiDAR_Data/US50ANDHighlands/test_traj_out"
     },
     "tab3": {
         "traj_folder": "",

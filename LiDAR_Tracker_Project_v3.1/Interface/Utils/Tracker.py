@@ -275,9 +275,9 @@ def run_batch_mot(batch_pcap_folder,
                   point_cloud_out_folder,
                   tracking_parameter_dict,
                   UTC_time_diff,
-                    ref_LLH_path,
-                    ref_xyz_path,
-                    n_cpu,
+                  ref_LLH_path,
+                  ref_xyz_path,
+                  n_cpu,
                   if_save_point_cloud = False):
     if not os.path.exists(trajectory_out_folder):
         os.mkdir(trajectory_out_folder)

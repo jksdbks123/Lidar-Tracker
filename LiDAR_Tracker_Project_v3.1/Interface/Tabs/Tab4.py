@@ -1,4 +1,6 @@
-from Interface_builder import *
+from tkinter import ttk
+from tkinter import StringVar, IntVar, BooleanVar,DoubleVar
+from File_manager import update_flag, select_file, select_folder
 
 def build_tab4(tab, config, processor):
     """Builds the PCAP Clipping tab."""

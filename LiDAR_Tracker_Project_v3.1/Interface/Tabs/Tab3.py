@@ -1,4 +1,6 @@
-from Interface_builder import *
+from tkinter import ttk
+from tkinter import StringVar, IntVar, BooleanVar,DoubleVar
+from File_manager import update_flag, select_file, select_folder
 def build_tab3(tab, config, processor):
     """Builds the Geometry Referencing tab."""
     ttk.Label(tab, text="Geometry Referencing").grid(column=0, row=0, padx=10, pady=10)
