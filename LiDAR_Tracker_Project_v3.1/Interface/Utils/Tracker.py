@@ -295,9 +295,9 @@ def run_batch_mot(batch_pcap_folder,
     for p in point_cloud_out_folders:
         if not os.path.exists(p):
             os.mkdir(p)
-    print(pcap_file_paths_need_process)
-    print(trajectory_out_paths)
-    print(point_cloud_out_folders)
+    # print(pcap_file_paths_need_process)
+    # print(trajectory_out_paths)
+    # print(point_cloud_out_folders)
     p_umap(partial(run_single_mot,
                    tracking_parameter_dict = tracking_parameter_dict,
                    UTC_time_diff = UTC_time_diff,
