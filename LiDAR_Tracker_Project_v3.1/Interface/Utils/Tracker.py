@@ -8,6 +8,7 @@ import pandas as pd
 import os
 from p_tqdm import p_umap
 from functools import partial
+from threading import Thread,Event
 
 A = np.array([ # x,y,x',y'
     [1,0,1,0],
@@ -214,19 +215,21 @@ class MOT():
         ref_LLH[:,2] = ref_LLH[:,2]/3.2808
         save_result(self.Off_tracking_pool,ref_LLH,ref_xyz,self.trajectory_save_path,self.start_timestamp, UTC_time_diff)
 
-
 def run_single_mot(pcap_file_path,
                    trajectory_path,
                    point_cloud_path,
                    tracking_parameter_dict,
                    UTC_time_diff,
                    ref_LLH_path,ref_xyz_path,
-                   if_save_point_cloud = False):
+                   termination_event,total_files_num,progress_queue,
+                   if_save_point_cloud = False,
+                   ):
     # background map
     thred_map = gen_bckmap(pcap_file_path, 
                            N = tracking_parameter_dict['N'],
                            d_thred = tracking_parameter_dict['d_thred'],
-                           bck_n = tracking_parameter_dict['bck_n'])
+                           bck_n = tracking_parameter_dict['bck_n'],
+                           termination_event = termination_event)
     start_timestamp = get_pcap_start_time(pcap_file_path)
     packets_gen = read_packets_offline(pcap_file_path)
     frame_generator = parse_packets(packets_gen)
@@ -248,6 +251,8 @@ def run_single_mot(pcap_file_path,
             except StopIteration:
                 break
             mot.initialization(frame)
+            if termination_event.is_set():
+                return None  # Terminate task
             if mot.if_initialized:
                 if if_save_point_cloud:
                     save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
@@ -258,6 +263,8 @@ def run_single_mot(pcap_file_path,
         except StopIteration:
             break
         mot.mot_tracking_step(frame)
+        if termination_event.is_set():
+            return None  # Terminate task
         if if_save_point_cloud:
             save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
 
@@ -265,12 +272,11 @@ def run_single_mot(pcap_file_path,
     release_ids = [glb_id for glb_id in mot.Tracking_pool.keys()]
     for r_id in release_ids:
         mot.Off_tracking_pool[r_id] = mot.Tracking_pool.pop(r_id)
-
     if len(mot.Off_tracking_pool.keys()) > 0:
         mot.save_trajectory(ref_LLH_path,ref_xyz_path,UTC_time_diff)
+    progress_queue.put(100 / total_files_num)
 
-
-def run_batch_mot(batch_pcap_folder,
+def run_batch_mot_with_ui(batch_pcap_folder,
                   trajectory_out_folder,
                   point_cloud_out_folder,
                   tracking_parameter_dict,
@@ -278,6 +284,7 @@ def run_batch_mot(batch_pcap_folder,
                   ref_LLH_path,
                   ref_xyz_path,
                   n_cpu,
+                  termination_event, progress_var,progress_queue,
                   if_save_point_cloud = False):
     if not os.path.exists(trajectory_out_folder):
         os.mkdir(trajectory_out_folder)
@@ -286,7 +293,14 @@ def run_batch_mot(batch_pcap_folder,
     processed_files = os.listdir(trajectory_out_folder)
     # keep basename
     processed_files = [f.split('.')[0] for f in processed_files] # basenames
-    pcap_file_paths_need_process = [os.path.join(batch_pcap_folder,f) for f in os.listdir(batch_pcap_folder) if f.endswith('.pcap') and f.split('.')[0] not in processed_files]
+    total_pcap_paths = [os.path.join(batch_pcap_folder,f) for f in os.listdir(batch_pcap_folder) if f.endswith('.pcap')]
+    pcap_file_paths_need_process = [f for f in total_pcap_paths if os.path.basename(f)[:-5] not in processed_files]
+    total_files_num = len(total_pcap_paths)
+    processed_files_num = len(processed_files)
+    progress_update = processed_files_num / total_files_num * 100
+    progress_queue.put(progress_update)
+    # progress_var.set(progress_var.get() + processed_files_num / total_files_num * 100)
+
     if len(pcap_file_paths_need_process) == 0:
         print('No pcap files need to be processed')
         return None
@@ -295,20 +309,42 @@ def run_batch_mot(batch_pcap_folder,
     for p in point_cloud_out_folders:
         if not os.path.exists(p):
             os.mkdir(p)
-    # print(pcap_file_paths_need_process)
-    # print(trajectory_out_paths)
-    # print(point_cloud_out_folders)
+
     p_umap(partial(run_single_mot,
                    tracking_parameter_dict = tracking_parameter_dict,
                    UTC_time_diff = UTC_time_diff,
                    ref_LLH_path = ref_LLH_path,
                    ref_xyz_path = ref_xyz_path,
-                   if_save_point_cloud = if_save_point_cloud),
+                    termination_event = termination_event,
+                   if_save_point_cloud = if_save_point_cloud,
+                   total_files_num = total_files_num,
+                   progress_queue = progress_queue),
                    pcap_file_paths_need_process,
                    trajectory_out_paths,
                 point_cloud_out_folders,
-                   num_cpus = n_cpu)
+                   num_cpus = n_cpu
+                   )
     
+def run_batch_mot_with_ui_threaded(batch_pcap_folder,
+                  trajectory_out_folder,
+                  point_cloud_out_folder,
+                  tracking_parameter_dict,
+                  UTC_time_diff,
+                  ref_LLH_path,
+                  ref_xyz_path,
+                  n_cpu,
+                  termination_event, progress_var,progress_queue,
+                  if_save_point_cloud = False):
+    thread = Thread(
+        target=run_batch_mot_with_ui,
+        args=(
+            batch_pcap_folder, trajectory_out_folder, point_cloud_out_folder, tracking_parameter_dict, UTC_time_diff,
+            ref_LLH_path, ref_xyz_path, n_cpu, 
+            termination_event, progress_var,progress_queue,if_save_point_cloud
+        ),
+        daemon=True  # Ensure the thread exits when the main program exits
+    )
+    thread.start()
     
 
 if __name__ == "__main__":

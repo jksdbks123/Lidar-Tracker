@@ -29,7 +29,7 @@ def get_thred(temp,N = 10,d_thred = 0.1,bck_n = 3):
         bck_ds_ = np.concatenate([bck_ds_,-1 * np.ones(bck_n - len(bck_ds_))])
     return bck_ds_
 
-def gen_bckmap(pcap_file_path, N, d_thred, bck_n):
+def gen_bckmap(pcap_file_path, N, d_thred, bck_n,termination_event):
 
     packets_gen = read_packets_offline(pcap_file_path)
     frame_generator = parse_packets(packets_gen)
@@ -38,11 +38,14 @@ def gen_bckmap(pcap_file_path, N, d_thred, bck_n):
         aggregated_maps.append(Td_map)
     aggregated_maps = np.array(aggregated_maps)
 
+    if termination_event.is_set():
+            return None  # Terminate task
+    
     thred_map = np.zeros((bck_n,32,1800))
     for i in range(thred_map.shape[1]):
         for j in range(thred_map.shape[2]):
             thred_map[:,i,j] = get_thred(aggregated_maps[:,i,j],N = N,d_thred = d_thred,bck_n = bck_n)
-            
+    
     return thred_map
 
 
