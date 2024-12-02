@@ -1,7 +1,8 @@
 from tkinter import filedialog
-from tkinter.messagebox import showinfo
+
 def update_flag(flag):
     pass
+
 
 def select_file(tab, param, string_var, config, file_types):
     """Handles file selection."""

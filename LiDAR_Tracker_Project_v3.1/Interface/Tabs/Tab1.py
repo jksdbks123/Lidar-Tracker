@@ -3,6 +3,18 @@ from Utils import ExamPcapStartTime
 from tkinter import ttk
 from tkinter import StringVar, IntVar, BooleanVar,DoubleVar
 from File_manager import update_flag, select_file, select_folder
+from tkinter import messagebox
+
+def show_about():
+    """Display the About dialog."""
+    about_text = (
+        "Software Name: Stupid Tracker\n"
+        "Version: 3.1.0\n"
+        "Developed by: Zhihui Chen\n"
+        "Organization: University of Nevada, Reno\n"
+        "Contact: zhChen0412@outlook.com"
+    )
+    messagebox.showinfo("About", about_text)
 
 def build_tab1(tab, config, visualizer,dummy_processor):
     """Builds the Tracking Visualization tab."""
@@ -39,3 +51,10 @@ def build_tab1(tab, config, visualizer,dummy_processor):
     ttk.Label(tab, 
               textvariable = start_date
               ).grid(column=1, row=2, padx=0, pady=0)
+    
+    # Add About Button
+    ttk.Button(
+        tab,
+        text="About",
+        command=show_about
+    ).grid(column=0, row=30, padx=10, pady=10)

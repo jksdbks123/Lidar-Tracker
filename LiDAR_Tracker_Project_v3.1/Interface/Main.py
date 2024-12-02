@@ -9,16 +9,20 @@ if utils_folder_path not in sys.path:
 
 from tkinter import ttk
 import tkinter as tk
+
 from Interface_builder import build_interface
 from Utils.config import Config
 from Utils.Processing import Processor
 from Utils.Visualizer import Visualizer
 from Utils.Tracker import MOT
 from Utils.dummy_processing import DummyProcessor
+
+
+
 class Interface:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('Tracking Software')
+        self.root.title('Niubi LiDAR Tracker')
         self.root.geometry('1000x500')
 
         # Persistent configuration
