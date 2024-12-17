@@ -569,7 +569,6 @@ def extract_xy(Labeling_map,Td_map):
                 for i in range(1,len(merging_p)):
                     Labeling_map[Labeling_map == merging_p[i]] = merging_p[0]
         new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
-        
         xy_set,apperance_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,True)
         return xy_set,apperance_set,new_uni_labels,Labeling_map
     else:

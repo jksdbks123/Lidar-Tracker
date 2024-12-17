@@ -288,8 +288,6 @@ class MOT():
             pickle.dump(self.Off_tracking_pool, handle, protocol=pickle.HIGHEST_PROTOCOL)
         """        
         
-
-
             
     def cur_pcd(self,Td_map,Labeling_map,Tracking_pool):
         td_freq_map = Td_map

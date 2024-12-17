@@ -223,8 +223,8 @@ def get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,vertical_limits):
 
     Xs = np.concatenate(Xs)
     Ys = np.concatenate(Ys)
-        
     Labels = np.concatenate(Labels)
+    
     # Colors = np.full((len(Labels),3),np.array([[153,153,153]])/256)
     for key in Tracking_pool:
         label_cur_frame = Tracking_pool[key].label_seq[-1]
@@ -277,8 +277,8 @@ def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
     Xs = np.concatenate(Xs)
     Ys = np.concatenate(Ys)
     Zs = np.concatenate(Zs)
-    Labels = np.concatenate(Labels)         
-    
+    Labels = np.concatenate(Labels)   
+
     for glb_id in Tracking_pool:
         label_id = Tracking_pool[glb_id].label_seq[-1]
         if label_id != -1:
@@ -292,9 +292,7 @@ def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
 db_merge = DBSCAN(eps = 1.8, min_samples = 2)
 def extract_xy(Labeling_map,Td_map):
         
-    # Plane_model is a 1 x 4 array representing a,b,c,d in ax + by + cz + d = 0 
     new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
-
     xy_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,False)
     if len(xy_set) > 0:
         total_labels = np.concatenate([new_uni_labels,new_uni_labels])

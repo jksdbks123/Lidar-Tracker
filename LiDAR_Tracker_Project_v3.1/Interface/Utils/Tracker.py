@@ -72,9 +72,8 @@ class MOT():
         # you should set up some initial status, we should code the logic in the main loop. 
         
         Td_map = Frame
-        
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
-        Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
+        Labeling_map = self.db.fit_predict(Td_map = Td_map,Foreground_map = Foreground_map)
         mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)
         self.CurFrame += 1
         if len(unique_label_init) == 0:
@@ -118,6 +117,7 @@ class MOT():
             app_cur.append(self.Tracking_pool[glb_id].apperance)
             # mea_cur.append(self.Tracking_pool[glb_id].mea_seq[-1])
             unique_label_cur.append(self.Tracking_pool[glb_id].label_seq[-1])
+
         # mea_cur = np.array(mea_cur)
         glb_ids = np.array(glb_ids)
         state_cur = np.array(state_cur)
