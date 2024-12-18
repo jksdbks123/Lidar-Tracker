@@ -16,19 +16,6 @@ color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
 color_map_foreground = np.array([[255,0,0],[0,0,255]])
 thred_map_index = np.arange(32*1800).reshape((32,1800))
 
-# class detected_obj():
-#     def __init__(self):
-#         self.glb_id = None
-#         self.start_frame = None
-#         self.missing_count = 0 # frame count of out of detection
-#         self.P = None
-#         self.state = None 
-#         self.apperance = None 
-#         self.label_seq = [] # represented labels at each frame 
-#         self.mea_seq = []
-#         self.post_seq = []
-#         self.app_seq = []
-#         self.P_seq = []
 
 class detected_obj():
     def __init__(self):
@@ -268,6 +255,7 @@ def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
         X = hypotenuses * np.sin(latitudes)
         Y = hypotenuses * np.cos(latitudes)
         Z = Td_map[i] * np.sin(longitudes)
+        
         Valid_ind = Td_map[i] != 0 
         Xs.append(X[Valid_ind])
         Ys.append(Y[Valid_ind])
@@ -278,11 +266,11 @@ def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
     Ys = np.concatenate(Ys)
     Zs = np.concatenate(Zs)
     Labels = np.concatenate(Labels)   
-
+    Labels_temp = Labels.copy()
     for glb_id in Tracking_pool:
         label_id = Tracking_pool[glb_id].label_seq[-1]
         if label_id != -1:
-            Labels[Labels == label_id] = glb_id
+            Labels_temp[Labels == label_id] = glb_id
 
     pcd = np.c_[Xs,Ys,Zs,Labels]
     pcd = pcd[pcd[:,3] != -1]

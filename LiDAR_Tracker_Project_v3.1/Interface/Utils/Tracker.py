@@ -8,7 +8,7 @@ import pandas as pd
 import os
 from p_tqdm import p_umap
 from functools import partial
-from threading import Thread,Event
+from threading import Thread
 
 A = np.array([ # x,y,x',y'
     [1,0,1,0],
@@ -244,29 +244,27 @@ def run_single_mot(pcap_file_path,
     if if_save_point_cloud:
         mot.point_cloud_save_path = point_cloud_path
     mot.start_timestamp = start_timestamp
-    while True:
-        if not mot.if_initialized:
-            try:
-                frame = next(frame_generator)
-            except StopIteration:
-                break
-            mot.initialization(frame)
-            if termination_event.is_set():
-                return None  # Terminate task
-            if mot.if_initialized:
-                if if_save_point_cloud:
-                    save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
-                break    
-    while True:
+    while not mot.if_initialized:
         try:
             frame = next(frame_generator)
         except StopIteration:
             break
-        mot.mot_tracking_step(frame)
+        mot.initialization(frame)
         if termination_event.is_set():
             return None  # Terminate task
         if if_save_point_cloud:
             save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
+
+    while True:
+        try:
+            frame = next(frame_generator)
+            mot.mot_tracking_step(frame)
+            if termination_event.is_set():
+                return None  # Terminate task
+            if if_save_point_cloud:
+                save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
+        except StopIteration:
+            break
 
     # release all objects to off tracking pool
     release_ids = [glb_id for glb_id in mot.Tracking_pool.keys()]
@@ -357,11 +355,7 @@ if __name__ == "__main__":
     # trajectory_path = os.path.join(traj_out_path,base_name) + '.csv'
     point_cloud_out_path = r'D:\LiDAR_Data\US50ANDHighlands\test_point_cloud_out'
     batch_pcap_folder = r'D:\LiDAR_Data\US50ANDHighlands'
-    # point_cloud_out_path = os.path.join(point_cloud_out_path,base_name)
-    # if not os.path.exists(traj_out_path):
-    #     os.mkdir(traj_out_path)
-    # if not os.path.exists(point_cloud_out_path):
-    #     os.mkdir(point_cloud_out_path)    
+ 
     
     tracking_parameter_dict = {
         'win_width': 13,
@@ -376,12 +370,6 @@ if __name__ == "__main__":
         }
     UTC_time_diff = -8
 
-    # run_single_mot(pcap_file_path,
-    #                trajectory_path,
-    #                point_cloud_out_path,
-    #                tracking_parameter_dict,
-    #                UTC_time_diff,ref_LLH_path,ref_xyz_path,
-    #                if_save_point_cloud = True)
     run_batch_mot(batch_pcap_folder,
                   traj_out_path,
                   point_cloud_out_path,
