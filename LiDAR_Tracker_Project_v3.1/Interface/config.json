@@ -21,6 +21,7 @@
     "tab4": {
         "pcap_folder": "",
         "output_folder": "",
-        "time_reference_file_path": ""
+        "time_reference_file_path": "",
+        "time_reference_file": "D:/LiDAR_Data/US50ANDHighlands/ass.csv"
     }
 }
