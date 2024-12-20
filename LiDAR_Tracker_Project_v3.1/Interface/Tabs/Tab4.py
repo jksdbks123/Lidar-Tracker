@@ -12,8 +12,8 @@ def build_tab4(tab, config, processor):
     table_data = []  # Store table rows for time_ref
 
     # Treeview for displaying time_ref
-    tree = ttk.Treeview(tab, columns=("pcap_name", "frame_index"), show="headings")
-    tree.heading("pcap_name", text="PCAP Name")
+    tree = ttk.Treeview(tab, columns=("date", "frame_index", ), show="headings")
+    tree.heading("date", text="Date Time")
     tree.heading("frame_index", text="Frame Index")
     tree.grid(column=0, row=2, columnspan=4, sticky="nsew")
 
@@ -39,13 +39,22 @@ def build_tab4(tab, config, processor):
     ).grid(column=2, row=1)
 
     # Manual entry fields
-    ttk.Label(tab, text="PCAP Name").grid(column=0, row=3, padx=10, pady=10)
+    ttk.Label(tab, text="PCAP Name").grid(column=0, row=3, padx=0, pady=10)
     pcap_name = StringVar()
     ttk.Entry(tab, textvariable=pcap_name, width=20).grid(column=1, row=3, padx=10, pady=10)
-
-    ttk.Label(tab, text="Frame Index").grid(column=2, row=3, padx=10, pady=10)
+    ttk.Label(tab, text="Frame Index").grid(column=2, row=3, padx=0, pady=10)
     frame_index = StringVar()
     ttk.Entry(tab, textvariable=frame_index, width=10).grid(column=3, row=3, padx=10, pady=10)
+    
+    ttk.Label(tab, text= "Used Datetime Col Name (Y-M-D-H-m-S)").grid(column=0, row=6, padx=0, pady=0)
+    datetime_col_name = StringVar(value = config.get_param("tab4")["default_datetime_col_name"])
+    ttk.Entry(tab, textvariable=datetime_col_name, width=10).grid(column=1, row=6, padx=0, pady=0)
+    ttk.Label(tab, text= "Used Frame Index Col Name (0 - 17999)").grid(column=2, row=6, padx=0, pady=0)
+    frame_index_col_name = StringVar(value = config.get_param("tab4")["default_frame_index_col_name"])
+    ttk.Entry(tab, textvariable=frame_index_col_name, width=10).grid(column=3, row=6, padx=0, pady=0)
+    ttk.Label(tab, text= "Output Naming Col").grid(column=4, row=6, padx=0, pady=0)
+    datetime_col_name = StringVar(value = config.get_param("tab4")["output_naming_col_name"])
+    ttk.Entry(tab, textvariable=datetime_col_name, width=10).grid(column=5, row=6, padx=0, pady=0)
 
     # Buttons for table manipulation
     ttk.Button(
@@ -78,7 +87,7 @@ def build_tab4(tab, config, processor):
         tab,
         text="Generate Clips",
         command=lambda: processor.start_pcap_clipping(table_data)
-    ).grid(column=0, row=5, columnspan=4, padx=10, pady=10)
+    ).grid(column=10, row=6, columnspan=4, padx=10, pady=10)
 
 
 # Helper Functions
@@ -154,6 +163,7 @@ def create_empty_csv(csv_var, tree, table_data, config):
     """Create an empty CSV file and prepare it for editing."""
     file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
     if file_path:
+        
         # Create an empty DataFrame with the required columns
         df = pd.DataFrame(columns=["pcap_name", "frame_index"])
         df.to_csv(file_path, index=False)

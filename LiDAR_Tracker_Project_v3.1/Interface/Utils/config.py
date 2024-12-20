@@ -22,14 +22,20 @@ class Config:
         'bck_radius': 0.2,
         'N' : 10,
         'd_thred' : 0.1,
+        "bck_n" : 3
     }
         
         self.general_params = { # Default configuration
             # filer parameters in four tabs
             "tab1": {'pcap_file': ""},
-            "tab2": {'batch_folder': "", 'output_traj_folder': "", 'ref_xyz_file_path': "", 'ref_llh_file_path': "",'point_cloud_folder':"", 'Diff2UTC': -8, 'SaveForepoints': False, "bck_n" : 3},
-            "tab3": {'traj_folder': "", 'output_folder': "", 'ref_xyz_file_path': "", 'ref_llh_file_path': ""},
-            "tab4": {'pcap_folder': "", 'output_folder': "", 'time_reference_file_path': "", 'cpu_n': 1, 'time_interval': 30}
+            "tab2": {'batch_folder': "", 'output_traj_folder': "", 'ref_xyz_file_path': "",
+                      'ref_llh_file_path': "",'point_cloud_folder':"", 
+                      'Diff2UTC': -8, 'SaveForepoints': False, 'n_cpu': 3},
+            "tab3": {'traj_folder': "", 'output_folder': "", 'ref_xyz_file_path': "",
+                      'ref_llh_file_path': ""},
+            "tab4": {'pcap_folder': "", 'output_folder': "", 'time_reference_file_path': "",
+                      'n_cpu': 3, 'time_interval': 30, 'default_datetime_col_name': "DateTime_1",
+                      'default_frame_index_col_name': "FrameIndex_1",'output_naming_col_name':"ConflictID"},
         }
         
         if not os.path.exists(self.CONFIG_FILE):
