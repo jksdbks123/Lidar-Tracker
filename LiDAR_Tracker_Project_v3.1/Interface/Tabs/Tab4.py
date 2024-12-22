@@ -62,7 +62,7 @@ def build_tab4(tab, config, processor):
     ttk.Button(
         tab,
         text="Start PCAP Clipping",
-        command=lambda: run_batch_clipping(
+        command=lambda: run_batch_clipping_threaded(
             pcap_folder.get(),
             output_folder.get(),
             time_reference_file.get(),
