@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import dpkt
-from functools import partial
-from Utils import p_umap
+
 
 def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_name,output_name_column, time_interval):
     # ref_table: a pandas dataframe with datetime and frame index
@@ -14,9 +13,9 @@ def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_na
     # the start frame is the frame index of the first packet in the time interval
     # the end frame is the frame index of the last packet in the time interval
     # pcap naming format: Year-Month-Day-Hour-Minute-Second(-R).pcap
-    pcap_folder = os.listdir(pcap_folder)
+    pcap_list = os.listdir(pcap_folder)
     date_str = []
-    for f in pcap_folder:
+    for f in pcap_list:
         if f.split('.')[0].split('-')[-1] == 'R':
             date_str.append(f.split('.')[0][:-2])
         else:
@@ -37,8 +36,8 @@ def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_na
     uni_inds = np.unique(pcap_inds)
 
     target_frames = []
-    pcap_paths = []
-    pcap_names = []
+    pcap_paths_ = []
+    output_names_ = []
 
     for i in uni_inds:
         if i == -1:
@@ -48,9 +47,13 @@ def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_na
         start_frames[start_frames < 0] = 0
         end_frames[end_frames > 17999] = 17999
         target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
+        pcap_paths_.append(os.path.join(pcap_folder,pcap_list[i]))
+        output_names_.append(output_names.loc[pcap_inds==i].values)
+        print('Pcap {} has {} snippets'.format(pcap_list[i],len(start_frames)))
+        print(output_names.loc[pcap_inds==i].values)
+
+    return target_frames,pcap_paths_,output_names_
         
-        pcap_paths.append(os.path.join(input_path,filelist_[i]))
-        pcap_names.append(filelist_[i])
     
     
 
@@ -157,4 +160,10 @@ def CreateClipping(input_path,output_path,time_ref_path):
     p_umap(partial(run_clipping,output_path = output_path), pcap_paths,target_frames,pcap_names,num_cpus = n_cpu)
 
 if __name__ == "__main__":
-    
+    pcap_folder = r'D:\LiDAR_Data\2ndPHB'
+    ref_table = pd.read_csv(r'D:\LiDAR_Data\PHB_2nd_Conflicts_FINAL.csv')
+    date_column_name = 'DateTime_1'
+    frame_column_name = 'FrameIndex_1'
+    output_name_column = 'ConflictID'
+    time_interval = 30
+    analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_name,output_name_column, time_interval)
