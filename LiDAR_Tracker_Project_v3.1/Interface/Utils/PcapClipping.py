@@ -4,6 +4,7 @@ import os
 import dpkt
 from p_tqdm import p_umap
 from functools import partial
+from threading import Thread
 
 def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_name,output_name_column, time_interval):
     # ref_table: a pandas dataframe with datetime and frame index
@@ -104,7 +105,20 @@ def run_batch_clipping(pcap_folder,output_folder,time_reference_file,
     target_frames,pcap_paths_,output_names_ = analyze_availability(pcap_folder,ref_table,date_column_name,
                                                                     frame_column_name,output_name_column, 
                                                                     time_interval)
-    p_umap(partial(run_clipping,output_path = output_folder), target_frames,pcap_paths_,output_names_,num_cpus = n_cpu)
+    p_umap(partial(run_clipping,output_folder = output_folder), target_frames,pcap_paths_,output_names_,num_cpus = n_cpu)
+
+def run_batch_clipping_threaded(pcap_folder,output_folder,time_reference_file,
+                        date_column_name,frame_column_name,time_interval,output_name_column,n_cpu):
+    
+    thread = Thread(
+    target=run_batch_clipping,
+    args=(
+        pcap_folder,output_folder,time_reference_file,
+        date_column_name,frame_column_name,time_interval,output_name_column,n_cpu
+    ),
+    daemon=True  # Ensure the thread exits when the main program exits
+    )
+    thread.start()
 
 
 if __name__ == "__main__":
