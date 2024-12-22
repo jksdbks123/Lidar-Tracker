@@ -2,21 +2,66 @@ import pandas as pd
 import numpy as np
 import os
 import dpkt
+from functools import partial
+from Utils import p_umap
 
-def run_clipping(pcap_path,target_frame,pcap_name, output_path):
+def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_name,output_name_column, time_interval):
+    # ref_table: a pandas dataframe with datetime and frame index
+    # date_column_name: str, the column name of the datetime
+    # frame_column_name: str, the column name of the frame index
+    # time_interval: int, the time interval in seconds
+    # return: a list of 2D np.array, each row is a start and end frame
+    # the start frame is the frame index of the first packet in the time interval
+    # the end frame is the frame index of the last packet in the time interval
+    # pcap naming format: Year-Month-Day-Hour-Minute-Second(-R).pcap
+    pcap_folder = os.listdir(pcap_folder)
+    date_str = []
+    for f in pcap_folder:
+        if f.split('.')[0].split('-')[-1] == 'R':
+            date_str.append(f.split('.')[0][:-2])
+        else:
+            date_str.append(f.split('.')[0])
+    pcap_date = pd.to_datetime(pd.Series(date_str),format=('%Y-%m-%d-%H-%M-%S'))
+    query_date = pd.to_datetime(ref_table.loc[:,date_column_name],format=('%Y-%m-%d-%H-%M-%S'))
+    query_frame_index = ref_table.loc[:,frame_column_name]
+    output_names = ref_table.loc[:,output_name_column]
+
+    pcap_inds = []
+    for i in range(len(query_date)):
+        TimeDiff = (query_date.iloc[i] - pcap_date)
+        within30 = (TimeDiff < pd.Timedelta(30,unit='Minute')) & ((TimeDiff >= pd.Timedelta(0,unit='Minute')))
+        valid_pcap_ind = TimeDiff.loc[within30].argsort().index[0] if within30.sum() > 0 else -1
+        pcap_inds.append(valid_pcap_ind)
+
+    pcap_inds = np.array(pcap_inds)
+    uni_inds = np.unique(pcap_inds)
+
+    target_frames = []
+    pcap_paths = []
+    pcap_names = []
+
+    for i in uni_inds:
+        if i == -1:
+            continue
+        start_frames = np.array(query_frame_index.loc[pcap_inds==i] - time_interval*10).reshape(-1,1)
+        end_frames = np.array(query_frame_index.loc[pcap_inds==i] + time_interval*10).reshape(-1,1)
+        start_frames[start_frames < 0] = 0
+        end_frames[end_frames > 17999] = 17999
+        target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
+        
+        pcap_paths.append(os.path.join(input_path,filelist_[i]))
+        pcap_names.append(filelist_[i])
+    
+    
+
+def run_clipping(pcap_path,target_frames,output_names,output_folder):
     # load packets from pcap until the last frame in the end_frames
-    # target_frame: a 2 x 2 np.array, with first colume start frame and second colume end frame
-    print('o:',output_path)
-    # outfolder = os.path.join(output_path,pcap_path.split('.')[0])
-    folder_name = pcap_name.split('.')[0]
-    outfolder = os.path.join(output_path,folder_name)
-    if not os.path.exists(outfolder):
-        os.mkdir(outfolder)
+    # target_frame: a 2 x 2 np.array, with first column start frame and second column end frame
+    
     packets = []
     tses = []
     frame_index = []
     cur_ind = 0
-    print('Processing', outfolder)
     with open(pcap_path, 'rb') as fpcap:
         lidar_reader = dpkt.pcap.Reader(fpcap)
         try:
@@ -45,13 +90,17 @@ def run_clipping(pcap_path,target_frame,pcap_name, output_path):
     # save the snippets to specified folder
     frame_index = np.array(frame_index)
     for i in range(len(target_frame)):
-        with open(os.path.join(outfolder,'{}_{}.pcap'.format(target_frame[i,0],target_frame[i,1])),'wb') as wpcap:
+        with open(os.path.join(output_folder,'{}_{}.pcap'.format(target_frame[i,0],target_frame[i,1])),'wb') as wpcap:
             lidar_writer = dpkt.pcap.Writer(wpcap)
             start_ind = np.where(frame_index == target_frame[i,0])[0][0]
             end_ind = np.where(frame_index == target_frame[i,1])[0][0]
             for f_ind in range(start_ind,end_ind):
                 lidar_writer.writepkt(packets[f_ind],ts = tses[f_ind])
 
+def run_batch_clipping(pcap_folder,output_folder,time_reference_file,
+                        pcap_column,frame_column,time_interval,output_name_column):
+    # we need an analysis of the time reference file to determine the start and end frame for each pcap file
+    pass
 
 def CreateClipping(input_path,output_path,time_ref_path):
     """
@@ -106,3 +155,6 @@ def CreateClipping(input_path,output_path,time_ref_path):
     n_cpu = self.cpu_nTab4.get()
     print('Begin Pcap Clipping with {} Cpus'.format(n_cpu))
     p_umap(partial(run_clipping,output_path = output_path), pcap_paths,target_frames,pcap_names,num_cpus = n_cpu)
+
+if __name__ == "__main__":
+    
