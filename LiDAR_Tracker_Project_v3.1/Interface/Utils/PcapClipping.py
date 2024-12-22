@@ -92,7 +92,7 @@ def run_clipping(start_end_frame_list,pcap_path,output_names,output_folder):
     # save the snippets to specified folder
     frame_index = np.array(frame_index)
     for i in range(len(start_end_frame_list)):
-        with open(os.path.join(output_folder,output_names[i]),'wb') as wpcap:
+        with open(os.path.join(output_folder,output_names[i] + '.pcap'),'wb') as wpcap:
             lidar_writer = dpkt.pcap.Writer(wpcap)
             start_ind = np.where(frame_index == start_end_frame_list[i,0])[0][0]
             end_ind = np.where(frame_index == start_end_frame_list[i,1])[0][0]

@@ -36,6 +36,9 @@ class Config:
             "tab4": {'pcap_folder': "", 'output_folder': "", 'time_reference_file_path': "",
                       'n_cpu': 3, 'time_interval': 30, 'default_datetime_col_name': "DateTime_1",
                       'default_frame_index_col_name': "FrameIndex_1",'output_naming_col_name':"ConflictID"},
+            "tab5": {'video_folder': "", 'output_folder': "", 'time_reference_file_path': "", 'n_cpu': 3,
+                      'default_datetime_col_name': "DateTime_1",
+                      'default_frame_index_col_name': "FrameIndex_1",'output_naming_col_name':"ConflictID"},
         }
         
         if not os.path.exists(self.CONFIG_FILE):
