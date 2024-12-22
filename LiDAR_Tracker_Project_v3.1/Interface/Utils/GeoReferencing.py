@@ -4,6 +4,7 @@ import pandas as pd
 from Utils.SaveTrajectoryTools import generate_T,convert_LLH
 from p_tqdm import p_umap
 from functools import partial
+from threading import Thread
 
 def run_georef(traj_path,output_path,T):
     traj = pd.read_csv(traj_path)
@@ -21,17 +22,14 @@ def run_georef(traj_path,output_path,T):
     traj.loc[:,['Longitude','Latitude','Elevation']] = LLH
     traj.to_csv(output_path,index=False)
 
-def CreateBatchGeoRef(self):
-    input_path = self.TrajPathEntry_Tab3.get()
+def run_batch_georef(input_path,output_folder_path,ref_LLH_path,ref_xyz_path,n_cpu):
     dir_lis = os.listdir(input_path)
-    output_folder_path = self.OutputEntry_Tab3.get()
     csv_names = []
     for f in dir_lis:
         if 'csv' in f.split('.'):
             csv_names.append(f)
     if len(csv_names) == 0:
         print('No Trajs in Folder')
-    ref_LLH_path,ref_xyz_path = self.RefLlhEntry_Tab3.get(),self.RefXyzEntry_Tab3.get()
     ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
     if len(np.unique(ref_xyz[:,2])) == 1:
         np.random.seed(1)
@@ -44,10 +42,14 @@ def CreateBatchGeoRef(self):
     print(ref_xyz)
     T = generate_T(ref_LLH,ref_xyz)
     output_folder_path = os.path.join(output_folder_path,'ProcessedTrajs')
-    if os.path.exists(output_folder_path) is not True:
+    if not os.path.exists(output_folder_path):
         os.makedirs(output_folder_path)
-    n_cpu = self.cpu_nTab2.get()
     traj_paths = [os.path.join(input_path,f) for f in csv_names]
     out_paths = [os.path.join(output_folder_path,f) for f in csv_names]
     print('Begin Geo Referencing')
     p_umap(partial(run_georef,T = T), traj_paths,out_paths,num_cpus = n_cpu)
+
+def run_batch_geo_ref_threaded(input_path,output_folder_path,ref_LLH_path,ref_xyz_path,n_cpu):
+    thread = Thread(target = run_batch_georef,args = (input_path,output_folder_path,ref_LLH_path,ref_xyz_path,n_cpu))
+    thread.start()
+    return thread

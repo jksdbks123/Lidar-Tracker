@@ -11,7 +11,7 @@ def build_tab4(tab, config, processor):
     # Variables for dynamic column specification
     pcap_folder = StringVar(value=config.get_param("tab4")["pcap_folder"])
     output_folder = StringVar(value=config.get_param("tab4")["output_folder"])
-    time_reference_file = StringVar(value=config.get_param("tab4")["time_reference_file"])
+    time_reference_file = StringVar(value=config.get_param("tab4")["time_reference_file_path"])
     date_column = StringVar(value=config.get_param("tab4")['default_datetime_col_name'])  # Default column name for pcap_name
     frame_column = StringVar(value=config.get_param("tab4")['default_frame_index_col_name'])  # Default column name for frame_index
     output_name_column = StringVar(value=config.get_param("tab4")['output_naming_col_name'])  # Default column name for output_name

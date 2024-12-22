@@ -16,17 +16,17 @@
         "traj_folder": "",
         "output_folder": "",
         "ref_xyz_file_path": "",
-        "ref_llh_file_path": ""
+        "ref_llh_file_path": "",
+        "n_cpu": 3
     },
     "tab4": {
-        "pcap_folder": "D:/LiDAR_Data/2ndPHB",
-        "output_folder": "D:/LiDAR_Data/2ndPHB_out",
+        "pcap_folder": "",
+        "output_folder": "",
         "time_reference_file_path": "",
         "n_cpu": 3,
         "time_interval": 30,
         "default_datetime_col_name": "DateTime_1",
         "default_frame_index_col_name": "FrameIndex_1",
-        "output_naming_col_name": "ConflictID",
-        "time_reference_file": "D:/LiDAR_Data/PHB_2nd_Conflicts_FINAL.csv"
+        "output_naming_col_name": "ConflictID"
     }
 }
