@@ -27,6 +27,6 @@
         "default_datetime_col_name": "DateTime_1",
         "default_frame_index_col_name": "FrameIndex_1",
         "output_naming_col_name": "ConflictID",
-        "time_reference_file": "D:/LiDAR_Data/US50ANDHighlands/ass.csv"
+        "time_reference_file": "D:/LiDAR_Data/PHB_2nd_Conflicts_FINAL.csv"
     }
 }

@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 import os
 import dpkt
-
+from p_tqdm import p_umap
+from functools import partial
 
 def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_name,output_name_column, time_interval):
     # ref_table: a pandas dataframe with datetime and frame index
@@ -49,7 +50,6 @@ def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_na
         target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
         pcap_paths_.append(os.path.join(pcap_folder,pcap_list[i]))
         output_names_.append(output_names.loc[pcap_inds==i].values)
-
     return target_frames,pcap_paths_,output_names_
         
     
@@ -91,7 +91,7 @@ def run_clipping(start_end_frame_list,pcap_path,output_names,output_folder):
     # save the snippets to specified folder
     frame_index = np.array(frame_index)
     for i in range(len(start_end_frame_list)):
-        with open(os.path.join(output_folder,'{}_{}.pcap'.format(start_end_frame_list[i,0],start_end_frame_list[i,1])),'wb') as wpcap:
+        with open(os.path.join(output_folder,output_names[i]),'wb') as wpcap:
             lidar_writer = dpkt.pcap.Writer(wpcap)
             start_ind = np.where(frame_index == start_end_frame_list[i,0])[0][0]
             end_ind = np.where(frame_index == start_end_frame_list[i,1])[0][0]
@@ -99,64 +99,13 @@ def run_clipping(start_end_frame_list,pcap_path,output_names,output_folder):
                 lidar_writer.writepkt(packets[f_ind],ts = tses[f_ind])
 
 def run_batch_clipping(pcap_folder,output_folder,time_reference_file,
-                        pcap_column,frame_column,time_interval,output_name_column):
+                        date_column_name,frame_column_name,time_interval,output_name_column,n_cpu):
+    ref_table = pd.read_csv(time_reference_file)
     target_frames,pcap_paths_,output_names_ = analyze_availability(pcap_folder,ref_table,date_column_name,
                                                                     frame_column_name,output_name_column, 
                                                                     time_interval)
-    
-def CreateClipping(input_path,output_path,time_ref_path):
-    """
-    input_path: str, path to the pcap files
-    output_path: str, path to the output folder
-    time_ref_path: str, path to the time reference file (csv)
-    """
-    input_path = self.PcapPathEntry_Tab4.get()
-    output_path = self.OutputEntry_Tab4.get()
-    timeRef = pd.read_csv(self.TimeRefFileEntry_Tab4.get())
-    ts_key,frameInd_key = self.TimeStampKeyEntry_Tab4.get(),self.FrameKeyEntry_Tab4.get()
-    timeintv = self.TimeInterval_Tab4.get()
-    filelist = os.listdir(input_path)
-    filelist_ = []
-    for f in filelist:
-        if len(f.split('.')) > 1:
-            if f.split('.')[1] == 'pcap':
-                filelist_.append(f)
-    date = [f.split('.')[0] for f in filelist_]
-    date_ = []
-    for d in date:
-        if d[-1] == 'R':
-            date_.append(d[:-2])
-        else:
-            date_.append(d)
-    date_ = pd.to_datetime(pd.Series(date_),format=('%Y-%m-%d-%H-%M-%S'))
-    Ts_records = pd.to_datetime(timeRef.loc[:,ts_key],format=('%Y-%m-%d-%H-%M-%S'))
-    Pcap_inds = []
-    for i in range(len(Ts_records)):
-        TimeDiff = (Ts_records.iloc[i] - date_)
-        within30 = (TimeDiff < pd.Timedelta(30,unit='Minute')) & ((TimeDiff >= pd.Timedelta(0,unit='Minute')))
-        if within30.sum() == 0:
-            Pcap_ind = -1
-        else:
-            Pcap_ind = TimeDiff.loc[within30].argsort().index[0]
-        Pcap_inds.append(Pcap_ind)
-    Pcap_inds = np.array(Pcap_inds)
-    uni_ind = np.unique(Pcap_inds)
-    target_frames = []
-    pcap_paths = []
-    pcap_names = []
-    for i in uni_ind:
-        if i == -1:
-            continue
-        start_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] - timeintv*10).reshape(-1,1)
-        end_frames = np.array(timeRef.loc[Pcap_inds==i,frameInd_key] + timeintv*10).reshape(-1,1)
-        start_frames[start_frames < 0] = 0
-        end_frames[end_frames > 17999] = 17999
-        target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
-        pcap_paths.append(os.path.join(input_path,filelist_[i]))
-        pcap_names.append(filelist_[i])
-    n_cpu = self.cpu_nTab4.get()
-    print('Begin Pcap Clipping with {} Cpus'.format(n_cpu))
-    p_umap(partial(run_clipping,output_path = output_path), pcap_paths,target_frames,pcap_names,num_cpus = n_cpu)
+    p_umap(partial(run_clipping,output_path = output_folder), target_frames,pcap_paths_,output_names_,num_cpus = n_cpu)
+
 
 if __name__ == "__main__":
     pcap_folder = r'D:\LiDAR_Data\2ndPHB'

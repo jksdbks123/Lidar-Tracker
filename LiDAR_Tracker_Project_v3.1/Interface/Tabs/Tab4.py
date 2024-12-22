@@ -16,6 +16,7 @@ def build_tab4(tab, config, processor):
     frame_column = StringVar(value=config.get_param("tab4")['default_frame_index_col_name'])  # Default column name for frame_index
     output_name_column = StringVar(value=config.get_param("tab4")['output_naming_col_name'])  # Default column name for output_name
     time_interval = IntVar(value=config.get_param("tab4")['time_interval'])
+    n_cpu = IntVar(value=config.get_param("tab4")['n_cpu'])
 
     # File and folder selection
     ttk.Label(tab, text="PCAP Folder").grid(column=0, row=1)
@@ -51,6 +52,8 @@ def build_tab4(tab, config, processor):
 
     ttk.Label(tab, text="Time Interval (s)").grid(column=0, row=6)
     ttk.Entry(tab, textvariable=time_interval, width=10).grid(column=1, row=6)
+    ttk.Label(tab, text="CPU #").grid(column=2, row=6)
+    ttk.Entry(tab, textvariable=n_cpu, width=10).grid(column=3, row=6)
 
     ttk.Label(tab, text="Output Name Column").grid(column=0, row=7)
     ttk.Entry(tab, textvariable=output_name_column, width=50).grid(column=1, row=7)
@@ -66,6 +69,7 @@ def build_tab4(tab, config, processor):
             date_column.get(),
             frame_column.get(),
             time_interval.get(),
-            output_name_column.get()
+            output_name_column.get(),
+            n_cpu.get()
         )
     ).grid(column=0, row=8, padx=10, pady=10)
