@@ -49,17 +49,15 @@ def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_na
         target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
         pcap_paths_.append(os.path.join(pcap_folder,pcap_list[i]))
         output_names_.append(output_names.loc[pcap_inds==i].values)
-        print('Pcap {} has {} snippets'.format(pcap_list[i],len(start_frames)))
-        print(output_names.loc[pcap_inds==i].values)
 
     return target_frames,pcap_paths_,output_names_
         
     
     
 
-def run_clipping(pcap_path,target_frames,output_names,output_folder):
+def run_clipping(start_end_frame_list,pcap_path,output_names,output_folder):
     # load packets from pcap until the last frame in the end_frames
-    # target_frame: a 2 x 2 np.array, with first column start frame and second column end frame
+    # target_frame: a n x 2 np.array, with first column start frame and second column end frame
     
     packets = []
     tses = []
@@ -77,7 +75,7 @@ def run_clipping(pcap_path,target_frames,output_names,output_folder):
         except:
             pass
         while True:
-            if cur_ind > target_frame[:,1].max():
+            if cur_ind > start_end_frame_list[:,1].max():
                 break
             try:
                 frame_index.append(cur_ind)
@@ -92,19 +90,20 @@ def run_clipping(pcap_path,target_frames,output_names,output_folder):
                 break
     # save the snippets to specified folder
     frame_index = np.array(frame_index)
-    for i in range(len(target_frame)):
-        with open(os.path.join(output_folder,'{}_{}.pcap'.format(target_frame[i,0],target_frame[i,1])),'wb') as wpcap:
+    for i in range(len(start_end_frame_list)):
+        with open(os.path.join(output_folder,'{}_{}.pcap'.format(start_end_frame_list[i,0],start_end_frame_list[i,1])),'wb') as wpcap:
             lidar_writer = dpkt.pcap.Writer(wpcap)
-            start_ind = np.where(frame_index == target_frame[i,0])[0][0]
-            end_ind = np.where(frame_index == target_frame[i,1])[0][0]
+            start_ind = np.where(frame_index == start_end_frame_list[i,0])[0][0]
+            end_ind = np.where(frame_index == start_end_frame_list[i,1])[0][0]
             for f_ind in range(start_ind,end_ind):
                 lidar_writer.writepkt(packets[f_ind],ts = tses[f_ind])
 
 def run_batch_clipping(pcap_folder,output_folder,time_reference_file,
                         pcap_column,frame_column,time_interval,output_name_column):
-    # we need an analysis of the time reference file to determine the start and end frame for each pcap file
-    pass
-
+    target_frames,pcap_paths_,output_names_ = analyze_availability(pcap_folder,ref_table,date_column_name,
+                                                                    frame_column_name,output_name_column, 
+                                                                    time_interval)
+    
 def CreateClipping(input_path,output_path,time_ref_path):
     """
     input_path: str, path to the pcap files
