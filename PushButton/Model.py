@@ -1,13 +1,16 @@
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
+from enum import Enum
+import os
+
 # Define CNN + LSTM Model with ResNet Backbone
 class ResNetLSTM(nn.Module):
     def __init__(self, lstm_hidden_dim=128, lstm_layers=1):
         super(ResNetLSTM, self).__init__()
 
         # Pretrained ResNet model as feature extractor
-        resnet = models.resnet18(pretrained=True)
+        resnet = models.resnet18(weights = models.ResNet18_Weights.DEFAULT)
         self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])
 
         # LSTM to process frame sequence

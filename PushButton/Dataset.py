@@ -43,23 +43,35 @@ class VideoDataset(Dataset):
                 frame = frame[self.left_box["ymin"]:self.left_box["ymax"], self.left_box["xmin"]:self.left_box["xmax"]]
             else:
                 frame = frame[self.right_box["ymin"]:self.right_box["ymax"], self.right_box["xmin"]:self.right_box["xmax"]]
+            # resize frame to 224x224
+            frame = cv2.resize(frame, (224, 224))
             frames.append(frame)
         cap.release()
-
+        frames = np.array(frames) # (seq_len, h, w, c)
         # Convert to tensor and apply transforms
-        frames = np.array(frames)
         if self.transform:
             frames = self.transform(frames)
-
-        return torch.tensor(frames, dtype=torch.float32), label, location
+        return frames, label, location
     
-def create_data_loaders(train_dir, val_dir, test_dir, batch_size=8, transform=None):
+# Custom Transform for Normalization
+def custom_transform(frames):
+    """ Normalize frames (batch_size, seq_len, h, w, c) """
+    # to tensor
+    frames = torch.tensor(frames)
+    frames = frames / 255.0  # Scale pixel values to [0, 1]
+    mean = torch.tensor([0.485, 0.456, 0.406])  # Imagenet mean for RGB
+    std = torch.tensor([0.229, 0.224, 0.225])  # Imagenet std for RGB
+    frames = (frames - mean) / std  # Normalize
+
+    return frames.permute(0,3,1,2) # (seq_len, c, h, w)
+
+def create_data_loaders(train_dir, val_dir, batch_size=8, transform=None):
     train_dataset = VideoDataset(train_dir, transform=transform)
     val_dataset = VideoDataset(val_dir, transform=transform)
-    test_dataset = VideoDataset(test_dir, transform=transform)
+    # test_dataset = VideoDataset(test_dir, transform=transform)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader
