@@ -44,10 +44,14 @@ class VideoDataset(Dataset):
             else:
                 frame = frame[self.right_box["ymin"]:self.right_box["ymax"], self.right_box["xmin"]:self.right_box["xmax"]]
             # resize frame to 224x224
-            frame = cv2.resize(frame, (224, 224))
+            # frame = cv2.resize(frame, (224, 224))
             frames.append(frame)
         cap.release()
         frames = np.array(frames) # (seq_len, h, w, c)
+       
+        if frames.shape[0] < 61:
+            frames = np.concatenate([frames, np.zeros((61-frames.shape[0], 224, 224, 3), dtype=np.uint8)], axis=0)
+        frames = frames[20:40]  # Trim to 20 frames
         # Convert to tensor and apply transforms
         if self.transform:
             frames = self.transform(frames)
