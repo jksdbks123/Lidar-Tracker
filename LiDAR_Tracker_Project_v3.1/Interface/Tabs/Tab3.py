@@ -3,7 +3,7 @@ from tkinter import StringVar, IntVar, BooleanVar,DoubleVar
 from File_manager import update_flag, select_file, select_folder
 from GeoReferencing import *
 
-def build_tab3(tab, config, processor):
+def build_tab3(tab, config):
     """Builds the Geometry Referencing tab."""
     ttk.Label(tab, text="Geometry Referencing").grid(column=0, row=0, padx=10, pady=10)
 

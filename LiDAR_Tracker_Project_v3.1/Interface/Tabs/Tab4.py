@@ -4,7 +4,7 @@ from tkinter import StringVar, ttk, IntVar
 from File_manager import update_flag, select_file, select_folder
 from PcapClipping import *
 
-def build_tab4(tab, config, processor):
+def build_tab4(tab, config):
     """Builds the PCAP Clipping tab."""
     ttk.Label(tab, text="PCAP Clipping").grid(column=0, row=0, padx=10, pady=10)
 

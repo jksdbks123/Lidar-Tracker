@@ -35,6 +35,7 @@ class Interface:
             "tab2": ttk.Frame(self.tabControl),
             "tab3": ttk.Frame(self.tabControl),
             "tab4": ttk.Frame(self.tabControl),
+            "tab5": ttk.Frame(self.tabControl),
         }
 
         self.processor = Processor()
@@ -42,7 +43,7 @@ class Interface:
         # self.tracker = MOT()
         self.dummy_processor = DummyProcessor()
 
-        tab_name_list = [ "Visualization", "Batch Processing", "Geometry Referencing", "PCAP Clipping"]
+        tab_name_list = [ "Visualization", "Batch Processing", "Geometry Referencing", "PCAP Clipping", "Video Clipping"]
         for tab_name in tab_name_list:
             self.tabControl.add(self.tabs[f"tab{tab_name_list.index(tab_name)+1}"], text=tab_name)
 

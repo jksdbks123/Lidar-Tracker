@@ -38,7 +38,7 @@ class Config:
                       'default_frame_index_col_name': "FrameIndex_1",'output_naming_col_name':"ConflictID"},
             "tab5": {'video_folder': "", 'output_folder': "", 'time_reference_file_path': "", 'n_cpu': 3,
                       'default_datetime_col_name': "DateTime_1",
-                      'default_frame_index_col_name': "FrameIndex_1",'output_naming_col_name':"ConflictID"},
+                      'default_frame_index_col_name': "FrameIndex_1",'output_naming_col_name':"ConflictID",'time_interval': 30},
         }
         
         if not os.path.exists(self.CONFIG_FILE):

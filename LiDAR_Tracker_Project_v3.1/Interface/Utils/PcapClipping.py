@@ -51,6 +51,7 @@ def analyze_availability(pcap_folder,ref_table,date_column_name, frame_column_na
         target_frames.append(np.concatenate([start_frames,end_frames],axis = 1))
         pcap_paths_.append(os.path.join(pcap_folder,pcap_list[i]))
         output_names_.append(output_names.loc[pcap_inds==i].values)
+
     return target_frames,pcap_paths_,output_names_
         
     
