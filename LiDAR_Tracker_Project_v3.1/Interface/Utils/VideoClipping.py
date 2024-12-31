@@ -91,15 +91,15 @@ def clip_single_video(input_video_path, save_name,target_frames,output_folder):
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # Height of the frame
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec
 
-    start_frame = target_frames[:,0].min()
-    end_frame = target_frames[:,1].max()
-    current_frame = start_frame
+    init_frame = target_frames[:,0].min()
+    ending_frame = target_frames[:,1].max()
+    current_frame = init_frame
     # Set the starting position of the video
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, init_frame)
 
     frames = []
     frame_inds = []
-    while current_frame < end_frame:
+    while current_frame <= ending_frame:
         ret, frame = cap.read()
         if not ret:
             # print("End of video reached or error reading frame.")
@@ -107,12 +107,13 @@ def clip_single_video(input_video_path, save_name,target_frames,output_folder):
         frames.append(frame)
         frame_inds.append(current_frame)
         current_frame += 1
-    
     for i in range(len(target_frames)):
         start_frame = target_frames[i,0]
         end_frame = target_frames[i,1]
-        output_path = os.path.join(output_folder,save_name[i])
-        write_video(output_path, frames[frame_inds.index(start_frame):frame_inds.index(end_frame)], fourcc, fps, frame_width, frame_height)
+        output_path = os.path.join(output_folder,save_name[i] + '.avi')
+        start_ind = np.where(frame_inds == start_frame)[0][0]
+        end_ind = np.where(frame_inds == end_frame)[0][0]
+        write_video(output_path, frames[start_ind:end_ind], fourcc, fps, frame_width, frame_height)
     # Release resources
     cap.release()
 
@@ -155,14 +156,15 @@ def run_batch_video_clipping_threaded(video_folder, output_folder, ref_table_pat
     thread.start()
     
 
-# if __name__ == "__main__":
-#     ref_table = pd.read_csv(r'D:\LiDAR_Data\2ndPHB\video_clip_test_ref.csv')
-#     video_folder = r'D:\LiDAR_Data\2ndPHB\Video\IntesectionVideo'
-#     date_column_name = 'DateTime'
-#     frame_column_name = 'FrameIndex'
-#     output_name_column = 'SaveName'
-#     time_interval = 5
-#     target_frames,video_paths_,output_names_ = analyze_availability(video_folder,ref_table,date_column_name, frame_column_name, output_name_column, time_interval, fps = 10)
-#     print(target_frames)
-#     print(video_paths_)
-#     print(output_names_)
+if __name__ == "__main__":
+    ref_table = pd.read_csv(r'D:\LiDAR_Data\2ndPHB\video_clip_test_ref.csv')
+    video_folder = r'D:\LiDAR_Data\2ndPHB\Video\IntesectionVideo'
+    date_column_name = 'DateTime'
+    frame_column_name = 'FrameIndex'
+    output_name_column = 'SaveName'
+    time_interval = 5
+
+    target_frames,video_paths_,output_names_ = analyze_availability(video_folder,ref_table,date_column_name, frame_column_name, output_name_column, time_interval, fps = 10)
+    print(target_frames)
+    print(video_paths_)
+    print(output_names_)
