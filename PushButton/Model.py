@@ -60,7 +60,7 @@ class ResNetLSTM(nn.Module):
         super(ResNetLSTM, self).__init__()
 
         # Pretrained ResNet model as feature extractor
-        resnet = models.resnet34(weights = models.ResNet34_Weights.DEFAULT)
+        resnet = models.resnet18(weights = models.ResNet18_Weights.DEFAULT)
         self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])
         # LSTM to process frame sequence
         self.lstm = nn.LSTM(input_size=resnet.fc.in_features, hidden_size=lstm_hidden_dim, num_layers=lstm_layers, batch_first=True)

@@ -63,12 +63,12 @@ class VideoDataset(Dataset):
             h_flip_factor = self.augmentation_dict.get("h_flip", 0)
             noise_factor = self.augmentation_dict.get("noise", 0)
             frames = adjust_brightness(frames, np.random.uniform(1-brightness_factor, 1+brightness_factor))
-            frames = adjust_contrast(frames, np.random.uniform(1-contrast_factor, 1+contrast_factor))
-            frames = adjust_saturation(frames, np.random.uniform(1-saturation_factor, 1+saturation_factor))
-            frames = adjust_hue(frames, np.random.uniform(-hue_factor, hue_factor))
-            if np.random.uniform() < h_flip_factor:
-                frames = hflip(frames)
-            frames = frames + np.random.normal(0, noise_factor, frames.shape)
+            # frames = adjust_contrast(frames, np.random.uniform(1-contrast_factor, 1+contrast_factor))
+            # frames = adjust_saturation(frames, np.random.uniform(1-saturation_factor, 1+saturation_factor))
+            # frames = adjust_hue(frames, np.random.uniform(-hue_factor, hue_factor))
+            # if np.random.uniform() < h_flip_factor:
+            #     frames = hflip(frames)
+            # frames = frames + np.random.normal(0, noise_factor, frames.shape)
             # to float32
             frames = frames.to(torch.float32)
         return frames, label, location

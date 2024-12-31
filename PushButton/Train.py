@@ -9,8 +9,8 @@ import time
 
 def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentation_dict,train_folder, val_folder, run_dir):
     train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, transform=custom_transform, augmentation_dict=augmentation_dict)
-    # model = ResNetLSTM().to(device)
-    model = ResNetLSTMWithAttention().to(device)
+    model = ResNetLSTM().to(device)
+    # model = ResNetLSTMWithAttention().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     training_curves = {"train": [], "val": []}
@@ -31,7 +31,8 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentatio
                 inputs, labels = inputs.to(device), labels.to(device).float()
 
                 optimizer.zero_grad()
-                outputs, attention_weights = model(inputs)
+                # outputs, attention_weights = model(inputs)
+                outputs = model(inputs)
                 outputs = torch.flatten(outputs)
                 loss = criterion(outputs, labels)
                 loss.backward()
@@ -48,9 +49,10 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentatio
         with torch.no_grad():
             with tqdm(total=len(val_loader), desc="Validation") as pbar:
                 for inputs, labels, _ in val_loader:
-                    
+
                     inputs, labels = inputs.to(device), labels.to(device).float()
-                    outputs, attention_weights = model(inputs)
+                    # outputs, attention_weights = model(inputs)
+                    outputs = model(inputs)
                     outputs = torch.flatten(outputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
@@ -78,13 +80,15 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentatio
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-    # criterion = nn.BCELoss()
-    criterion = FocalLoss()
+    criterion = nn.BCELoss()
+    # print name of criterion
+    # criterion = FocalLoss()
+    print(criterion)
     num_epochs=50
     learning_rate=0.0001
     batch_size = 2
     run_dir = r"D:\LiDAR_Data\2ndPHB\Video\run"
     train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\train'
     val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\val'
-    augmentation_dict = {"brightness": 0.5, "contrast": 0.5, "saturation": 0.5, "hue": 0.5,'h_flip':0.5, 'noise': 0.2}
+    augmentation_dict = {"brightness": 0.2, "contrast": 0.5, "saturation": 0.5, "hue": 0.5,'h_flip':0.5, 'noise': 0.2}
     train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentation_dict,train_folder, val_folder, run_dir)
