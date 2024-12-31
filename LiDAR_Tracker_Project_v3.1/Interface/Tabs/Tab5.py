@@ -11,7 +11,7 @@ def build_tab5(tab, config):
     # Variables for dynamic column specification
     video_folder = StringVar(value=config.get_param("tab5")["video_folder"])
     output_folder = StringVar(value=config.get_param("tab5")["output_folder"])
-    time_reference_file = StringVar(value=config.get_param("tab5")["time_reference_file_path"])
+    time_reference_file = StringVar(value=config.get_param("tab5")["time_reference_file"])
     date_column = StringVar(value=config.get_param("tab5")['default_datetime_col_name'])  # Default column name for pcap_name
     frame_column = StringVar(value=config.get_param("tab5")['default_frame_index_col_name'])  # Default column name for frame_index
     output_name_column = StringVar(value=config.get_param("tab5")['output_naming_col_name'])  # Default column name for output_name
