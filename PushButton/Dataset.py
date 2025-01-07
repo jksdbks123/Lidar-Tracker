@@ -53,13 +53,6 @@ class VideoDataset(Dataset):
                 self.video_files.append(os.path.join(data_dir, video_file))
                 self.labels.append(label)
                 self.locations.append(location)
-        pt1 = (450, 750)
-        pt2 = (750, 950)
-        x,y,w,h = pt1[0],pt1[1],pt2[0]-pt1[0],pt2[1]-pt1[1]
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
 
     def __len__(self):
         return len(self.video_files)
@@ -77,17 +70,12 @@ class VideoDataset(Dataset):
             if not ret:
                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame = frame[self.y:self.y+self.h, self.x:self.x+self.w]
             frames.append(frame)
         cap.release()
         frames = np.array(frames) # (seq_len, h, w, c)
 
-        if frames.shape[0] < 61: # Pad with zeros if video is less than 6.1 seconds
-            frames = np.concatenate([frames, np.zeros((61-frames.shape[0], frames.shape[1],frames.shape[2],frames.shape[3]), dtype=np.uint8)], axis=0)
-        optical_flow_frames = extract_optical_flow(frames)
-
-        frames = frames[20:55]
-        optical_flow_frames = optical_flow_frames[20:55]
+        if frames.shape[0] < 30: # Pad with zeros if video is less than 6.1 seconds
+            frames = np.concatenate([frames, np.zeros((30-frames.shape[0], frames.shape[1],frames.shape[2],frames.shape[3]), dtype=np.uint8)], axis=0)
         # Convert to tensor and apply transforms
         if self.transform:
             frames = self.transform(frames)
