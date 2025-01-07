@@ -126,15 +126,10 @@ terminado==0.12.1
 testpath==0.5.0
 threadpoolctl==3.0.0
 tomlkit==0.7.2
-torch==2.4.1+cu124
-torchaudio==2.4.1
-torchvision==0.19.1
 tornado==6.1
 tqdm==4.67.1
 traitlets==5.14.3
 typing_extensions==4.12.2
-ultralytics==8.3.53
-ultralytics-thop==2.0.13
 urllib3==1.26.7
 wcwidth==0.2.5
 webencodings==0.5.1
