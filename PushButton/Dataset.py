@@ -6,6 +6,38 @@ import numpy as np
 import torch
 from torchvision.transforms.functional import adjust_brightness, adjust_contrast, adjust_saturation,adjust_contrast,adjust_saturation,adjust_hue,hflip
 
+
+def extract_optical_flow(frames):
+
+    prev_frame = frames[0]
+    prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+    optical_flow_frames = []
+# Loop through video frames
+    for i in range(1,len(frames)):
+        next_frame = frames[i]
+        next_gray = cv2.cvtColor(next_frame, cv2.COLOR_BGR2GRAY)
+        flow = cv2.calcOpticalFlowFarneback(
+            prev_gray, next_gray, None, 
+            0.5, 3, 15, 3, 5, 1.2, 0
+        )
+    # Compute magnitude and angle
+        magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+        # Normalize magnitude
+        normalized_magnitude = cv2.normalize(magnitude, None, 0, 1, cv2.NORM_MINMAX)
+        # Encode angle into sine and cosine
+        sin_angle = np.sin(angle)
+        cos_angle = np.cos(angle)
+        # Stack the normalized magnitude, sin and cos angle
+        optical_flow = np.stack([normalized_magnitude, sin_angle, cos_angle], axis=-1)
+        # Save or append the result
+        optical_flow_frames.append(optical_flow)
+        # Update the previous frame and previous gray
+        prev_gray = next_gray
+
+    optical_flow_frames = np.array(optical_flow_frames)
+
+    return optical_flow_frames
+
 class VideoDataset(Dataset):
     def __init__(self, data_dir, transform=None, augmentation_dict=None):
         self.data_dir = data_dir
@@ -13,8 +45,6 @@ class VideoDataset(Dataset):
         self.video_files = []
         self.labels = []
         self.locations = []
-        self.left_box = {"xmin": 200, "ymin": 700, "xmax": 900, "ymax": 1000} # Region of interest for the ped button in left side of the screen
-        self.right_box = {"xmin": 1200, "ymin": 700, "xmax": 1900, "ymax": 1000} # Region of interest for the ped button in right side of the screen
         self.augmentation_dict = augmentation_dict
         for video_file in os.listdir(data_dir):
             if video_file.endswith(".mp4"):
@@ -23,6 +53,13 @@ class VideoDataset(Dataset):
                 self.video_files.append(os.path.join(data_dir, video_file))
                 self.labels.append(label)
                 self.locations.append(location)
+        pt1 = (450, 750)
+        pt2 = (750, 950)
+        x,y,w,h = pt1[0],pt1[1],pt2[0]-pt1[0],pt2[1]-pt1[1]
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
 
     def __len__(self):
         return len(self.video_files)
@@ -40,28 +77,32 @@ class VideoDataset(Dataset):
             if not ret:
                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            if location == "L":
-                frame = frame[self.left_box["ymin"]:self.left_box["ymax"], self.left_box["xmin"]:self.left_box["xmax"]]
-            else:
-                frame = frame[self.right_box["ymin"]:self.right_box["ymax"], self.right_box["xmin"]:self.right_box["xmax"]]
+            frame = frame[self.y:self.y+self.h, self.x:self.x+self.w]
             frames.append(frame)
         cap.release()
         frames = np.array(frames) # (seq_len, h, w, c)
+
         if frames.shape[0] < 61: # Pad with zeros if video is less than 6.1 seconds
             frames = np.concatenate([frames, np.zeros((61-frames.shape[0], frames.shape[1],frames.shape[2],frames.shape[3]), dtype=np.uint8)], axis=0)
-            
-        frames = frames[20:40]  # Trim to 20 frames
+        optical_flow_frames = extract_optical_flow(frames)
+
+        frames = frames[20:55]
+        optical_flow_frames = optical_flow_frames[20:55]
         # Convert to tensor and apply transforms
         if self.transform:
             frames = self.transform(frames)
-        # {"brightness": 0.5, "contrast": 0.5, "saturation": 0.5, "hue": 0.5,'h_flip':0.5, 'noise': 0.2}
+            # normalize optical flow
+            optical_flow_frames = torch.tensor(optical_flow_frames)
+            optical_flow_frames = optical_flow_frames.permute(0,3,1,2)
+            optical_flow_frames = optical_flow_frames.to(torch.float32)
+
         if self.augmentation_dict:
             brightness_factor = self.augmentation_dict.get("brightness", 0)
-            contrast_factor = self.augmentation_dict.get("contrast", 0)
-            saturation_factor = self.augmentation_dict.get("saturation", 0)
-            hue_factor = self.augmentation_dict.get("hue", 0)
-            h_flip_factor = self.augmentation_dict.get("h_flip", 0)
-            noise_factor = self.augmentation_dict.get("noise", 0)
+            # contrast_factor = self.augmentation_dict.get("contrast", 0)
+            # saturation_factor = self.augmentation_dict.get("saturation", 0)
+            # hue_factor = self.augmentation_dict.get("hue", 0)
+            # h_flip_factor = self.augmentation_dict.get("h_flip", 0)
+            # noise_factor = self.augmentation_dict.get("noise", 0)
             frames = adjust_brightness(frames, np.random.uniform(1-brightness_factor, 1+brightness_factor))
             # frames = adjust_contrast(frames, np.random.uniform(1-contrast_factor, 1+contrast_factor))
             # frames = adjust_saturation(frames, np.random.uniform(1-saturation_factor, 1+saturation_factor))
@@ -70,8 +111,8 @@ class VideoDataset(Dataset):
             #     frames = hflip(frames)
             # frames = frames + np.random.normal(0, noise_factor, frames.shape)
             # to float32
-            frames = frames.to(torch.float32)
-        return frames, label, location
+        
+        return frames,optical_flow_frames, label, location
     
 # Custom Transform for Normalization
 def custom_transform(frames):
@@ -82,8 +123,9 @@ def custom_transform(frames):
     mean = torch.tensor([0.485, 0.456, 0.406])  # Imagenet mean for RGB
     std = torch.tensor([0.229, 0.224, 0.225])  # Imagenet std for RGB
     frames = (frames - mean) / std  # Normalize
-    # resize to 224x224
-    frames = torch.nn.functional.interpolate(frames.permute(0,3,1,2), size=224, mode = 'bilinear', align_corners=False)
+    frames = frames.to(torch.float32).permute(0,3,1,2)
+    # # resize to 224x224
+    # frames = torch.nn.functional.interpolate(frames.permute(0,3,1,2), size=224, mode = 'bilinear', align_corners=False)
     return frames
 
 def create_data_loaders(train_dir, val_dir, batch_size=8, transform=None, augmentation_dict=None):
