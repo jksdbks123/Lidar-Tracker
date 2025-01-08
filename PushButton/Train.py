@@ -1,5 +1,5 @@
-from Model import TwoStreamModel
-from Dataset import create_data_loaders,custom_transform
+from Model import CNNLSTMAttention
+from Dataset import create_data_loaders,transform_aug,preprocessing
 import os
 import torch
 from tqdm import tqdm
@@ -8,6 +8,7 @@ from Loss import *
 import time
 from sklearn.metrics import confusion_matrix
 import numpy as np
+import json
 
 def calculate_metrics(y_true, y_pred,threshold=0.5):
     # Calculate precision, recall, f1
@@ -18,11 +19,10 @@ def calculate_metrics(y_true, y_pred,threshold=0.5):
     F1 = 2 * precision * recall / (precision + recall)
     return precision, recall, F1
 
-def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentation_dict,train_folder, val_folder, run_dir):
-    train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, transform=custom_transform, augmentation_dict=augmentation_dict)
-    # model = ResNetLSTM().to(device)
+def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder,val_folder, run_dir):
+    train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, preprocess=preprocessing, augmentation=transform_aug)    # model = ResNetLSTM().to(device)
     # model = ResNetLSTMWithAttention().to(device)
-    model = TwoStreamModel().to(device)
+    model = CNNLSTMAttention().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     training_curves = {"train": [], "val": []}
@@ -33,6 +33,22 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentatio
     # create training curves save directory
     curves_save_dir = os.path.join(run_dir, "curves")
     os.makedirs(curves_save_dir, exist_ok=True)
+    # save training details, and name of criterion, model, optimizer, scheduler
+    training_details = {
+        "num_epochs": num_epochs,
+        "learning_rate": learning_rate,
+        "batch_size": batch_size,
+        "criterion": criterion.__class__.__name__,
+        "model": model.__class__.__name__,
+        "optimizer": optimizer.__class__.__name__,
+        "scheduler": scheduler.__class__.__name__
+    }
+    training_details_path = os.path.join(run_dir, "training_details.json")
+    with open(training_details_path, "w") as f:
+        json.dump(training_details,
+                    f,
+                    indent=4)
+    
     best_val_loss = float("inf")
     for epoch in range(num_epochs):
         model.train()
@@ -43,7 +59,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentatio
                 inputs, labels = inputs.to(device), labels.to(device).float()
 
                 optimizer.zero_grad()
-                outputs = model(inputs)
+                outputs,attention_weights = model(inputs)
                 # outputs = model(inputs)
                 outputs = torch.flatten(outputs)
                 loss = criterion(outputs, labels)
@@ -67,7 +83,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentatio
                     inputs, labels = inputs.to(device), labels.to(device).float()
                     outputs = model(inputs)
                     # outputs = model(inputs)
-                    outputs = torch.flatten(outputs)
+                    outputs,attention_weights = torch.flatten(outputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
                     training_curves["val"].append(loss.item())
@@ -100,17 +116,16 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentatio
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-    # criterion = nn.BCELoss()
+    criterion = nn.BCELoss()
     # print name of criterion
-    criterion = FocalLoss()
+    # criterion = FocalLoss()
     print(criterion)
     num_epochs=50
-    learning_rate=0.00001
-    batch_size = 2
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal"
+    learning_rate=0.0001
+    batch_size = 4
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal_0107"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
     train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\L_signal\train'
     val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\L_signal\val'
-    augmentation_dict = {"brightness": 0.2, "contrast": 0.2, "saturation": 0.5, "hue": 0.5,'h_flip':0.5, 'noise': 0.2}
-    train_model(device,num_epochs,learning_rate,batch_size,criterion,augmentation_dict,train_folder, val_folder, run_dir)
+    train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder, val_folder, run_dir)

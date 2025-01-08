@@ -101,7 +101,7 @@ class CNNFeatureExtractor(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Dropout(0.5),
             nn.Flatten(),
-            nn.Linear(32 * 50 * 75, output_dim),  # Adjust based on ROI size
+            nn.Linear(32 * 37 * 62, output_dim),  # Adjust based on ROI size
             nn.ReLU()
         )
 

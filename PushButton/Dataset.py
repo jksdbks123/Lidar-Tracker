@@ -4,7 +4,7 @@ import os
 import cv2
 import numpy as np
 import torch
-from torchvision.transforms.functional import adjust_brightness, adjust_contrast, adjust_saturation,adjust_contrast,adjust_saturation,adjust_hue,hflip
+import albumentations as A
 
 
 def extract_optical_flow(frames):
@@ -39,13 +39,14 @@ def extract_optical_flow(frames):
     return optical_flow_frames
 
 class VideoDataset(Dataset):
-    def __init__(self, data_dir, transform=None, augmentation_dict=None):
+    def __init__(self, data_dir, preprocess=None, augmentation=None):
         self.data_dir = data_dir
-        self.transform = transform
+        self.preprocess = preprocess
+        self.augmentation = augmentation
         self.video_files = []
         self.labels = []
         self.locations = []
-        self.augmentation_dict = augmentation_dict
+        
         for video_file in os.listdir(data_dir):
             if video_file.endswith(".mp4"):
                 label = int(video_file.split("_")[0])
@@ -77,33 +78,15 @@ class VideoDataset(Dataset):
         if frames.shape[0] < 30: # Pad with zeros if video is less than 6.1 seconds
             frames = np.concatenate([frames, np.zeros((30-frames.shape[0], frames.shape[1],frames.shape[2],frames.shape[3]), dtype=np.uint8)], axis=0)
         # Convert to tensor and apply transforms
-        if self.transform:
-            frames = self.transform(frames)
-            # normalize optical flow
-            optical_flow_frames = torch.tensor(optical_flow_frames)
-            optical_flow_frames = optical_flow_frames.permute(0,3,1,2)
-            optical_flow_frames = optical_flow_frames.to(torch.float32)
-
-        if self.augmentation_dict:
-            brightness_factor = self.augmentation_dict.get("brightness", 0)
-            # contrast_factor = self.augmentation_dict.get("contrast", 0)
-            # saturation_factor = self.augmentation_dict.get("saturation", 0)
-            # hue_factor = self.augmentation_dict.get("hue", 0)
-            # h_flip_factor = self.augmentation_dict.get("h_flip", 0)
-            # noise_factor = self.augmentation_dict.get("noise", 0)
-            frames = adjust_brightness(frames, np.random.uniform(1-brightness_factor, 1+brightness_factor))
-            # frames = adjust_contrast(frames, np.random.uniform(1-contrast_factor, 1+contrast_factor))
-            # frames = adjust_saturation(frames, np.random.uniform(1-saturation_factor, 1+saturation_factor))
-            # frames = adjust_hue(frames, np.random.uniform(-hue_factor, hue_factor))
-            # if np.random.uniform() < h_flip_factor:
-            #     frames = hflip(frames)
-            # frames = frames + np.random.normal(0, noise_factor, frames.shape)
-            # to float32
-        
-        return frames,optical_flow_frames, label, location
+        if self.augmentation:
+            frames = [self.augmentation(image=frame)['image'] for frame in frames]
+            frames = np.array(frames)
+        if self.preprocess:
+            frames = self.preprocess(frames)
+        return frames, label, location
     
 # Custom Transform for Normalization
-def custom_transform(frames):
+def preprocessing(frames):
     """ Normalize frames (batch_size, seq_len, h, w, c) """
     # to tensor
     frames = torch.tensor(frames)
@@ -112,13 +95,19 @@ def custom_transform(frames):
     std = torch.tensor([0.229, 0.224, 0.225])  # Imagenet std for RGB
     frames = (frames - mean) / std  # Normalize
     frames = frames.to(torch.float32).permute(0,3,1,2)
-    # # resize to 224x224
     # frames = torch.nn.functional.interpolate(frames.permute(0,3,1,2), size=224, mode = 'bilinear', align_corners=False)
     return frames
 
-def create_data_loaders(train_dir, val_dir, batch_size=8, transform=None, augmentation_dict=None):
-    train_dataset = VideoDataset(train_dir, transform=transform, augmentation_dict=augmentation_dict)
-    val_dataset = VideoDataset(val_dir, transform=transform)
+transform_aug = A.Compose([
+    A.Illumination(p=0.5),
+    A.Equalize(p=0.5),
+    A.RandomSunFlare(p=0.3,flare_roi=(0,0,1,0.5)),
+    A.ElasticTransform(p=0.2,alpha=1,sigma=50),
+])
+
+def create_data_loaders(train_dir, val_dir, batch_size=4, preprocess=None, augmentation=None):
+    train_dataset = VideoDataset(train_dir, preprocess=preprocess, augmentation=augmentation)
+    val_dataset = VideoDataset(val_dir, preprocess=preprocess)
     # test_dataset = VideoDataset(test_dir, transform=transform)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
