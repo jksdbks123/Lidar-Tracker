@@ -95,8 +95,9 @@ class VideoDataset(Dataset):
             frames = np.concatenate([frames, np.zeros((30-frames.shape[0], frames.shape[1],frames.shape[2],frames.shape[3]), dtype=np.uint8)], axis=0)
         # Convert to tensor and apply transforms
         if self.augmentation:
-            frames = [self.augmentation(image=frame)['image'] for frame in frames]
+            # frames = [self.augmentation(image=frame)['image'] for frame in frames]
             frames = np.array(frames)
+            frames = self.augmentation(images=frames)['images']
         if self.preprocess:
             frames = self.preprocess(frames)
         return frames, label, location
@@ -115,9 +116,11 @@ def preprocessing(frames):
     return frames
 
 transform_aug = A.Compose([
+    A.RandomBrightnessContrast(p=0.5),
     A.Illumination(p=0.5),
     A.Equalize(p=0.5),
     A.RandomSunFlare(p=0.5,flare_roi=(0,0,1,0.5)),
+    A.RandomShadow(p=0.5),
     A.ElasticTransform(p=0.3,alpha=1,sigma=50),
 ])
 

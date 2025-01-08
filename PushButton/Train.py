@@ -147,14 +147,13 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-    criterion = nn.BCELoss()
-    # print name of criterion
-    # criterion = FocalLoss()
+    # criterion = nn.BCELoss()
+    criterion = FocalLoss()
     print(criterion)
     num_epochs=50
-    learning_rate=0.0001
+    learning_rate=0.001
     batch_size = 4
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal_0108"
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal_0108_focal"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
     train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\L_signal\train'
