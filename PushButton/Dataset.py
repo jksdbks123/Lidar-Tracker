@@ -38,6 +38,22 @@ def extract_optical_flow(frames):
 
     return optical_flow_frames
 
+def compute_optical_flow(prev_gray, next_gray):
+    flow = cv2.calcOpticalFlowFarneback(
+    prev_gray, next_gray, None, 
+    0.5, 3, 15, 3, 5, 1.2, 0
+)
+# Compute magnitude and angle
+    magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+# Normalize magnitude
+    normalized_magnitude = cv2.normalize(magnitude, None, 0, 1, cv2.NORM_MINMAX)
+# Encode angle into sine and cosine
+    sin_angle = np.sin(angle)
+    cos_angle = np.cos(angle)
+# Stack the normalized magnitude, sin and cos angle
+    optical_flow = np.stack([normalized_magnitude, sin_angle, cos_angle], axis=-1)
+    return optical_flow
+
 class VideoDataset(Dataset):
     def __init__(self, data_dir, preprocess=None, augmentation=None):
         self.data_dir = data_dir
@@ -101,8 +117,8 @@ def preprocessing(frames):
 transform_aug = A.Compose([
     A.Illumination(p=0.5),
     A.Equalize(p=0.5),
-    A.RandomSunFlare(p=0.3,flare_roi=(0,0,1,0.5)),
-    A.ElasticTransform(p=0.2,alpha=1,sigma=50),
+    A.RandomSunFlare(p=0.5,flare_roi=(0,0,1,0.5)),
+    A.ElasticTransform(p=0.3,alpha=1,sigma=50),
 ])
 
 def create_data_loaders(train_dir, val_dir, batch_size=4, preprocess=None, augmentation=None):

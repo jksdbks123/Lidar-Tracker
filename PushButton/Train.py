@@ -41,7 +41,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
         "criterion": criterion.__class__.__name__,
         "model": model.__class__.__name__,
         "optimizer": optimizer.__class__.__name__,
-        "scheduler": scheduler.__class__.__name__
+        "scheduler": scheduler.__class__.__name__,
     }
     training_details_path = os.path.join(run_dir, "training_details.json")
     with open(training_details_path, "w") as f:
@@ -81,9 +81,9 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                 for inputs, labels, _ in val_loader:
 
                     inputs, labels = inputs.to(device), labels.to(device).float()
-                    outputs = model(inputs)
+                    outputs,attention_weights = model(inputs)
                     # outputs = model(inputs)
-                    outputs,attention_weights = torch.flatten(outputs)
+                    outputs = torch.flatten(outputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
                     training_curves["val"].append(loss.item())
@@ -92,6 +92,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                     y_pred.extend(outputs.cpu().numpy())
                     pbar.set_postfix({"Batch Loss": loss.item()})
                     pbar.update(1)
+
         y_true = np.array(y_true)
         y_pred = np.array(y_pred)
         precision, recall, F1 = calculate_metrics(y_true, y_pred)
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     print(criterion)
     num_epochs=50
     learning_rate=0.0001
-    batch_size = 4
+    batch_size = 8
     run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal_0107"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
