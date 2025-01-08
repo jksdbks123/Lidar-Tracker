@@ -10,6 +10,34 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 import json
 
+
+class EarlyStopping:
+    def __init__(self, patience=5, delta=0):
+        self.patience = patience
+        self.delta = delta
+        self.best_score = None
+        self.early_stop = False
+        self.counter = 0
+        self.best_model_state = None
+
+    def __call__(self, val_loss, model):
+        score = -val_loss
+
+        if self.best_score is None:
+            self.best_score = score
+            self.best_model_state = model.state_dict()
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.best_model_state = model.state_dict()
+            self.counter = 0
+
+    def load_best_model(self, model):
+        model.load_state_dict(self.best_model_state)
+
 def calculate_metrics(y_true, y_pred,threshold=0.5):
     # Calculate precision, recall, f1
     y_pred_thresholded = (y_pred > threshold).astype(int)
@@ -25,6 +53,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
     model = CNNLSTMAttention().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
+    # early_stopping = EarlyStopping(patience=5, verbose=True)
     training_curves = {"train": [], "val": []}
     os.makedirs(run_dir, exist_ok=True)
     # create model save directory
@@ -48,7 +77,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
         json.dump(training_details,
                     f,
                     indent=4)
-    
+    train_curve_path = os.path.join(curves_save_dir, "training_curves.pth")
     best_val_loss = float("inf")
     for epoch in range(num_epochs):
         model.train()
@@ -100,6 +129,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
         train_loss /= len(train_loader)
         val_loss /= len(val_loader)
         print(f"Epoch {epoch + 1} Train Loss: {train_loss}, Val Loss: {val_loss}")
+        torch.save(training_curves, train_curve_path)
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             # Save best model
@@ -111,8 +141,8 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
         current_model_path = os.path.join(model_save_dir, f"last_model.pth")
         torch.save(model.state_dict(), current_model_path)
     # Save training curves
-    train_curve_path = os.path.join(curves_save_dir, "training_curves.pth")
-    torch.save(training_curves, train_curve_path)
+    
+    
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -123,8 +153,8 @@ if __name__ == "__main__":
     print(criterion)
     num_epochs=50
     learning_rate=0.0001
-    batch_size = 8
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal_0107"
+    batch_size = 4
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal_0108"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
     train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\L_signal\train'
