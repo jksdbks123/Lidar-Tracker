@@ -102,7 +102,7 @@ def clip_single_video(input_video_path, save_names, target_frames, locations, ou
         save_name = save_names[i]
         location = locations[i]
         output_path = os.path.join(output_folder, save_name)
-        write_video(output_path, frames_L[start_ind:end_ind], frames_L[start_ind:end_ind],fourcc, fps, frame_width, frame_height,location)
+        write_video(output_path, frames_L[start_ind:end_ind], frames_R[start_ind:end_ind],fourcc, fps, frame_width, frame_height,location)
     # Release resources
     cap.release()
 

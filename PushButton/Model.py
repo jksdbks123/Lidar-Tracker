@@ -146,3 +146,28 @@ class CNNLSTMAttention(nn.Module):
         out = self.fc(context)  # Classification
         out = self.sigmoid(out)  # Binary probability
         return out, attention_weights
+# CNN + LSTM without Attention
+
+class CNNLSTM(nn.Module):
+    def __init__(self, cnn_output_dim=256, lstm_hidden_dim=128, lstm_layers=1):
+        super(CNNLSTM, self).__init__()
+        self.cnn = CNNFeatureExtractor(output_dim=cnn_output_dim)
+        self.lstm = nn.LSTM(
+            input_size=cnn_output_dim,
+            hidden_size=lstm_hidden_dim,
+            num_layers=lstm_layers,
+            batch_first=True
+        )
+        self.fc = nn.Linear(lstm_hidden_dim, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        batch_size, seq_len, c, h, w = x.size()
+        x = x.view(batch_size * seq_len, c, h, w)  # Flatten the sequence dimension
+        cnn_features = self.cnn(x)  # Extract CNN features for each frame
+        cnn_features = cnn_features.view(batch_size, seq_len, -1)  # Reshape for LSTM
+        lstm_output, _ = self.lstm(cnn_features)  # Process with LSTM
+        lstm_output = torch.sum(lstm_output, dim=1)  # Summarize over the sequence length
+        out = self.fc(lstm_output)  # Classification
+        out = self.sigmoid(out)  # Binary probability
+        return out

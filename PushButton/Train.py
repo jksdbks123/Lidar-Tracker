@@ -1,4 +1,4 @@
-from Model import CNNLSTMAttention
+from Model import CNNLSTMAttention,CNNLSTM
 from Dataset import create_data_loaders,transform_aug,preprocessing
 import os
 import torch
@@ -50,7 +50,11 @@ def calculate_metrics(y_true, y_pred,threshold=0.5):
 def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder,val_folder, run_dir):
     train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, preprocess=preprocessing, augmentation=transform_aug)    # model = ResNetLSTM().to(device)
     # model = ResNetLSTMWithAttention().to(device)
-    model = CNNLSTMAttention().to(device)
+    cnn_output_dim=128
+    lstm_hidden_dim=128
+    lstm_layers=1
+    # model = CNNLSTM(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
+    model = CNNLSTMAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     # early_stopping = EarlyStopping(patience=5, verbose=True)
@@ -147,15 +151,15 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-    # criterion = nn.BCELoss()
-    criterion = FocalLoss()
+    criterion = nn.BCELoss()
+    # criterion = FocalLoss()
     print(criterion)
     num_epochs=50
-    learning_rate=0.001
+    learning_rate=0.0001
     batch_size = 4
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\left_signal_0108_focal"
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\right_signal_0109_BCE"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
-    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\L_signal\train'
-    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\L_signal\val'
+    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\R_signal\train'
+    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\R_signal\val'
     train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder, val_folder, run_dir)
