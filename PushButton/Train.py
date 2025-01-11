@@ -160,7 +160,7 @@ if __name__ == "__main__":
     print(criterion)
     num_epochs=50
     learning_rate=0.0001
-    batch_size = 16
+    batch_size = 4
     run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_signal_0111_BCE"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)

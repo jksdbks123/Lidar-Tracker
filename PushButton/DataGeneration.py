@@ -66,6 +66,7 @@ def clip_single_video(input_video_path, save_names, target_frames, locations, ou
     # Get video properties
     fps = int(cap.get(cv2.CAP_PROP_FPS))  # Frames per second
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec
+    frame_num = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     init_frame = target_frames[:,0].min()
     ending_frame = target_frames[:,1].max()
@@ -138,6 +139,11 @@ Conbine the my labels and high school student labels
     activation_df = pd.concat([activation_df, student_activation], axis=0)
 # filter duplicate rows
     activation_df.drop_duplicates(inplace=True)
+    temp = activation_df.loc[activation_df.location == "R"]
+    temp.loc[:,'location'] = "L"
+    non_activation_df = pd.concat([non_activation_df, temp], axis=0)
+    non_activation_df.drop_duplicates(inplace=True)
+
     """
 Generate clipping list for the dataset
 """
@@ -163,11 +169,10 @@ Generate clipping list for the dataset
                 # convert video_start_timestamp to '%Y-%m-%d-%H-%M-%S'
                     video_start_timestamp_str = video_start_timestamp.strftime('%Y-%m-%d-%H-%M-%S')
                 # window screening for the video clips making sure the record_timestamp is each 30 seconds
-                    screen_start_frame = int((record_timestamp - video_start_timestamp).seconds * fps)
-                    screen_end_frame = screen_start_frame + time_window * fps
+                    screen_start_frame = int((record_timestamp - video_start_timestamp).seconds * fps) - (time_window - 1) * fps
                     for step in range(2,18): # 2 frame margin for consevative screening
                         start_frame = int(screen_start_frame + step)
-                        end_frame = int(screen_end_frame + step)
+                        end_frame = start_frame + time_window * fps
                         start_frames.append(start_frame)
                         end_frames.append(end_frame)
                         date_times.append(video_start_timestamp_str)
