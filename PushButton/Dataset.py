@@ -122,6 +122,7 @@ transform_aug = A.Compose([
     A.RandomSunFlare(p=0.5,flare_roi=(0,0,1,0.5)),
     A.RandomShadow(p=0.5),
     A.ElasticTransform(p=0.3,alpha=1,sigma=50),
+    A.HorizontalFlip(p=0.5),
 ])
 
 def create_data_loaders(train_dir, val_dir, batch_size=4, preprocess=None, augmentation=None):
