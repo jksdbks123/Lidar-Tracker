@@ -13,11 +13,11 @@ from torchvision import transforms
 from p_tqdm import p_umap
 from functools import partial
 
-frame_width,frame_height = 250,150
-x,y = 450,780
+frame_width,frame_height = 200,150
+x,y = 520,780
 pt1_L = (x, y)
-pt2_L = (450+frame_width, 780+frame_height)
-x,y = 1450,800
+pt2_L = (x+frame_width, y+frame_height)
+x,y = 1450,840
 pt1_R = (x, y)
 pt2_R = (x+frame_width, y+frame_height)
 ROI_L, ROI_R = [pt1_L, pt2_L], [pt1_R, pt2_R]

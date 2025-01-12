@@ -96,13 +96,17 @@ class CNNFeatureExtractor(nn.Module):
             nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(0.3),  # Dropout after first pooling layer
+
             nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Dropout(0.5),
+            nn.Dropout(0.5),  # Dropout after second pooling layer
+
             nn.Flatten(),
             nn.Linear(32 * 37 * 62, output_dim),  # Adjust based on ROI size
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout(0.5),  # Dropout before the fully connected layer
         )
 
     def forward(self, x):

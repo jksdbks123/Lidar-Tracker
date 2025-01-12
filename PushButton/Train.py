@@ -48,9 +48,8 @@ def calculate_metrics(y_true, y_pred,threshold=0.5):
 
 def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder,val_folder, run_dir):
     train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, preprocess=preprocessing, augmentation=transform_aug)    # model = ResNetLSTM().to(device)
-    # model = ResNetLSTMWithAttention().to(device)
-    cnn_output_dim=64
-    lstm_hidden_dim=64
+    cnn_output_dim=128
+    lstm_hidden_dim=128
     lstm_layers=1
     # model = CNNLSTM(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
     model = CNNLSTMAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
@@ -155,15 +154,15 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     print(device)
-    criterion = nn.BCELoss()
-    # criterion = FocalLoss()
+    # criterion = nn.BCELoss()
+    criterion = FocalLoss()
     print(criterion)
     num_epochs=50
     learning_rate=0.0001
-    batch_size = 4
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_signal_0111_BCE"
+    batch_size = 8
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0112_FocalLoss_200x150"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
-    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\Overall\train'
-    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset\Overall\val'
+    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0112\train'
+    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0112\train'
     train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder, val_folder, run_dir)
