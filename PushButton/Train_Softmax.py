@@ -1,12 +1,12 @@
-from PushButton.Model_sigmoid import CNNLSTMAttention,CNNLSTM
+from Model_Softmax import CNNLSTMWithAttention,FocalLoss
 from Dataset import create_data_loaders,transform_aug,preprocessing
 import os
 import torch
 from tqdm import tqdm
 import torch.optim as optim
-from Loss import *
+# from Loss import *
 import time
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix,precision_recall_fscore_support
 import numpy as np
 import json
 
@@ -37,22 +37,15 @@ class EarlyStopping:
     def load_best_model(self, model):
         model.load_state_dict(self.best_model_state)
 
-def calculate_metrics(y_true, y_pred,threshold=0.5):
-    # Calculate precision, recall, f1
-    y_pred_thresholded = (y_pred > threshold).astype(int)
-    conf_matrix = confusion_matrix(y_true, y_pred_thresholded)
-    precision = conf_matrix[1, 1] / (conf_matrix[1, 1] + conf_matrix[0, 1])
-    recall = conf_matrix[1, 1] / (conf_matrix[1, 1] + conf_matrix[1, 0])
-    F1 = 2 * precision * recall / (precision + recall)
-    return precision, recall, F1
+
 
 def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder,val_folder, run_dir):
     train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, preprocess=preprocessing, augmentation=transform_aug)    # model = ResNetLSTM().to(device)
     cnn_output_dim=128
     lstm_hidden_dim=128
     lstm_layers=1
-    # model = CNNLSTM(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
-    model = CNNLSTMAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
+    num_classes = 3
+    model = CNNLSTMWithAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     # early_stopping = EarlyStopping(patience=5, verbose=True)
@@ -75,7 +68,8 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
         "scheduler": scheduler.__class__.__name__,
         "cnn_output_dim": cnn_output_dim,
         "lstm_hidden_dim": lstm_hidden_dim,
-        "lstm_layers": lstm_layers
+        "lstm_layers": lstm_layers,
+        "num_classes": num_classes
     }
     training_details_path = os.path.join(run_dir, "training_details.json")
     with open(training_details_path, "w") as f:
@@ -94,8 +88,6 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
 
                 optimizer.zero_grad()
                 outputs,attention_weights = model(inputs)
-                # outputs = model(inputs)
-                outputs = torch.flatten(outputs)
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
@@ -116,21 +108,22 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
 
                     inputs, labels = inputs.to(device), labels.to(device).float()
                     outputs,attention_weights = model(inputs)
-                    # outputs = model(inputs)
-                    outputs = torch.flatten(outputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
                     training_curves["val"].append(loss.item())
                     # Calculate precision, recall, f1
                     y_true.extend(labels.cpu().numpy())
-                    y_pred.extend(outputs.cpu().numpy())
+                    y_pred.extend(torch.argmax(outputs,dim=1).cpu().numpy())
                     pbar.set_postfix({"Batch Loss": loss.item()})
                     pbar.update(1)
 
         y_true = np.array(y_true)
         y_pred = np.array(y_pred)
-        precision, recall, F1 = calculate_metrics(y_true, y_pred)
+        cm = confusion_matrix(y_true, y_pred, labels=list(range(num_classes)))
+        precision, recall, F1, _ = precision_recall_fscore_support(y_true, y_pred, average=None, labels=list(range(num_classes)))
         print(f"Precision: {precision}, Recall: {recall}, F1: {F1}")
+        print(f"Confusion Matrix: {cm}")
+        
         train_loss /= len(train_loader)
         val_loss /= len(val_loader)
         print(f"Epoch {epoch + 1} Train Loss: {train_loss}, Val Loss: {val_loss}")
@@ -145,7 +138,6 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
         # save current model
         current_model_path = os.path.join(model_save_dir, f"last_model.pth")
         torch.save(model.state_dict(), current_model_path)
-    # Save training curves
     
     
 

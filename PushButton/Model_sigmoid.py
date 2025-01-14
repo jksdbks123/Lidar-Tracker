@@ -104,7 +104,7 @@ class CNNFeatureExtractor(nn.Module):
             nn.Dropout(0.5),  # Dropout after second pooling layer
 
             nn.Flatten(),
-            nn.Linear(32 * 37 * 62, output_dim),  # Adjust based on ROI size
+            nn.Linear(32 * int(150/4) * int(250/4), output_dim),  # Adjust based on ROI size
             nn.ReLU(),
             nn.Dropout(0.5),  # Dropout before the fully connected layer
         )
@@ -134,11 +134,12 @@ class CNNLSTMAttention(nn.Module):
             input_size=cnn_output_dim,
             hidden_size=lstm_hidden_dim,
             num_layers=lstm_layers,
-            batch_first=True
+            batch_first=True,
+            # dropout=0.5
         )
         self.attention = Attention(lstm_hidden_dim)
         self.fc = nn.Linear(lstm_hidden_dim, 1)
-        self.sigmoid = nn.Sigmoid()
+        self.sigmoid = nn.Softmax(dim=1)
 
     def forward(self, x):
         batch_size, seq_len, c, h, w = x.size()

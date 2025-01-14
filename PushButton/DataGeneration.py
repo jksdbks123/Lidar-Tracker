@@ -13,7 +13,7 @@ from torchvision import transforms
 from p_tqdm import p_umap
 from functools import partial
 
-frame_width,frame_height = 200,150
+frame_width,frame_height = 250,150
 x,y = 520,780
 pt1_L = (x, y)
 pt2_L = (x+frame_width, y+frame_height)
@@ -21,6 +21,7 @@ x,y = 1450,840
 pt1_R = (x, y)
 pt2_R = (x+frame_width, y+frame_height)
 ROI_L, ROI_R = [pt1_L, pt2_L], [pt1_R, pt2_R]
+
 def write_video(output_path, frames_L,frames_R, fourcc, fps, frame_width, frame_height,location):
     """
     Writes a video file using OpenCV.
@@ -67,16 +68,15 @@ def clip_single_video(input_video_path, save_names, target_frames, locations, ou
     fps = int(cap.get(cv2.CAP_PROP_FPS))  # Frames per second
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec
     frame_num = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
     init_frame = target_frames[:,0].min()
     ending_frame = target_frames[:,1].max()
     current_frame = init_frame
     # Set the starting position of the video
     cap.set(cv2.CAP_PROP_POS_FRAMES, init_frame)
-
     frames_L = []
     frames_R = []
     frame_inds = []
+
     while current_frame <= ending_frame:
         ret, frame = cap.read()
         if not ret:
@@ -107,76 +107,65 @@ def clip_single_video(input_video_path, save_names, target_frames, locations, ou
     # Release resources
     cap.release()
 
-# Load Excel file
-def load_excel_data(file_path):
-    activation_df = pd.read_excel(file_path, sheet_name="Activation")
-    non_activation_df = pd.read_excel(file_path, sheet_name="NonActivation")
-    return activation_df, non_activation_df
-
-def generate_frame_list(video_dir, time_window, activation_df, non_activation_df, student_file):
+def generate_frame_list(video_dir, time_window, activation_table,student_file):
     """
-Conbine the my labels and high school student labels
-"""
+    Conbine the my labels and high school student labels
+    """
     student_activation_L = student_file.loc[(student_file.Bound == 'N') & (student_file.loc[:,'Pressed?'] == 'Y')].copy()
     student_activation_R = student_file.loc[(student_file.Bound == 'S') & (student_file.loc[:,'Pressed?'] == 'Y')].copy()
-# uniform the column names and data format
-# combine Date column and Time column in student_activation_L and student_activation_R, and convert to YYYYMMDD_HHMMSS format
+    # uniform the column names and data format
+    # combine Date column and Time column in student_activation_L and student_activation_R, and convert to YYYYMMDD_HHMMSS format
     timestamp = student_activation_L['Date'].astype(str) + '_' + student_activation_L['Time'].astype(str)
     timestamp = timestamp.str.replace(':','')
-# eliminate '-' in the timestamp
+    # eliminate '-' in the timestamp
     timestamp = timestamp.str.replace('-','')
     student_activation_L.loc[:,'timestamp'] = timestamp
     timestamp = student_activation_R['Date'].astype(str) + '_' + student_activation_R['Time'].astype(str)
     timestamp = timestamp.str.replace(':','')
     timestamp = timestamp.str.replace('-','')
     student_activation_R.loc[:,'timestamp'] = timestamp
-# combine student_activation_L and student_activation_R to activation_df
+    # combine student_activation_L and student_activation_R to activation_df
     student_activation_L.loc[:, 'location'] = 'L'
     student_activation_R.loc[:, 'location'] = 'R'
     student_activation_L = student_activation_L.loc[:,['timestamp','location']]
     student_activation_R = student_activation_R.loc[:,['timestamp','location']]
     student_activation = pd.concat([student_activation_L, student_activation_R], axis=0)
-    activation_df = pd.concat([activation_df, student_activation], axis=0)
-# filter duplicate rows
-    activation_df.drop_duplicates(inplace=True)
-    temp = activation_df.loc[activation_df.location == "R"]
-    temp.loc[:,'location'] = "L"
-    non_activation_df = pd.concat([non_activation_df, temp], axis=0)
-    non_activation_df.drop_duplicates(inplace=True)
+    student_activation['status'] = 2
+    activation_df = pd.concat([activation_table, student_activation], axis=0)
+    # drop duplicates
+    activation_df = activation_df.drop_duplicates(subset=['timestamp','location'], keep='first')
+    activation_df = activation_df.reset_index(drop=True)
 
     """
-Generate clipping list for the dataset
-"""
-# Prepare data for activation and non-activation
-    date_times = []
-    start_frames = []
-    end_frames = []
-    save_names = []
-    for df, label in [(activation_df, 1), (non_activation_df, 0)]:
-        for _, row in tqdm(df.iterrows()):
-            record_timestamp = row["timestamp"]
-            location = row["location"]
+    Generate clipping list for the dataset
+    """
+    start_frames, end_frames, date_times, save_names = [], [], [], []
+    fps = 10
+    for _, row in tqdm(activation_df.iterrows()):
+        record_timestamp = row["timestamp"]
+        location = row["location"]
+        label = row["status"]
         # convert to datetime object
-            record_timestamp = datetime.strptime(record_timestamp, "%Y%m%d_%H%M%S")
+        record_timestamp = datetime.strptime(record_timestamp, "%Y%m%d_%H%M%S")
         
         # Match the video file with the timestamp
-            for video_file in os.listdir(video_dir):
-                video_start_timestamp = video_file[22:].split(".")[0]
+        for video_file in os.listdir(video_dir):
+            video_start_timestamp = video_file[22:].split(".")[0]
             # convert to datetime object
-                video_start_timestamp = datetime.strptime(video_start_timestamp, "%Y%m%d_%H%M%S")
-                video_end_timestamp = video_start_timestamp + timedelta(seconds=60 * 5)
-                if video_start_timestamp <= record_timestamp <= video_end_timestamp:
+            video_start_timestamp = datetime.strptime(video_start_timestamp, "%Y%m%d_%H%M%S")
+            video_end_timestamp = video_start_timestamp + timedelta(seconds=60 * 5)
+            if video_start_timestamp <= record_timestamp <= video_end_timestamp:
                 # convert video_start_timestamp to '%Y-%m-%d-%H-%M-%S'
-                    video_start_timestamp_str = video_start_timestamp.strftime('%Y-%m-%d-%H-%M-%S')
+                video_start_timestamp_str = video_start_timestamp.strftime('%Y-%m-%d-%H-%M-%S')
                 # window screening for the video clips making sure the record_timestamp is each 30 seconds
-                    screen_start_frame = int((record_timestamp - video_start_timestamp).seconds * fps) - (time_window - 1) * fps
-                    for step in range(2,18): # 2 frame margin for consevative screening
-                        start_frame = int(screen_start_frame + step)
-                        end_frame = start_frame + time_window * fps
-                        start_frames.append(start_frame)
-                        end_frames.append(end_frame)
-                        date_times.append(video_start_timestamp_str)
-                        save_names.append(f"{label}_{video_start_timestamp_str}_{start_frame}_{location}.mp4")
+                screen_start_frame = int((record_timestamp - video_start_timestamp).seconds * fps) - (time_window - 1) * fps
+                for step in range(2,18): # 2 frame margin for consevative screening
+                    start_frame = int(screen_start_frame + step)
+                    end_frame = start_frame + time_window * fps
+                    start_frames.append(start_frame)
+                    end_frames.append(end_frame)
+                    date_times.append(video_start_timestamp_str)
+                    save_names.append(f"{label}_{video_start_timestamp_str}_{start_frame}_{location}.mp4")
 
 # make the dataframe
     data = {"date_time": date_times, "start_frame": start_frames, "end_frame": end_frames, "save_name": save_names}
@@ -204,19 +193,19 @@ if __name__ == "__main__":
     n_cpu = 6
     # Process the dataset
     video_dir = r"D:\LiDAR_Data\2ndPHB\Video\IntesectionVideo"
-    excel_file_path = r"D:\LiDAR_Data\2ndPHB\Video\Activation.xlsx"
+    activation_table_path = r"D:\LiDAR_Data\2ndPHB\Video\activation_0113.xlsx"
     output_dir = r"D:\LiDAR_Data\2ndPHB\Video\Dataset"
+    os.makedirs(output_dir, exist_ok=True)
     clip_save_dir = r"D:\LiDAR_Data\2ndPHB\Video\Clips"
-    if not os.path.exists(clip_save_dir):
-        os.makedirs(clip_save_dir)
+    os.makedirs(clip_save_dir, exist_ok=True)
     time_window = 3 # seconds
     # Load the Excel data
-    activation_df, non_activation_df = load_excel_data(excel_file_path)
+    activation_table = pd.read_excel(activation_table_path)
     excel_file_1 = r"D:\LiDAR_Data\2ndPHB\Video\HAWK Pedestrian Behavior.xlsx"
     student_file = pd.read_excel(excel_file_1)
-    time_window = 3 # seconds (30 frames)
     fps = 10
-    save_names, target_video_paths, target_frames, locations = generate_frame_list(video_dir, time_window, activation_df, non_activation_df, student_file)
+    video_dir, time_window, activation_table,student_file
+    save_names, target_video_paths, target_frames, locations = generate_frame_list(video_dir, time_window, activation_table,student_file)
 
     p_umap(
             partial(clip_single_video, output_folder=clip_save_dir),

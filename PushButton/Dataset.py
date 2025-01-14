@@ -7,6 +7,7 @@ import torch
 import albumentations as A
 
 
+
 def extract_optical_flow(frames):
 
     prev_frame = frames[0]
@@ -59,6 +60,7 @@ class VideoDataset(Dataset):
         self.data_dir = data_dir
         self.preprocess = preprocess
         self.augmentation = augmentation
+        
         self.video_files = []
         self.labels = []
         self.locations = []
@@ -90,22 +92,23 @@ class VideoDataset(Dataset):
             frames.append(frame)
         cap.release()
         frames = np.array(frames) # (seq_len, h, w, c)
-
+        
         if frames.shape[0] < 30: # Pad with zeros if video is less than 6.1 seconds
             frames = np.concatenate([frames, np.zeros((30-frames.shape[0], frames.shape[1],frames.shape[2],frames.shape[3]), dtype=np.uint8)], axis=0)
         # Convert to tensor and apply transforms
         if self.augmentation:
-            # frames = [self.augmentation(image=frame)['image'] for frame in frames]
-            frames = np.array(frames)
             frames = self.augmentation(images=frames)['images']
         if self.preprocess:
-            frames = self.preprocess(frames)
+            frames = self.preprocess(frames,location)
         return frames, label, location
     
 # Custom Transform for Normalization
-def preprocessing(frames):
+def preprocessing(frames,location):
     """ Normalize frames (batch_size, seq_len, h, w, c) """
     # to tensor
+    frames = A.Equalize(p = 1)(images=frames)['images']
+    if location == 'R':
+        frames =  A.HorizontalFlip(p=1)(images=frames)['images']
     frames = torch.tensor(frames)
     frames = frames / 255.0  # Scale pixel values to [0, 1]
     mean = torch.tensor([0.485, 0.456, 0.406])  # Imagenet mean for RGB
@@ -118,11 +121,10 @@ def preprocessing(frames):
 transform_aug = A.Compose([
     A.RandomBrightnessContrast(p=0.5, brightness_limit=[-0.5,0.5]),
     A.Illumination(p=0.5),
-    A.Equalize(p=0.5),
     A.RandomSunFlare(p=0.6,flare_roi=(0,0,1,1),src_radius = 250),
     A.RandomShadow(p=0.5),
     A.ElasticTransform(p=0.3,alpha=1,sigma=50),
-    A.HorizontalFlip(p=0.5),
+   
 ])
 
 def create_data_loaders(train_dir, val_dir, batch_size=4, preprocess=None, augmentation=None):
