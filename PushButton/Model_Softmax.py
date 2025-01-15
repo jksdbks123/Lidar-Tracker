@@ -35,7 +35,7 @@ class CNNLSTMWithAttention(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Dropout(0.5),
             nn.Flatten(),
-            nn.Linear(32 * int(150/4) * int(250/4), cnn_output_dim),
+            nn.Linear(32 * int(150/4) * int(350/4), cnn_output_dim),
             nn.ReLU(),
             nn.Dropout(0.5)
         )
@@ -71,7 +71,7 @@ class CNNLSTMWithAttention(nn.Module):
 
 # Focal Loss for Multi-Class Classification
 class FocalLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2, num_classes=3):
+    def __init__(self, alpha=0.15, gamma=2, num_classes=3):
         super(FocalLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma

@@ -41,8 +41,8 @@ class EarlyStopping:
 
 def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder,val_folder, run_dir):
     train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, preprocess=preprocessing, augmentation=transform_aug)    # model = ResNetLSTM().to(device)
-    cnn_output_dim=128
-    lstm_hidden_dim=128
+    cnn_output_dim=256
+    lstm_hidden_dim=256
     lstm_layers=1
     num_classes = 3
     model = CNNLSTMWithAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
@@ -152,9 +152,9 @@ if __name__ == "__main__":
     num_epochs=50
     learning_rate=0.0001
     batch_size = 12
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0113_FocalLoss_250x150_3class"
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0114_FocalLoss_350x150_3class_256"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
-    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0113\train'
-    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0113\valid'
+    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0114\train'
+    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0114\valid'
     train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder, val_folder, run_dir)
