@@ -107,8 +107,8 @@ def preprocessing(frames,location):
     """ Normalize frames (batch_size, seq_len, h, w, c) """
     # to tensor
     frames = A.Equalize(p = 1)(images=frames)['images']
-    if location == 'R':
-        frames =  A.HorizontalFlip(p=1)(images=frames)['images']
+    # if location == 'R':
+    #     frames =  A.HorizontalFlip(p=1)(images=frames)['images']
     frames = torch.tensor(frames)
     frames = frames / 255.0  # Scale pixel values to [0, 1]
     mean = torch.tensor([0.485, 0.456, 0.406])  # Imagenet mean for RGB

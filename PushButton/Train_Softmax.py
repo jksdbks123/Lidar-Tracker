@@ -152,9 +152,9 @@ if __name__ == "__main__":
     num_epochs=50
     learning_rate=0.0001
     batch_size = 12
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0114_FocalLoss_350x150_3class_256"
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0114_FocalLoss_350x150_3class_256_Left"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
-    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0114\train'
-    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0114\valid'
+    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0115_L\train'
+    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0115_L\valid'
     train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder, val_folder, run_dir)

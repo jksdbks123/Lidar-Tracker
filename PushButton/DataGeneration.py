@@ -13,14 +13,17 @@ from torchvision import transforms
 from p_tqdm import p_umap
 from functools import partial
 
-frame_width,frame_height = 350,150
-x,y = 500,780
+frame_width,frame_height = 250,150
+x,y = 500,750
 pt1_L = (x, y)
 pt2_L = (x+frame_width, y+frame_height)
 x,y = 1450,840
 pt1_R = (x, y)
 pt2_R = (x+frame_width, y+frame_height)
-ROI_L, ROI_R = [pt1_L, pt2_L], [pt1_R, pt2_R]
+x,y = 1000,840
+pt1_M = (x, y)
+pt2_M = (x+frame_width, y+frame_height)
+ROI_L, ROI_R, ROI_M = [pt1_L, pt2_L], [pt1_R, pt2_R], [pt1_M, pt2_M]
 
 def write_video(output_path, frames_L,frames_R, fourcc, fps, frame_width, frame_height,location):
     """
@@ -47,7 +50,7 @@ def write_video(output_path, frames_L,frames_R, fourcc, fps, frame_width, frame_
     # Release resources
     out.release()
 
-def clip_single_video(input_video_path, save_names, target_frames, locations, output_folder):
+def clip_single_video(input_video_path, save_names, target_frames, locations, output_folder,time_window = 30):
     """
     Clips a video using OpenCV based on start and end timestamps.
 
@@ -92,14 +95,26 @@ def clip_single_video(input_video_path, save_names, target_frames, locations, ou
     frame_inds = np.array(frame_inds)
     if len(frame_inds) == 0:
         return
+    # current_frame now is the ending frame
     for i in range(len(target_frames)):
         start_frame = target_frames[i,0]
         end_frame = target_frames[i,1]
+        if end_frame > current_frame:
+            end_frame = current_frame
         try:
             start_ind = np.where(frame_inds == start_frame)[0][0]
             end_ind = np.where(frame_inds == end_frame)[0][0]
         except:
             continue
+        video_L = frames_L[start_ind:end_ind]
+        video_R = frames_R[start_ind:end_ind]
+        if len(video_L) < time_window * fps:
+            # pad with last frame
+            last_frame_L = video_L[-1]
+            last_frame_R = video_R[-1]
+            for _ in range(time_window * fps - len(video_L)):
+                video_L.append(last_frame_L)
+                video_R.append(last_frame_R)
         save_name = save_names[i]
         location = locations[i]
         output_path = os.path.join(output_folder, save_name)
@@ -159,7 +174,7 @@ def generate_frame_list(video_dir, time_window, activation_table,student_file):
                 video_start_timestamp_str = video_start_timestamp.strftime('%Y-%m-%d-%H-%M-%S')
                 # window screening for the video clips making sure the record_timestamp is each 30 seconds
                 screen_start_frame = int((record_timestamp - video_start_timestamp).seconds * fps) - (time_window - 1) * fps
-                for step in range(2,18): # 2 frame margin for consevative screening
+                for step in range(0,20): # 2 frame margin for consevative screening
                     start_frame = int(screen_start_frame + step)
                     end_frame = start_frame + time_window * fps
                     start_frames.append(start_frame)
