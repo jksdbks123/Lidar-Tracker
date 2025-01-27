@@ -208,7 +208,7 @@ if __name__ == "__main__":
     n_cpu = 6
     # Process the dataset
     video_dir = r"D:\LiDAR_Data\2ndPHB\Video\IntesectionVideo"
-    activation_table_path = r"D:\LiDAR_Data\2ndPHB\Video\activation_0113.xlsx"
+    activation_table_path = r"D:\LiDAR_Data\2ndPHB\Video\activation_0123.xlsx"
     output_dir = r"D:\LiDAR_Data\2ndPHB\Video\Dataset"
     os.makedirs(output_dir, exist_ok=True)
     clip_save_dir = r"D:\LiDAR_Data\2ndPHB\Video\Clips"

@@ -25,6 +25,20 @@ class CNNLSTMWithAttention(nn.Module):
         super(CNNLSTMWithAttention, self).__init__()
 
         # CNN to extract features from each frame
+        # self.cnn = nn.Sequential(
+        #     nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(kernel_size=2, stride=2),
+        #     nn.Dropout(0.3),
+        #     nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(kernel_size=2, stride=2),
+        #     nn.Dropout(0.5),
+        #     nn.Flatten(),
+        #     nn.Linear(32 * int(250/4) * int(150/4), cnn_output_dim),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.5)
+        # )
         self.cnn = nn.Sequential(
             nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -34,10 +48,15 @@ class CNNLSTMWithAttention(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Dropout(0.5),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(0.5),
             nn.Flatten(),
-            nn.Linear(32 * int(150/4) * int(350/4), cnn_output_dim),
+            nn.Linear(64 * int(250/8) * int(150/8), cnn_output_dim),
             nn.ReLU(),
             nn.Dropout(0.5)
+            
         )
 
         # LSTM to process frame sequence

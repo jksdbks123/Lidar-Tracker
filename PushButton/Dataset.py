@@ -120,10 +120,10 @@ def preprocessing(frames,location):
 
 transform_aug = A.Compose([
     A.RandomBrightnessContrast(p=0.5, brightness_limit=[-0.5,0.5]),
-    A.Illumination(p=0.5),
+    A.Illumination(p=0.6),
     A.RandomSunFlare(p=0.6,flare_roi=(0,0,1,1),src_radius = 250),
-    A.RandomShadow(p=0.5),
-    A.ElasticTransform(p=0.3,alpha=1,sigma=50),
+    A.RandomShadow(p=0.6),
+    A.ElasticTransform(p=0.6,alpha=1,sigma=50),
    
 ])
 
