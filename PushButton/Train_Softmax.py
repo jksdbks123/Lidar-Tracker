@@ -41,12 +41,12 @@ class EarlyStopping:
 
 def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder,val_folder, run_dir):
     train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, preprocess=preprocessing, augmentation=transform_aug)    # model = ResNetLSTM().to(device)
-    cnn_output_dim=512
-    lstm_hidden_dim=512
+    cnn_output_dim=256
+    lstm_hidden_dim=256
     lstm_layers=1
     num_classes = 3
-    # model = CNNLSTMWithAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
-    model = CNNLSTM(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
+    model = CNNLSTMWithAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
+    # model = CNNLSTM(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     # early_stopping = EarlyStopping(patience=5, verbose=True)
@@ -88,8 +88,8 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                 inputs, labels = inputs.to(device), labels.to(device).float()
 
                 optimizer.zero_grad()
-                # outputs,attention_weights = model(inputs)
-                outputs = model(inputs)
+                outputs,attention_weights = model(inputs)
+                # outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
@@ -109,8 +109,8 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                 for inputs, labels, _ in val_loader:
 
                     inputs, labels = inputs.to(device), labels.to(device).float()
-                    # outputs,attention_weights = model(inputs)
-                    outputs = model(inputs)
+                    outputs,attention_weights = model(inputs)
+                    # outputs = model(inputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
                     training_curves["val"].append(loss.item())
@@ -155,9 +155,9 @@ if __name__ == "__main__":
     num_epochs=50
     learning_rate=0.0001
     batch_size = 12
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0128_FocalLoss_250x150_3class_512_Left_3CNN_noatt"
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0128_FocalLoss_250x150_3class_256_Right_3CNN"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
-    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_L\train'
-    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_L\valid'
+    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_R\train'
+    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_R\valid'
     train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder, val_folder, run_dir)

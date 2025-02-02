@@ -272,7 +272,7 @@ def save_fore_pcd(Td_map,Labeling_map,save_path,frame_ind,Tracking_pool):
         if label_id != -1:
             Labels_temp[Labels == label_id] = glb_id
 
-    pcd = np.c_[Xs,Ys,Zs,Labels]
+    pcd = np.c_[Xs,Ys,Zs,Labels_temp]
     pcd = pcd[pcd[:,3] != -1]
     
     np.save(os.path.join(save_path,f'{frame_ind}.npy'), pcd)
