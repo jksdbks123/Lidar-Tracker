@@ -41,8 +41,8 @@ class EarlyStopping:
 
 def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder,val_folder, run_dir):
     train_loader, val_loader = create_data_loaders(train_folder, val_folder, batch_size=batch_size, preprocess=preprocessing, augmentation=transform_aug)    # model = ResNetLSTM().to(device)
-    cnn_output_dim=256
-    lstm_hidden_dim=256
+    cnn_output_dim=512
+    lstm_hidden_dim=512
     lstm_layers=1
     num_classes = 3
     model = CNNLSTMWithAttention(cnn_output_dim=cnn_output_dim, lstm_hidden_dim=lstm_hidden_dim, lstm_layers=lstm_layers).to(device)
@@ -94,7 +94,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
-                training_curves["train"].append(loss.item())
+                training_curves["train"].append(train_loss)
                 pbar.set_postfix({"Batch Loss": loss.item()})
                 pbar.update(1)
 
@@ -113,7 +113,7 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                     # outputs = model(inputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
-                    training_curves["val"].append(loss.item())
+                    training_curves["val"].append(val_loss)
                     # Calculate precision, recall, f1
                     y_true.extend(labels.cpu().numpy())
                     y_pred.extend(torch.argmax(outputs,dim=1).cpu().numpy())
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     num_epochs=50
     learning_rate=0.0001
     batch_size = 12
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0128_FocalLoss_250x150_3class_256_Right_3CNN"
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0202_FocalLoss_250x150_3class_512_Right_3CNN"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
     train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_R\train'
