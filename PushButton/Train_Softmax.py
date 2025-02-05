@@ -94,10 +94,10 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
-                training_curves["train"].append(train_loss)
+                
                 pbar.set_postfix({"Batch Loss": loss.item()})
                 pbar.update(1)
-
+        
         scheduler.step()
 
         model.eval()
@@ -113,13 +113,13 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
                     # outputs = model(inputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
-                    training_curves["val"].append(val_loss)
+                    
                     # Calculate precision, recall, f1
                     y_true.extend(labels.cpu().numpy())
                     y_pred.extend(torch.argmax(outputs,dim=1).cpu().numpy())
                     pbar.set_postfix({"Batch Loss": loss.item()})
                     pbar.update(1)
-
+        
         y_true = np.array(y_true)
         y_pred = np.array(y_pred)
         cm = confusion_matrix(y_true, y_pred, labels=list(range(num_classes)))
@@ -129,6 +129,8 @@ def train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_a
         
         train_loss /= len(train_loader)
         val_loss /= len(val_loader)
+        training_curves["val"].append(val_loss)
+        training_curves["train"].append(train_loss)
         print(f"Epoch {epoch + 1} Train Loss: {train_loss}, Val Loss: {val_loss}")
         torch.save(training_curves, train_curve_path)
         if val_loss < best_val_loss:
@@ -155,9 +157,9 @@ if __name__ == "__main__":
     num_epochs=50
     learning_rate=0.0001
     batch_size = 12
-    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0202_FocalLoss_250x150_3class_512_Right_3CNN"
+    run_dir = r"D:\LiDAR_Data\2ndPHB\Video\overall_0202_FocalLoss_250x150_3class_512_Left_3CNN"
     if not os.path.exists(run_dir):
         os.makedirs(run_dir)
-    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_R\train'
-    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_R\valid'
+    train_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_L\train'
+    val_folder = r'D:\LiDAR_Data\2ndPHB\Video\Dataset_0123_L\valid'
     train_model(device,num_epochs,learning_rate,batch_size,criterion,transform_aug,preprocessing,train_folder, val_folder, run_dir)
