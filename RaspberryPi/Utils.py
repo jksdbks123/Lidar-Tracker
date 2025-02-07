@@ -13,7 +13,6 @@ import pickle
 from shapely.geometry import LineString,Point
 from shapely.ops import unary_union
 import geopandas as gpd
-from LiDARBase import theta
 from queue import Queue, Full
 from collections import deque
 import threading
