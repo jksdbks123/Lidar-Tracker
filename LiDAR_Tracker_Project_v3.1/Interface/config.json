@@ -3,11 +3,11 @@
         "pcap_file": ""
     },
     "tab2": {
-        "batch_folder": "",
-        "output_traj_folder": "",
-        "ref_xyz_file_path": "",
-        "ref_llh_file_path": "",
-        "point_cloud_folder": "",
+        "batch_folder": "D:/LiDAR_Data/Harvard",
+        "output_traj_folder": "D:/LiDAR_Data/Harvard_out",
+        "ref_xyz_file_path": "D:/LiDAR_Data/Harvard/Calibration/xyz_ref.csv",
+        "ref_llh_file_path": "D:/LiDAR_Data/Harvard/Calibration/LLE_ref.csv",
+        "point_cloud_folder": "D:/LiDAR_Data/Harvard_out_pc",
         "Diff2UTC": -8,
         "SaveForepoints": false,
         "n_cpu": 3
@@ -20,8 +20,8 @@
         "n_cpu": 3
     },
     "tab4": {
-        "pcap_folder": "",
-        "output_folder": "",
+        "pcap_folder": "D:/LiDAR_Data/Harvard",
+        "output_folder": "D:/LiDAR_Data/Harvard_out",
         "time_reference_file_path": "",
         "n_cpu": 3,
         "time_interval": 30,
@@ -38,5 +38,13 @@
         "default_frame_index_col_name": "FrameIndex_1",
         "output_naming_col_name": "ConflictID",
         "time_interval": 30
+    },
+    "tab6":{
+        "trajectory_folder": "",
+        "output_folder": "",
+        "n_cpu": 3,
+        "default_point_number_col_name": "Point_Cnt",
+        "default_area_col_name": "Area",
+        "default_distance_col_name": "Dis"
     }
 }
