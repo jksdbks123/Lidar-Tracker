@@ -2,6 +2,7 @@ import pandas as pd
 from tkinter import filedialog
 from tkinter import StringVar, ttk, IntVar
 from File_manager import update_flag, select_file, select_folder
+from PedestrianCounting import *
 
 
 def build_tab6(tab, config):
@@ -50,14 +51,12 @@ def build_tab6(tab, config):
     ttk.Button(
         tab,
         text="Start Pedestrian Counting",
-        command=lambda: run_batch_clipping_threaded(
-            pcap_folder.get(),
+        command=lambda: run_batch_traj_processing_threaded(
             output_folder.get(),
-            time_reference_file.get(),
-            date_column.get(),
-            frame_column.get(),
-            time_interval.get(),
-            output_name_column.get(),
+            traj_folder.get(),
+            point_number_name_column.get(),
+            area_name_column.get(),
+            distance_name_column.get(),
             n_cpu.get()
         )
     ).grid(column=0, row=8, padx=10, pady=10)

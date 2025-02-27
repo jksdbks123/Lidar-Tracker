@@ -39,9 +39,9 @@
         "output_naming_col_name": "ConflictID",
         "time_interval": 30
     },
-    "tab6":{
-        "trajectory_folder": "",
-        "output_folder": "",
+    "tab6": {
+        "trajectory_folder": "D:/LiDAR_Data/Harvard_out",
+        "output_folder": "D:/LiDAR_Data/Harvard_out_ped_count",
         "n_cpu": 3,
         "default_point_number_col_name": "Point_Cnt",
         "default_area_col_name": "Area",
