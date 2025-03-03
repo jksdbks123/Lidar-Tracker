@@ -201,7 +201,6 @@ class MOT():
 
         self.cur_Labeling_map = Labeling_map
         self.cur_Td_map = Td_map
-        self.CurFrame += 1
 
     def save_trajectory(self,ref_LLH_path,ref_xyz_path,UTC_time_diff):
         ref_LLH,ref_xyz = np.array(pd.read_csv(ref_LLH_path)),np.array(pd.read_csv(ref_xyz_path))
@@ -243,7 +242,7 @@ def run_single_mot(pcap_file_path,
     if if_save_point_cloud:
         mot.point_cloud_save_path = point_cloud_path
     mot.start_timestamp = start_timestamp
-    while not mot.if_initialized:
+    while True:
         try:
             frame = next(frame_generator)
         except StopIteration:
@@ -254,6 +253,8 @@ def run_single_mot(pcap_file_path,
         if if_save_point_cloud:
             save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
         mot.CurFrame += 1
+        if mot.if_initialized:
+            break
 
     while True:
         try:
@@ -263,6 +264,7 @@ def run_single_mot(pcap_file_path,
                 return None  # Terminate task
             if if_save_point_cloud:
                 save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
+            mot.CurFrame += 1
         except StopIteration:
             break
 

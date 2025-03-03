@@ -39,6 +39,9 @@ class Config:
             "tab5": {'video_folder': "", 'output_folder': "", 'time_reference_file_path': "", 'n_cpu': 3,
                       'default_datetime_col_name': "DateTime_1",
                       'default_frame_index_col_name': "FrameIndex_1",'output_naming_col_name':"ConflictID",'time_interval': 30},
+            "tab6": {'trajectory_folder': "", 'output_folder': "", 'default_point_number_col_name': "PointNumber",
+                      'default_area_col_name': "Area", 'default_distance_col_name': "Distance",
+                      'n_cpu': 3},
         }
         
         if not os.path.exists(self.CONFIG_FILE):

@@ -8,7 +8,7 @@ from PedestrianCounting import *
 def build_tab6(tab, config):
     "Count Number of Pedestrians in Pedestrian Detections"
     ttk.Label(tab, text="Count Pedestrian").grid(column=0, row=0, padx=10, pady=10)
-
+    config.get_param("tab6")["trajectory_folder"]
     # Variables for dynamic column specification
     traj_folder = StringVar(value=config.get_param("tab6")["trajectory_folder"])
     output_folder = StringVar(value=config.get_param("tab6")["output_folder"])
