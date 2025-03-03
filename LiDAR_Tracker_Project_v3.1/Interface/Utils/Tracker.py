@@ -75,7 +75,6 @@ class MOT():
         Foreground_map = ~(np.abs(Td_map - self.thred_map) <= self.bck_radius).any(axis = 0)
         Labeling_map = self.db.fit_predict(Td_map = Td_map,Foreground_map = Foreground_map)
         mea_init,app_init,unique_label_init,Labeling_map = extract_xy(Labeling_map,Td_map)
-        self.CurFrame += 1
         if len(unique_label_init) == 0:
         # No object in initial frame
             return False
@@ -254,6 +253,7 @@ def run_single_mot(pcap_file_path,
             return None  # Terminate task
         if if_save_point_cloud:
             save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
+        mot.CurFrame += 1
 
     while True:
         try:
