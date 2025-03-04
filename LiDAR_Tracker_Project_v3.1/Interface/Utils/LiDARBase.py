@@ -1,14 +1,17 @@
+import sys
+import os
+interface_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', r'Utils'))
+# Add Interface to sys.path
+sys.path.insert(0, interface_path)
 import numpy as np
 from DDBSCAN import Raster_DBSCAN
 import cv2
-import sys
-import os
+
 import time
 import dpkt
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
 from sklearn.cluster import DBSCAN
-
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
 color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
