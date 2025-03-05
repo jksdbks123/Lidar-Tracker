@@ -4,7 +4,7 @@ import mysql.connector
 DB_HOST = "172.20.133.42"
 DB_NAME = "edgedata"
 DB_USER = "edgeuser"
-DB_PASSWORD = "strongpassword"
+DB_PASSWORD = "837775820a"
 
 # Sample data
 data_entries = [
