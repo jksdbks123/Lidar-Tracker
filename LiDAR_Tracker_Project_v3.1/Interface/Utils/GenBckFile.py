@@ -29,12 +29,14 @@ def get_thred(temp,N = 10,d_thred = 0.1,bck_n = 3):
         bck_ds_ = np.concatenate([bck_ds_,-1 * np.ones(bck_n - len(bck_ds_))])
     return bck_ds_
 
-def gen_bckmap(pcap_file_path, N, d_thred, bck_n,termination_event):
+def gen_bckmap(pcap_file_path, N, d_thred, bck_n,termination_event, random_factor = 0.33):
 
     packets_gen = read_packets_offline(pcap_file_path)
     frame_generator = parse_packets(packets_gen)
     aggregated_maps = []
     for Td_map in tqdm(frame_generator):
+        if random_factor < np.random.rand():
+            continue
         aggregated_maps.append(Td_map)
     aggregated_maps = np.array(aggregated_maps)
 

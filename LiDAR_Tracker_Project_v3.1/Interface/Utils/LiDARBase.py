@@ -352,6 +352,10 @@ def read_packets_offline(pcap_file_path):
             ts,buf = next(eth_reader)
         except StopIteration:
             return None
+        try:
+            eth = dpkt.ethernet.Ethernet(buf)
+        except dpkt.dpkt.NeedData:
+            continue
         eth = dpkt.ethernet.Ethernet(buf)
         if eth.type == 2048: # for ipv4
             if (type(eth.data.data) == dpkt.udp.UDP):# for ipv4

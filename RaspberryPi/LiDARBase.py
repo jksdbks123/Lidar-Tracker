@@ -59,7 +59,7 @@ raw_data_queue: UDP packets from LiDAR snesor
 LidarVisualizer.point_cloud_queue: parsed point cloud frames 
 """
 
-def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event):
+def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event, memory_clear_time = 20):
     start_tracking_time = time.time()
     while not stop_event.is_set():
         Td_map =  point_cloud_queue.get()
@@ -80,7 +80,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             Labeling_map = mot.cur_Labeling_map
             # timely clear memory
             time_b = time.time()
-            if (time_b - start_tracking_time) > 20:
+            if (time_b - start_tracking_time) > memory_clear_time:
                  mot.Off_tracking_pool = {}
                  mot.Tracking_pool = {}
                  mot.Global_id = 0

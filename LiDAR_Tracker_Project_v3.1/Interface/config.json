@@ -3,11 +3,11 @@
         "pcap_file": ""
     },
     "tab2": {
-        "batch_folder": "D:/LiDAR_Data/Harvard",
-        "output_traj_folder": "D:/LiDAR_Data/Harvard_traj_out",
+        "batch_folder": "D:/LiDAR_Data/MM12",
+        "output_traj_folder": "D:/LiDAR_Data/MM12_out",
         "ref_xyz_file_path": "D:/LiDAR_Data/Harvard/Calibration/xyz_ref.csv",
         "ref_llh_file_path": "D:/LiDAR_Data/Harvard/Calibration/LLE_ref.csv",
-        "point_cloud_folder": "D:/LiDAR_Data/Harvard_pc_out",
+        "point_cloud_folder": "D:/LiDAR_Data/MM12_out_pc",
         "Diff2UTC": -8,
         "SaveForepoints": false,
         "n_cpu": 3

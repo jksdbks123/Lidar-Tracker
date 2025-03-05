@@ -245,17 +245,20 @@ def run_single_mot(pcap_file_path,
     while True:
         try:
             frame = next(frame_generator)
-        except StopIteration:
+        except:
             break
         mot.initialization(frame)
         if termination_event.is_set():
             return None  # Terminate task
-        if if_save_point_cloud:
-            save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
         mot.CurFrame += 1
         if mot.if_initialized:
+            progress_queue.put(100 / total_files_num)
             break
-
+    if not mot.if_initialized:
+        return None
+    # initialization done, save the first frame
+    if if_save_point_cloud:
+        save_fore_pcd(mot.cur_Td_map,mot.cur_Labeling_map,point_cloud_path,mot.CurFrame,mot.Tracking_pool)
     while True:
         try:
             frame = next(frame_generator)
