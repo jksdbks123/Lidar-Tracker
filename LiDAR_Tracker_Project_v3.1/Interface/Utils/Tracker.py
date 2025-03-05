@@ -313,6 +313,11 @@ def run_batch_mot_with_ui(batch_pcap_folder,
         if not os.path.exists(p):
             os.mkdir(p)
 
+CREATE DATABASE edgedata;
+CREATE USER 'edgeuser'@'%' IDENTIFIED BY '837775820a';
+GRANT ALL PRIVILEGES ON edgedata.* TO 'edgeuser'@'%';
+FLUSH PRIVILEGES;
+
     p_umap(partial(run_single_mot,
                    tracking_parameter_dict = tracking_parameter_dict,
                    UTC_time_diff = UTC_time_diff,
