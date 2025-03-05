@@ -78,9 +78,9 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             mot.mot_tracking_step(Td_map)
             Tracking_pool = mot.Tracking_pool
             Labeling_map = mot.cur_Labeling_map
-
+            # timely clear memory
             time_b = time.time()
-            if (time_b - start_tracking_time) > 120:
+            if (time_b - start_tracking_time) > 20:
                  mot.Off_tracking_pool = {}
                  mot.Tracking_pool = {}
                  mot.Global_id = 0
@@ -323,7 +323,7 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
 def read_packets_online(sock,raw_data_queue):    
     while True:
         data,addr = sock.recvfrom(1206)
-        raw_data_queue.put_nowait((time.time(),data))
+        raw_data_queue.put((time.time(),data))
 
 # Function to parse packets into point cloud data (Simulating Core 3)
 def parse_packets(raw_data_queue, point_cloud_queue):
@@ -404,7 +404,9 @@ def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missi
     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
     # dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
     if  fail_condition1:
-        Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+        # Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+        Tracking_pool.pop(glb_id)
+        pass
     else:
         Tracking_pool[glb_id].state = state_cur_
         Tracking_pool[glb_id].P = P_cur_
@@ -440,7 +442,7 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
 
     dis = np.sqrt(np.sum(state_init[0][:2]**2))
 
-    if dis > 0.1:
+    if dis > 10:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init

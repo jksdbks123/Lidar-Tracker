@@ -28,7 +28,7 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None):
             tracking_parameter_dict = manger.dict({})
             tracking_param_update_event = Event()
             
-            mot = MOT(tracking_parameter_dict, thred_map = thred_map, missing_thred = 10)
+            mot = MOT(tracking_parameter_dict, thred_map = thred_map, missing_thred = 2)
             # Creating processes for Core 2 and Core 3 tasks
             if mode == 'online':
                 sock = socket.socket(socket.AF_INET, # Internet

@@ -238,6 +238,7 @@ class LidarVisualizer:
                             world_pos = screen_to_world(mouse_pos,self.zoom,self.offset,self.rotation_angle,self.screen.get_height())
                             self.bar_drawer.lines.append((self.bar_drawer.current_line_start, (world_pos[0][0],world_pos[0][1])))
                             self.bar_drawer.line_counts.append(0)
+                            self.bar_drawer.last_count_ts.append(-1)
                             self.bar_drawer.start_drawing_lines = False
                             self.bar_drawer.current_line_start = None
                             self.bar_drawer.save()
@@ -459,12 +460,17 @@ class LidarVisualizer:
                             coord_mea = (coord_mea[0][0],coord_mea[0][1])
                             pygame.draw.circle(self.screen, tuple(color_vec), coord_mea, 4)
 
-                    if len(tracking_dic[obj_id].post_seq) > 1:
-                        prev_pos = tracking_dic[obj_id].post_seq[-2][0].flatten()[:2]
+                    # counting function
+                    if len(tracking_dic[obj_id].post_seq) > 7:
+                        prev_pos = tracking_dic[obj_id].post_seq[-6][0].flatten()[:2]
                         curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
                         for i in range(len(self.bar_drawer.line_counts)):
                             if line_segments_intersect(prev_pos, curr_pos, self.bar_drawer.lines[i][0], self.bar_drawer.lines[i][1]):
-                                self.bar_drawer.line_counts[i] += 1
+                                cur_time = tracking_dic[obj_id].start_frame + len(tracking_dic[obj_id].mea_seq) - 1
+                                # print(f'Line {i} crossed by object {obj_id}, time: {cur_time}, last count time: {self.bar_drawer.last_count_ts[i]}, diff: {cur_time - self.bar_drawer.last_count_ts[i]}')
+                                if cur_time - self.bar_drawer.last_count_ts[i] > 10:
+                                    self.bar_drawer.line_counts[i] += 1
+                                    self.bar_drawer.last_count_ts[i] = cur_time
                                 break
             else:
                 if point_label is not None:
@@ -537,7 +543,7 @@ class LidarVisualizer:
                 self.tracking_parameter_dict['win_size'] = win_size
                 self.tracking_parameter_dict['min_samples'] = min_samples
                 self.tracking_parameter_dict['eps'] = eps_dis
-                self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 10)
+                self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 2)
                 self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event,))
                 self.tracking_prcess.start()
         else:
@@ -668,9 +674,9 @@ def main(mode = 'online',pcap_file_path = None):
     try:
         with Manager() as manger:
             # set_start_method('fork',force=True)
-            raw_data_queue = manger.Queue() # Packet Queue
-            point_cloud_queue = manger.Queue()
-            tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
+            raw_data_queue = manger.Queue(1) # Packet Queue
+            point_cloud_queue = manger.Queue(1)
+            tracking_result_queue = manger.Queue(1) # this is for the tracking results (pt,...)
             tracking_parameter_dict = manger.dict({})
             tracking_param_update_event = Event()
             # Creating processes for Core 2 and Core 3 tasks
