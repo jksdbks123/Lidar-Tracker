@@ -76,6 +76,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                 tracking_param_update_event.clear()
             
             mot.mot_tracking_step(Td_map)
+            
             Tracking_pool = mot.Tracking_pool
             Labeling_map = mot.cur_Labeling_map
             # timely clear memory
@@ -85,7 +86,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  mot.Tracking_pool = {}
                  mot.Global_id = 0
                  start_tracking_time = time.time()
-        result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a))
+            
+        result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a, time_b))
 
     print('Terminated tracking process')
 

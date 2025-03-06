@@ -3,6 +3,7 @@ from multiprocessing import set_start_method
 import socket
 import sys
 import os
+import time
 
 # Get absolute path of the Interface directory (parent of Utils)
 interface_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', r'Interface'))
@@ -14,25 +15,50 @@ sys.path.insert(0, root_path)
 print(sys.path)
 from Utils.LiDARBase import * 
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
-from RaspberryPi.Utils import BarDrawer
+from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 
 """
 This program is to report volumn counts in real-time trend
 """
+def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_reporting_interval = 5):
+    cur_ts = time.time()
+    reporting_ts = cur_ts + data_reporting_interval
+    while True:
+        tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
+        for obj_id in tracking_dic.keys():
+            # counting function
+            if len(tracking_dic[obj_id].post_seq) > 7:
+                prev_pos = tracking_dic[obj_id].post_seq[-6][0].flatten()[:2]
+                curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
+                for i in range(len(bar_drawer.line_counts)):
+                    if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
+                        cur_time = tracking_dic[obj_id].start_frame + len(tracking_dic[obj_id].mea_seq) - 1
+                        # print(f'Line {i} crossed by object {obj_id}, time: {cur_time}, last count time: {self.bar_drawer.last_count_ts[i]}, diff: {cur_time - self.bar_drawer.last_count_ts[i]}')
+                        if cur_time - bar_drawer.last_count_ts[i] > 10:
+                            bar_drawer.line_counts[i] += 1
+                            bar_drawer.last_count_ts[i] = cur_time
+                        break
+        
+        if ts >= reporting_ts:
+            with open(os.path.join(output_file_dir,cur_ts,'.txt'), 'w') as f:
+                for i in range(len(bar_drawer.line_counts)):
+                    f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
+            reporting_ts += data_reporting_interval * 60
 
-
-def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None):
-    # pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
+def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_reporting_interval = 10, bar_file_path = r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\config_files\bars.txt'):
+    # data reporting interval is in seconds
     try:
-        with Manager() as manger:
+        with Manager() as manager:
             # set_start_method('fork',force=True)
-            raw_data_queue = manger.Queue() # Packet Queue
-            point_cloud_queue = manger.Queue()
-            tracking_result_queue = manger.Queue() # this is for the tracking results (pt,...)
-            tracking_parameter_dict = manger.dict({})
+            raw_data_queue = manager.Queue() # Packet Queue
+            point_cloud_queue = manager.Queue()
+            tracking_result_queue = manager.Queue() # this is for the tracking results (pt,...)
+            # traffic_stats_queue = manager.dict({})
+            tracking_parameter_dict = manager.dict({})
             tracking_param_update_event = Event()
             tracking_process_stop_event = Event()
-            
+            bar_drawer = BarDrawer(bar_file_path = bar_file_path)
+        
             mot = MOT(tracking_parameter_dict, thred_map = thred_map, missing_thred = 2)
             
             # Creating processes for Core 2 and Core 3 tasks

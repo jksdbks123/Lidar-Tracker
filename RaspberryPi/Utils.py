@@ -105,7 +105,7 @@ class LaneDrawer:
         self.lane_section_foreground_point_counts.clear()
             
 class BarDrawer:
-    def __init__(self):
+    def __init__(self,bar_file_path = r'./config_files/bars.txt'):
 
         self.lines = [] # n x [(x1,y1),(x2,y2)]
         self.line_counts = []
@@ -114,7 +114,7 @@ class BarDrawer:
         self.drawing_lines = False # mode on
         self.start_drawing_lines = False # currently in a line drawing session
         self.current_line_connection = None
-        self.bar_path = r'./config_files/bars.txt'
+        self.bar_path = bar_file_path
         self.read_bars()
         
 

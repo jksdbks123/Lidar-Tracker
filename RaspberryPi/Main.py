@@ -625,7 +625,7 @@ class LidarVisualizer:
                                                                                         Td_map,self.vertical_limits)
                 # pc,label (0/1),None 
             elif self.switch_tracking_mode.state:
-                Tracking_pool,Labeling_map,Td_map,tracking_cums = self.tracking_result_queue.get()
+                Tracking_pool,Labeling_map,Td_map,tracking_cums,cur_ts = self.tracking_result_queue.get()
                 # print(Labeling_map.max())
                 tracking_cums = 1000 * tracking_cums
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
@@ -672,12 +672,12 @@ def main(mode = 'online',pcap_file_path = None):
     # pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
     
     try:
-        with Manager() as manger:
+        with Manager() as manager:
             # set_start_method('fork',force=True)
-            raw_data_queue = manger.Queue(1) # Packet Queue
-            point_cloud_queue = manger.Queue(1)
-            tracking_result_queue = manger.Queue(1) # this is for the tracking results (pt,...)
-            tracking_parameter_dict = manger.dict({})
+            raw_data_queue = manager.Queue(1) # Packet Queue
+            point_cloud_queue = manager.Queue(1)
+            tracking_result_queue = manager.Queue(1) # this is for the tracking results (pt,...)
+            tracking_parameter_dict = manager.dict({})
             tracking_param_update_event = Event()
             # Creating processes for Core 2 and Core 3 tasks
             if mode == 'online':
