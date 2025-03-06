@@ -4,6 +4,7 @@ import socket
 import sys
 import os
 import time
+import numpy as np
 
 # Get absolute path of the Interface directory (parent of Utils)
 interface_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', r'Interface'))
@@ -75,20 +76,31 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             packet_parser_process.start()
             tracking_prcess = Process(target=track_point_clouds, args=(tracking_process_stop_event,mot,point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,))
             tracking_prcess.start()
+            traffic_stats_process = Process(target=count_traffic_stats, args=(tracking_result_queue,bar_drawer,os.path.join(root_path,'output_files'),data_reporting_interval,))
+            traffic_stats_process.start()
             
             
             # Cleanup
             packet_reader_process.terminate()
             packet_parser_process.terminate()
+            tracking_prcess.terminate()
+            traffic_stats_process.terminate()
             
             packet_reader_process.join()
             packet_parser_process.join()
+            tracking_prcess.join()
+            traffic_stats_process.join()
 
     except KeyboardInterrupt :
         packet_reader_process.terminate()
         packet_parser_process.terminate()
+        tracking_prcess.terminate()
+        traffic_stats_process.terminate()
         packet_reader_process.join()
         packet_parser_process.join()
+        tracking_prcess.join()
+        traffic_stats_process.join()
 
 if __name__ == '__main__':
-    print('Starting the main function')
+    thred_map = np.load(r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\config_files\thred_map.npy')
+    main(thred_map = thred_map, mode = 'offline', pcap_file_path = r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\pcap_files\2021-09-29-15-00-00.pcap')
