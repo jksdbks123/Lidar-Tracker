@@ -59,6 +59,7 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             tracking_result_queue = manager.Queue() # this is for the tracking results (pt,...)
             # traffic_stats_queue = manager.dict({})
             config = Config()
+            config.tracking_parameter_dict['win_size'] = [config.tracking_parameter_dict['win_width'],config.tracking_parameter_dict['win_height']]
             tracking_parameter_dict = manager.dict(config.tracking_parameter_dict)
             tracking_param_update_event = Event()
             tracking_process_stop_event = Event()
