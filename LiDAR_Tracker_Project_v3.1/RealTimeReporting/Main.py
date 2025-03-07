@@ -53,8 +53,9 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
 
 def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_reporting_interval = 10, bar_file_path = r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\config_files\bars.txt'):
     # data reporting interval is in seconds
+    set_start_method("spawn")
     try:
-        with get_context("spawn").Manager() as manager:
+        with Manager() as manager:
             # set_start_method("spawn")
             raw_data_queue = manager.Queue() # Packet Queue
             point_cloud_queue = manager.Queue()
@@ -78,10 +79,10 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             elif mode == 'offline':
                 packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue,pcap_file_path,))
 
+            tracking_prcess = Process(target=track_point_clouds, args=(tracking_process_stop_event,mot,point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,))
             packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
             packet_reader_process.start()
             packet_parser_process.start()
-            tracking_prcess = Process(target=track_point_clouds, args=(tracking_process_stop_event,mot,point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,))
             tracking_prcess.start()
             traffic_stats_process = Process(target=count_traffic_stats, args=(tracking_result_queue,bar_drawer,os.path.join('./','output_files'),data_reporting_interval,))
             traffic_stats_process.start()
