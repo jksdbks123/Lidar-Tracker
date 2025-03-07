@@ -82,7 +82,6 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             packet_parser_process.start()
             tracking_prcess = Process(target=track_point_clouds, args=(tracking_process_stop_event,mot,point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,))
             tracking_prcess.start()
-            tracking_result_queue,bar_drawer,output_file_dir,data_reporting_interval = 5
             traffic_stats_process = Process(target=count_traffic_stats, args=(tracking_result_queue,bar_drawer,os.path.join('./','output_files'),data_reporting_interval,))
             traffic_stats_process.start()
             
