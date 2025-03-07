@@ -86,16 +86,16 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             traffic_stats_process.start()
             
             
-            # Cleanup
-            packet_reader_process.terminate()
-            packet_parser_process.terminate()
-            tracking_prcess.terminate()
-            traffic_stats_process.terminate()
+            # # Cleanup
+            # packet_reader_process.terminate()
+            # packet_parser_process.terminate()
+            # tracking_prcess.terminate()
+            # traffic_stats_process.terminate()
             
-            packet_reader_process.join()
-            packet_parser_process.join()
-            tracking_prcess.join()
-            traffic_stats_process.join()
+            # packet_reader_process.join()
+            # packet_parser_process.join()
+            # tracking_prcess.join()
+            # traffic_stats_process.join()
 
     except KeyboardInterrupt :
         packet_reader_process.terminate()
