@@ -54,7 +54,7 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
     # data reporting interval is in seconds
     try:
         with Manager() as manager:
-            # set_start_method('fork',force=True)
+            set_start_method("spawn")
             raw_data_queue = manager.Queue() # Packet Queue
             point_cloud_queue = manager.Queue()
             tracking_result_queue = manager.Queue() # this is for the tracking results (pt,...)
