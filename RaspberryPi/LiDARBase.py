@@ -3,6 +3,7 @@ from DDBSCAN import Raster_DBSCAN
 import cv2
 import sys
 import os
+import numpy as np
 
 
 np.random.seed(412)
