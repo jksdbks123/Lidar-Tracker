@@ -108,5 +108,6 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
         traffic_stats_process.join()
 
 if __name__ == '__main__':
+    set_start_method("spawn")
     thred_map = np.load(r'./thred_map.npy')
     main(thred_map = thred_map, mode = 'online', bar_file_path = r'./bar.txt')
