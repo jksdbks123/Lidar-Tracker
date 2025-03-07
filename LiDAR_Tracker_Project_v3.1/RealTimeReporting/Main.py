@@ -22,6 +22,8 @@ from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 This program is to report volumn counts in real-time trend
 """
 def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_reporting_interval = 5):
+    if not os.path.exists(output_file_dir):
+        os.makedirs(output_file_dir)
     cur_ts = time.time()
     reporting_ts = cur_ts + data_reporting_interval
     while True:
@@ -76,7 +78,8 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             packet_parser_process.start()
             tracking_prcess = Process(target=track_point_clouds, args=(tracking_process_stop_event,mot,point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,))
             tracking_prcess.start()
-            traffic_stats_process = Process(target=count_traffic_stats, args=(tracking_result_queue,bar_drawer,os.path.join(root_path,'output_files'),data_reporting_interval,))
+            tracking_result_queue,bar_drawer,output_file_dir,data_reporting_interval = 5
+            traffic_stats_process = Process(target=count_traffic_stats, args=(tracking_result_queue,bar_drawer,os.path.join('./','output_files'),data_reporting_interval,))
             traffic_stats_process.start()
             
             
@@ -102,5 +105,5 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
         traffic_stats_process.join()
 
 if __name__ == '__main__':
-    thred_map = np.load(r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\config_files\thred_map.npy')
-    main(thred_map = thred_map, mode = 'offline', pcap_file_path = r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\pcap_files\2021-09-29-15-00-00.pcap')
+    thred_map = np.load(r'./thred_map.npy')
+    main(thred_map = thred_map, mode = 'online', bar_file_path = r'./bar.txt')
