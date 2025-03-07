@@ -5,6 +5,7 @@ import sys
 import os
 import time
 import numpy as np
+from multiprocessing import get_context
 
 # Get absolute path of the Interface directory (parent of Utils)
 interface_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', r'Interface'))
@@ -53,7 +54,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
 def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_reporting_interval = 10, bar_file_path = r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\config_files\bars.txt'):
     # data reporting interval is in seconds
     try:
-        with Manager() as manager:
+        with get_context("spawn").Manager() as manager:
             # set_start_method("spawn")
             raw_data_queue = manager.Queue() # Packet Queue
             point_cloud_queue = manager.Queue()
@@ -108,6 +109,6 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
         traffic_stats_process.join()
 
 if __name__ == '__main__':
-    set_start_method("spawn")
+    # set_start_method("spawn")
     thred_map = np.load(r'./thred_map.npy')
     main(thred_map = thred_map, mode = 'online', bar_file_path = r'./bar.txt')
