@@ -4,7 +4,7 @@ import cv2
 import sys
 import os
 from sklearn.cluster import DBSCAN
-# import numpy as np
+import numpy as np
 
 
 np.random.seed(412)
