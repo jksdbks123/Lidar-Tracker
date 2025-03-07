@@ -15,6 +15,7 @@ root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, root_path)
 print(sys.path)
 from Utils.LiDARBase import * 
+from Utils.config import Config
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 
@@ -57,7 +58,7 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             point_cloud_queue = manager.Queue()
             tracking_result_queue = manager.Queue() # this is for the tracking results (pt,...)
             # traffic_stats_queue = manager.dict({})
-            tracking_parameter_dict = manager.dict({})
+            tracking_parameter_dict = manager.dict(Config.tracking_parameter_dict)
             tracking_param_update_event = Event()
             tracking_process_stop_event = Event()
             bar_drawer = BarDrawer(bar_file_path = bar_file_path)
