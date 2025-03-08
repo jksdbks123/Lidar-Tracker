@@ -21,6 +21,41 @@ from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 from RaspberryPi.LiDARBase import parse_packets 
 
+
+import subprocess
+
+def free_udp_port(port):
+    """Find and kill any process using a given UDP port."""
+    try:
+        # Find the process using the port
+        result = subprocess.run(
+            ["sudo", "netstat", "-tulnp"], capture_output=True, text=True
+        )
+
+        for line in result.stdout.split("\n"):
+            if f":{port}" in line and "udp" in line:
+                parts = line.split()
+                pid = parts[-1].split("/")[0]  # Extract the PID
+                print(f"🔹 Port {port} is in use by PID {pid}, terminating...")
+
+                # Kill the process using the port
+                subprocess.run(["sudo", "kill", "-9", pid])
+                print(f"✅ Successfully freed port {port}")
+
+                return True
+
+        print(f"✅ Port {port} is already free")
+        return False
+
+    except Exception as e:
+        print(f"❌ Error freeing port {port}: {e}")
+        return False
+
+# Usage example
+if __name__ == "__main__":
+    free_udp_port(2380)  # Replace 2380 with your UDP port
+
+
 """
 This program is to report volumn counts in real-time trend
 """
@@ -71,6 +106,7 @@ if __name__ == "__main__":
     bar_file_path = r'./bar.txt'
     thred_map = np.load(r'./thred_map.npy')
     port = 2380
+    free_udp_port(2380)
     mode = "online" 
     data_reporting_interval = 5
     try:
