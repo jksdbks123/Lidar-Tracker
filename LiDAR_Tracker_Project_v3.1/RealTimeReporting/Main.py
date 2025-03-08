@@ -29,6 +29,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
         os.makedirs(output_file_dir)
     cur_ts = time.time()
     reporting_ts = cur_ts + data_reporting_interval
+    print(f'Reporting at {reporting_ts}')
     while True:
         tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
         for obj_id in tracking_dic.keys():
@@ -46,6 +47,8 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
                         break
         
         if ts >= reporting_ts:
+            print(f'Reporting at {ts}')
+            print(f'Line counts: {bar_drawer.line_counts}')
             with open(os.path.join(output_file_dir,cur_ts,'.txt'), 'w') as f:
                 for i in range(len(bar_drawer.line_counts)):
                     f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
@@ -96,6 +99,7 @@ if __name__ == "__main__":
             packet_parser_process.start()
             tracking_process.start()
             traffic_stats_process.start()
+            print("Processes started!")
 
             # Wait for termination signal
             while True:
