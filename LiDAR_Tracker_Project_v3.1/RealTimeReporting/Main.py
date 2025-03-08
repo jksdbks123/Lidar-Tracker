@@ -32,6 +32,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
     print(f'Reporting at {reporting_ts}')
     while True:
         tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
+        print(f'Get tracking result at {ts}')
         for obj_id in tracking_dic.keys():
             # counting function
             if len(tracking_dic[obj_id].post_seq) > 7:
