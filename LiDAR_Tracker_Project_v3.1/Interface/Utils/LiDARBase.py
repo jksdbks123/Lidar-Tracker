@@ -376,6 +376,7 @@ def read_packets_online(port,raw_data_queue):
     while True:
         data,addr = sock.recvfrom(1206)
         raw_data_queue.put_nowait((time.time(),data))
+        print(raw_data_queue.qsize())
 
 # Function to parse packets into point cloud data (Simulating Core 3)
 def parse_packets(packet_gen):
