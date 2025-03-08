@@ -31,7 +31,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
     reporting_ts = cur_ts + data_reporting_interval
     print(f'Reporting at {reporting_ts}')
     while True:
-        print(f'Get tracking result at {ts}')
+        print(f'Get tracking result at {cur_ts}')
         tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
         print(f'Get tracking result at {ts}')
         for obj_id in tracking_dic.keys():
