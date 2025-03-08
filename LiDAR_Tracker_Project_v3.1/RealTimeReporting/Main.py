@@ -53,7 +53,11 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
 
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")
-
+    bar_file_path = r'./bar.txt'
+    thred_map = np.load(r'./thred_map.npy')
+    port = 2368
+    mode = "online" 
+    data_reporting_interval = 5
     try:
         with multiprocessing.Manager() as manager:  # Ensure Manager starts before processes
             raw_data_queue = manager.Queue()
