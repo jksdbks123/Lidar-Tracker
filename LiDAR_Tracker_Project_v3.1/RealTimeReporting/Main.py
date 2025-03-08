@@ -64,18 +64,15 @@ def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_re
             config = Config()
             config.tracking_parameter_dict['win_size'] = [config.tracking_parameter_dict['win_width'],config.tracking_parameter_dict['win_height']]
             tracking_parameter_dict = manager.dict(config.tracking_parameter_dict)
-            tracking_param_update_event = Event()
-            tracking_process_stop_event = Event()
+            tracking_param_update_event = manager.Event()
+            tracking_process_stop_event = manager.Event()
             bar_drawer = BarDrawer(bar_file_path = bar_file_path)
         
             mot = MOT(tracking_parameter_dict, thred_map = thred_map, missing_thred = 2)
             
             # Creating processes for Core 2 and Core 3 tasks
             if mode == 'online':
-                sock = socket.socket(socket.AF_INET, # Internet
-                                socket.SOCK_DGRAM) # UDP
-                sock.bind(('', port)) 
-                packet_reader_process = Process(target=read_packets_online, args=(sock,raw_data_queue,))
+                packet_reader_process = Process(target=read_packets_online, args=(port,raw_data_queue,))
             elif mode == 'offline':
                 packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue,pcap_file_path,))
 

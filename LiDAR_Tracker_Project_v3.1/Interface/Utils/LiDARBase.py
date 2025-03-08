@@ -12,6 +12,8 @@ import dpkt
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
 from sklearn.cluster import DBSCAN
+import socket
+
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
 color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
@@ -367,7 +369,10 @@ def read_packets_offline(pcap_file_path):
             # raw_packet = np.random.rand(20000,2) * 600  # Placeholder for actual packet data
                     yield (ts,data)
 
-def read_packets_online(sock,raw_data_queue):    
+def read_packets_online(port,raw_data_queue):
+    sock = socket.socket(socket.AF_INET, # Internet
+                    socket.SOCK_DGRAM) # UDP
+    sock.bind(('', port))     
     while True:
         data,addr = sock.recvfrom(1206)
         raw_data_queue.put_nowait((time.time(),data))
