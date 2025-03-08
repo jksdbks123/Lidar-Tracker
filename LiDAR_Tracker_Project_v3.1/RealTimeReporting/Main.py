@@ -55,6 +55,16 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
                 for i in range(len(bar_drawer.line_counts)):
                     f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
             reporting_ts += data_reporting_interval * 60
+            
+def read_packets_online(port,raw_data_queue):
+    sock = socket.socket(socket.AF_INET, # Internet
+                    socket.SOCK_DGRAM) # UDP
+    sock.bind(('', port))     
+    while True:
+        print(raw_data_queue.qsize())
+        data,addr = sock.recvfrom(1206)
+        raw_data_queue.put_nowait((time.time(),data))
+        
 
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")
