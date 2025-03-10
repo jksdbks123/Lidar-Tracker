@@ -97,7 +97,7 @@ def read_packets_online(port,raw_data_queue):
                     socket.SOCK_DGRAM) # UDP
     sock.bind(('', port))     
     while True:
-        print(raw_data_queue.qsize())
+        # print(raw_data_queue.qsize())
         data,addr = sock.recvfrom(1206)
         raw_data_queue.put_nowait((time.time(),data))
         
