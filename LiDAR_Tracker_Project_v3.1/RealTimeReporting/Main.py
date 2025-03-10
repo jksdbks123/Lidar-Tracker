@@ -68,6 +68,9 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
     while True:
         # print(f'Get tracking result at {cur_ts}')
         tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
+        # constant show the realtime tracking_cums
+        sys.stdout.write(f'\r{tracking_cums}')
+        sys.stdout.flush()
         # print(f'Get tracking result at {ts}')
         for obj_id in tracking_dic.keys():
             # counting function
