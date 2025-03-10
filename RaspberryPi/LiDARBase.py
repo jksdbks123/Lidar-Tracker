@@ -5,6 +5,7 @@ import sys
 import os
 from sklearn.cluster import DBSCAN
 import numpy as np
+import time
 
 
 np.random.seed(412)
