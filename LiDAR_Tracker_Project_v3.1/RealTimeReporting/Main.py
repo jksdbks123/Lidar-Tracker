@@ -86,7 +86,9 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
         if ts >= reporting_ts:
             print(f'Reporting at {ts}')
             # print(f'Line counts: {bar_drawer.line_counts}')
-            with open(os.path.join(output_file_dir,cur_ts,'.txt'), 'w') as f:
+            # convert cur_ts to datetime string
+            cur_ts_str = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(cur_ts))
+            with open(os.path.join(output_file_dir,cur_ts_str,'.txt'), 'w') as f:
                 for i in range(len(bar_drawer.line_counts)):
                     f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
                     bar_drawer.line_counts[i] = 0
