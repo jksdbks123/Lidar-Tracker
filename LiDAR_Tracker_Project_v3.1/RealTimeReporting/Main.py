@@ -63,7 +63,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
     if not os.path.exists(output_file_dir):
         os.makedirs(output_file_dir)
     cur_ts = time.time()
-    reporting_ts = cur_ts + data_reporting_interval
+    reporting_ts = cur_ts + data_reporting_interval * 60
     print(f'Reporting at {reporting_ts}')
     while True:
         # print(f'Get tracking result at {cur_ts}')
