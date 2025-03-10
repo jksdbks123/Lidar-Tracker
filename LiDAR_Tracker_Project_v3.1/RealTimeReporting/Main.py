@@ -89,6 +89,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
             with open(os.path.join(output_file_dir,cur_ts,'.txt'), 'w') as f:
                 for i in range(len(bar_drawer.line_counts)):
                     f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
+                    bar_drawer.line_counts[i] = 0
             reporting_ts += data_reporting_interval * 60
 
 def read_packets_online(port,raw_data_queue):
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     port = 2380
     free_udp_port(2380)
     mode = "online" 
-    data_reporting_interval = 5
+    data_reporting_interval = 1
     try:
         with multiprocessing.Manager() as manager:  # Ensure Manager starts before processes
             raw_data_queue = manager.Queue()
