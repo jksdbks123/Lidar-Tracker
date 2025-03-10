@@ -51,9 +51,9 @@ def free_udp_port(port):
         print(f"❌ Error freeing port {port}: {e}")
         return False
 
-# Usage example
-if __name__ == "__main__":
-    free_udp_port(2380)  # Replace 2380 with your UDP port
+# # Usage example
+# if __name__ == "__main__":
+#     free_udp_port(2380)  # Replace 2380 with your UDP port
 
 
 """
