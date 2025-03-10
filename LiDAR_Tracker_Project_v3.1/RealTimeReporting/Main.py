@@ -84,7 +84,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
                         break
         
         if ts >= reporting_ts:
-            # print(f'Reporting at {ts}')
+            print(f'Reporting at {ts}')
             # print(f'Line counts: {bar_drawer.line_counts}')
             with open(os.path.join(output_file_dir,cur_ts,'.txt'), 'w') as f:
                 for i in range(len(bar_drawer.line_counts)):
