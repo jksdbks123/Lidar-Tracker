@@ -69,7 +69,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
         # print(f'Get tracking result at {cur_ts}')
         tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
         # constant show the realtime tracking_cums
-        sys.stdout.write(f'\r{tracking_cums}')
+        sys.stdout.write(f'Data Processing Speed (sec): \r{tracking_cums * 1000}')
         sys.stdout.flush()
         # print(f'Get tracking result at {ts}')
         for obj_id in tracking_dic.keys():
@@ -93,6 +93,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
             cur_ts_str = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(cur_ts))
             with open(os.path.join(output_file_dir,cur_ts_str + '.txt'), 'w') as f:
                 for i in range(len(bar_drawer.line_counts)):
+                    print(f'Line {i}: {bar_drawer.line_counts[i]}')
                     f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
                     bar_drawer.line_counts[i] = 0
             reporting_ts += data_reporting_interval * 60

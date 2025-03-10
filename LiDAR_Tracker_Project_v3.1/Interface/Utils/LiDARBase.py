@@ -90,10 +90,11 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                 tracking_param_update_event.clear()
             
             mot.mot_tracking_step(Td_map)
+            time_b = time.time()
             Tracking_pool = mot.Tracking_pool
             Labeling_map = mot.cur_Labeling_map
 
-            time_b = time.time()
+            
             if (time_b - start_tracking_time) > 120:
                  mot.Off_tracking_pool = {}
                  mot.Tracking_pool = {}
