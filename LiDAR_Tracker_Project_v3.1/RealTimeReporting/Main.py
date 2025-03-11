@@ -1,5 +1,7 @@
-from multiprocessing import Process
+
 import multiprocessing
+multiprocessing.set_start_method("spawn")
+from multiprocessing import Process
 import socket
 import sys
 import os
@@ -117,7 +119,7 @@ def clear_queue(queue):
             break  # In case of race conditions
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method("spawn")
+    
     bar_file_path = r'./bars.txt'
     port = 2380
     free_udp_port(2380)
