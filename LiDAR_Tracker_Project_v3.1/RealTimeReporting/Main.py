@@ -17,9 +17,10 @@ sys.path.insert(0, root_path)
 print(sys.path)
 # from Utils.LiDARBase import * 
 from Utils.config import Config
+from RaspberryPi.LiDARBase import parse_packets,track_point_clouds
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
-from RaspberryPi.LiDARBase import parse_packets,track_point_clouds
+
 
 
 import subprocess
