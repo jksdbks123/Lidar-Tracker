@@ -113,7 +113,8 @@ def read_packets_online(port,raw_data_queue):
 
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn")
-    bar_file_path = r'./bar.txt'
+    bar_file_path = r'./bars.txt'
+    # print(os.path.abspath(bar_file_path))
     thred_map = np.load(r'./thred_map.npy')
     port = 2380
     free_udp_port(2380)
