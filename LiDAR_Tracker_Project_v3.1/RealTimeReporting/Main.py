@@ -124,7 +124,7 @@ if __name__ == "__main__":
     free_udp_port(2380)
     mode = "online" 
     data_reporting_interval = 1
-    background_data_generting_time = 60 # sec
+    background_data_generting_time = 30 # sec
     print("Generating bck...")
     try:
         with multiprocessing.Manager() as manager:
