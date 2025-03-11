@@ -154,6 +154,7 @@ if __name__ == "__main__":
                 tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
             ))
 
+
             # Start processes
             packet_reader_process.start()
             packet_parser_process.start()
