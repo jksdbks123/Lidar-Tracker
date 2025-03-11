@@ -124,7 +124,7 @@ if __name__ == "__main__":
     mode = "online" 
     data_reporting_interval = 1
     background_data_generting_time = 30 # sec
-    print("Generating bck...")
+    
     try:
         with multiprocessing.Manager() as manager:
             raw_data_queue = manager.Queue()
@@ -148,6 +148,7 @@ if __name__ == "__main__":
                     break
             import numpy as np
             aggregated_maps = np.array(aggregated_maps)
+            print("Generating bck...")
             thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
             # Clear queues
             clear_queue(raw_data_queue)
