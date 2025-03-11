@@ -63,7 +63,6 @@ pyparsing==3.2.1
 pyproj==3.6.1
 python-dateutil==2.9.0.post0
 pytz==2025.1
-pywin32==307
 pyzmq==26.2.1
 referencing==0.36.2
 requests==2.32.3
