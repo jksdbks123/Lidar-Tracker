@@ -20,6 +20,7 @@ from Utils.config import Config
 from RaspberryPi.LiDARBase import parse_packets,track_point_clouds
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
+from RaspberryPi.GenBckFile import gen_bckmap
 
 
 
@@ -108,16 +109,45 @@ def read_packets_online(port,raw_data_queue):
         data,addr = sock.recvfrom(1206)
         raw_data_queue.put_nowait((time.time(),data))
         
+def clear_queue(queue):
+    """Clears all items in a multiprocessing queue."""
+    while not queue.empty():
+        try:
+            queue.get_nowait()
+        except Exception:
+            break  # In case of race conditions
 
 if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
     bar_file_path = r'./bars.txt'
-    # print(os.path.abspath(bar_file_path))
-    thred_map = np.load(r'./thred_map.npy')
-    port = 2390
-    free_udp_port(2390)
+    port = 2380
+    free_udp_port(2380)
     mode = "online" 
     data_reporting_interval = 1
+    background_data_generting_time = 60 # sec
+    print("Generating bck...")
+    try:
+        with multiprocessing.Manager() as manager:
+            raw_data_queue = manager.Queue()
+            point_cloud_queue = manager.Queue()
+            packet_reader_process = Process(target=read_packets_online, args=(port, raw_data_queue,))
+            packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
+            packet_reader_process.start()
+            packet_parser_process.start()
+            time.sleep(background_data_generting_time)
+            packet_reader_process.terminate()
+            packet_parser_process.terminate()
+            packet_reader_process.join()
+            packet_parser_process.join()
+    except Exception as e:
+        print("Error:", e)
+    aggregated_maps = []
+    while not point_cloud_queue.empty():
+        aggregated_maps.append(point_cloud_queue.get_nowait())
+    aggregated_maps = np.array(aggregated_maps)
+    thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
+    free_udp_port(2380)
+    print("Starting Monitoring...")
     try:
         with multiprocessing.Manager() as manager:  # Ensure Manager starts before processes
             raw_data_queue = manager.Queue()
