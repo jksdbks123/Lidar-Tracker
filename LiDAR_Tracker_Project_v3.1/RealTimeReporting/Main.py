@@ -139,21 +139,22 @@ if __name__ == "__main__":
             packet_parser_process.terminate()
             packet_reader_process.join()
             packet_parser_process.join()
+            print(point_cloud_queue.qsize())
+            print(point_cloud_queue.empty())
+            aggregated_maps = []
+            while not point_cloud_queue.empty():
+                try:
+                    aggregated_maps.append(point_cloud_queue.get_nowait())
+                except Exception:
+                    break
+            aggregated_maps = np.array(aggregated_maps)
+            thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
+            # Clear queues
+            clear_queue(raw_data_queue)
+            clear_queue(point_cloud_queue)
     except Exception as e:
         print("Error:", e)
-    print(point_cloud_queue.qsize())
-    print(point_cloud_queue.empty())
-    aggregated_maps = []
-    while not point_cloud_queue.empty():
-        try:
-            aggregated_maps.append(point_cloud_queue.get_nowait())
-        except Exception:
-            break
-    aggregated_maps = np.array(aggregated_maps)
-    thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
-    # Clear queues
-    clear_queue(raw_data_queue)
-    clear_queue(point_cloud_queue)
+
     free_udp_port(2380)
     print("Starting Monitoring...")
     try:
