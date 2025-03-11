@@ -152,13 +152,9 @@ if __name__ == "__main__":
             # Clear queues
             clear_queue(raw_data_queue)
             clear_queue(point_cloud_queue)
-    except Exception as e:
-        print("Error:", e)
+            free_udp_port(2380)
+            print("Starting Monitoring...")
 
-    free_udp_port(2380)
-    print("Starting Monitoring...")
-    try:
-        with multiprocessing.Manager() as manager:  # Ensure Manager starts before processes
             raw_data_queue = manager.Queue()
             point_cloud_queue = manager.Queue()
             tracking_result_queue = manager.Queue()
