@@ -143,7 +143,10 @@ if __name__ == "__main__":
         print("Error:", e)
     aggregated_maps = []
     while not point_cloud_queue.empty():
-        aggregated_maps.append(point_cloud_queue.get_nowait())
+        try:
+            aggregated_maps.append(point_cloud_queue.get_nowait())
+        except Exception:
+            break
     aggregated_maps = np.array(aggregated_maps)
     thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
     free_udp_port(2380)
