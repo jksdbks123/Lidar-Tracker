@@ -65,6 +65,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
     cur_ts = time.time()
     reporting_ts = cur_ts + data_reporting_interval * 60
     print(f'Reporting at {reporting_ts}')
+    print(len(bar_drawer.line_counts))
     while True:
         # print(f'Get tracking result at {cur_ts}')
         tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
@@ -91,7 +92,9 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
             # print(f'Line counts: {bar_drawer.line_counts}')
             # convert cur_ts to datetime string
             cur_ts_str = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(cur_ts))
-            with open(os.path.join(output_file_dir,cur_ts_str + '.txt'), 'w') as f:
+            output_path = os.path.join(output_file_dir,cur_ts_str + '.txt')
+            
+            with open(output_path, 'w') as f:
                 for i in range(len(bar_drawer.line_counts)):
                     print(f'Line {i}: {bar_drawer.line_counts[i]}')
                     f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
