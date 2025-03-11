@@ -44,4 +44,3 @@ def generate_and_save_background(background_data):
 
 
 
-
