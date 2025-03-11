@@ -53,6 +53,7 @@ class MOT():
         self.cur_Labeling_map = None
         self.clustering_time = 0
         self.bf_time = 0
+        self.association_time = 0
         
     def initialization(self,Frame):
         # you should set up some initial status, we should code the logic in the main loop. 
@@ -187,11 +188,12 @@ class MOT():
                     create_new_detection(self.Tracking_pool,self.Global_id,P_init,state_init,
                                             app_next[n_id],unique_label_next[n_id],mea_next[n_id],self.CurFrame)
                     self.Global_id += 1
-
+        time_d = time.time()
         self.cur_Labeling_map = Labeling_map
         self.Td_map_cur = Td_map
         self.clustering_time = (time_c - time_b)*1000
         self.bf_time = (time_b - time_a)*1000
         self.CurFrame += 1
+        self.association_time = (time_d - time_c)*1000
         # print('Frame:',self.CurFrame)
 
