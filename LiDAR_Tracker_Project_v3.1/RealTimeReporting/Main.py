@@ -1,11 +1,11 @@
-from multiprocessing import Process, Queue, Event, Manager
+from multiprocessing import Process
 import multiprocessing
 import socket
 import sys
 import os
 import time
 import numpy as np
-from multiprocessing import get_context
+# from multiprocessing import get_context
 
 # Get absolute path of the Interface directory (parent of Utils)
 interface_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', r'Interface'))
@@ -15,7 +15,7 @@ root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 # Add Interface to sys.path
 sys.path.insert(0, root_path)
 print(sys.path)
-from Utils.LiDARBase import * 
+# from Utils.LiDARBase import * 
 from Utils.config import Config
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
@@ -140,10 +140,10 @@ if __name__ == "__main__":
             mot = MOT(tracking_parameter_dict, thred_map=thred_map, missing_thred=2)
 
             # Creating processes
-            if mode == "online":
-                packet_reader_process = Process(target=read_packets_online, args=(port, raw_data_queue,))
-            else:  # mode == "offline"
-                packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue, pcap_file_path,))
+            # if mode == "online":
+            packet_reader_process = Process(target=read_packets_online, args=(port, raw_data_queue,))
+            # else:  # mode == "offline"
+            #     packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue, pcap_file_path,))
 
             packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
             tracking_process = Process(target=track_point_clouds, args=(
