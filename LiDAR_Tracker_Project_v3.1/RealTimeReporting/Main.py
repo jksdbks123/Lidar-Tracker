@@ -15,7 +15,7 @@ root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 # Add Interface to sys.path
 sys.path.insert(0, root_path)
 print(sys.path)
-# from Utils.LiDARBase import * 
+from Utils.LiDARBase import * 
 from Utils.config import Config
 from RaspberryPi.LiDARBase import parse_packets,track_point_clouds
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
