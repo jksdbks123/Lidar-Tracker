@@ -566,17 +566,17 @@ def extract_xy(Labeling_map,Td_map):
     new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
     xy_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,False)
     if len(xy_set) > 0:
-        total_labels = np.concatenate([new_uni_labels,new_uni_labels])
-        edge_points = np.concatenate([xy_set[:,1,:,0],xy_set[:,0,:,0]])
-        merge_labels = db_merge.fit_predict(edge_points)
-        unique_merge_labels = np.unique(merge_labels[merge_labels != -1])
-        merge_pairs = [total_labels[merge_labels == l] for l in unique_merge_labels]
-        for p in merge_pairs:
-            merging_p = np.unique(p)
-            if len(merging_p) > 1:
-                for i in range(1,len(merging_p)):
-                    Labeling_map[Labeling_map == merging_p[i]] = merging_p[0]
-        new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
+        # total_labels = np.concatenate([new_uni_labels,new_uni_labels])
+        # edge_points = np.concatenate([xy_set[:,1,:,0],xy_set[:,0,:,0]])
+        # merge_labels = db_merge.fit_predict(edge_points)
+        # unique_merge_labels = np.unique(merge_labels[merge_labels != -1])
+        # merge_pairs = [total_labels[merge_labels == l] for l in unique_merge_labels]
+        # for p in merge_pairs:
+        #     merging_p = np.unique(p)
+        #     if len(merging_p) > 1:
+        #         for i in range(1,len(merging_p)):
+        #             Labeling_map[Labeling_map == merging_p[i]] = merging_p[0]
+        # new_uni_labels = np.unique(Labeling_map[Labeling_map != -1])
         xy_set,apperance_set = get_xy_set(new_uni_labels,Labeling_map,Td_map,True)
         return xy_set,apperance_set,new_uni_labels,Labeling_map
     else:
