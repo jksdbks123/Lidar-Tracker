@@ -100,6 +100,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
                     f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
                     bar_drawer.line_counts[i] = 0
             reporting_ts += data_reporting_interval * 60
+            cur_ts = ts
 
 def read_packets_online(port,raw_data_queue):
     sock = socket.socket(socket.AF_INET, # Internet
