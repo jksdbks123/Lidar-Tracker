@@ -5,7 +5,6 @@ import sys
 import os
 import time
 import numpy as np
-# from multiprocessing import get_context
 
 # Get absolute path of the Interface directory (parent of Utils)
 interface_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', r'Interface'))
@@ -147,6 +146,7 @@ if __name__ == "__main__":
                     aggregated_maps.append(point_cloud_queue.get_nowait())
                 except Exception:
                     break
+            import numpy as np
             aggregated_maps = np.array(aggregated_maps)
             thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
             # Clear queues
