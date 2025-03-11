@@ -68,7 +68,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
     print(len(bar_drawer.line_counts))
     while True:
         # print(f'Get tracking result at {cur_ts}')
-        tracking_dic,Labeling_map,Td_map,tracking_cums,ts = tracking_result_queue.get()
+        tracking_dic,Labeling_map,Td_map,tracking_cums,ts,bf_time, clustering_time = tracking_result_queue.get()
         # constant show the realtime tracking_cums
         sys.stdout.write(f'Data Processing Speed (sec): \r{tracking_cums * 1000}')
         sys.stdout.flush()

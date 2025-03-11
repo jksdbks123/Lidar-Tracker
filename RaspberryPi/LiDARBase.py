@@ -90,7 +90,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  mot.Global_id = 0
                  start_tracking_time = time.time()
             
-        result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a, time_b))
+        result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a, time_b,mot.bf_time, mot.clustering_time))
 
     print('Terminated tracking process')
 
