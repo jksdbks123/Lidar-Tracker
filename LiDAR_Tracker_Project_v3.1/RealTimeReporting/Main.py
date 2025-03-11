@@ -117,7 +117,7 @@ def clear_queue(queue):
             break  # In case of race conditions
 
 if __name__ == "__main__":
-    # multiprocessing.set_start_method("spawn")
+    multiprocessing.set_start_method("spawn")
     bar_file_path = r'./bars.txt'
     port = 2380
     free_udp_port(2380)
@@ -146,7 +146,6 @@ if __name__ == "__main__":
                     aggregated_maps.append(point_cloud_queue.get_nowait())
                 except Exception:
                     break
-            import numpy as np
             aggregated_maps = np.array(aggregated_maps)
             print("Generating bck...")
             thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
