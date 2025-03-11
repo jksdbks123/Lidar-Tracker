@@ -194,7 +194,8 @@ class MOT():
         self.Td_map_cur = Td_map
         self.clustering_time = (time_c - time_b)*1000
         self.bf_time = (time_b - time_a)*1000
-        self.CurFrame += 1
         self.association_time = (time_d - time_c)*1000
+        self.CurFrame += 1
+        
         # print('Frame:',self.CurFrame)
 
