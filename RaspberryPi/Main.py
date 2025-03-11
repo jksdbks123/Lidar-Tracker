@@ -628,7 +628,7 @@ class LidarVisualizer:
                 Tracking_pool,Labeling_map,Td_map,tracking_cums,cur_ts,bf_time, clustering_time, association_time = self.tracking_result_queue.get()
                 # print(Labeling_map.max())
                 # tracking_cums = 1000 * tracking_cums
-                tracking_cums = clustering_time
+                tracking_cums = bf_time
                 point_cloud_data,point_labels = get_pcd_tracking(Td_map,Labeling_map,Tracking_pool,self.vertical_limits)
                 # pc, label (obj_id)
                 tracking_dic = Tracking_pool

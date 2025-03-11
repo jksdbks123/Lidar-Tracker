@@ -52,10 +52,6 @@ def free_udp_port(port):
         print(f"❌ Error freeing port {port}: {e}")
         return False
 
-# # Usage example
-# if __name__ == "__main__":
-#     free_udp_port(2380)  # Replace 2380 with your UDP port
-
 
 """
 This program is to report volumn counts in real-time trend
@@ -118,8 +114,8 @@ if __name__ == "__main__":
     bar_file_path = r'./bars.txt'
     # print(os.path.abspath(bar_file_path))
     thred_map = np.load(r'./thred_map.npy')
-    port = 2380
-    free_udp_port(2380)
+    port = 2390
+    free_udp_port(2390)
     mode = "online" 
     data_reporting_interval = 1
     try:
