@@ -119,13 +119,13 @@ def clear_queue(queue):
             break  # In case of race conditions
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method("spawn")
+    # multiprocessing.set_start_method("spawn")
     bar_file_path = r'./bars.txt'
     port = 2380
     free_udp_port(2380)
     mode = "online" 
     data_reporting_interval = 1
-    background_data_generting_time = 30 # sec
+    background_data_generting_time = 60 # sec
     
     try:
         with multiprocessing.Manager() as manager:
@@ -214,65 +214,3 @@ if __name__ == "__main__":
 
     except Exception as e:
         print("Error:", e)
-
-
-
-# def main(thred_map, mode = 'online', port = 2368, pcap_file_path = None, data_reporting_interval = 10, bar_file_path = r'D:\CodeRepos\Lidar-Tracker\RaspberryPi\config_files\bars.txt'):
-#     # data reporting interval is in seconds
-#     try:
-#         with Manager() as manager:
-#             # set_start_method("spawn")
-#             raw_data_queue = manager.Queue() # Packet Queue
-#             point_cloud_queue = manager.Queue()
-#             tracking_result_queue = manager.Queue() # this is for the tracking results (pt,...)
-#             # traffic_stats_queue = manager.dict({})
-#             config = Config()
-#             config.tracking_parameter_dict['win_size'] = [config.tracking_parameter_dict['win_width'],config.tracking_parameter_dict['win_height']]
-#             tracking_parameter_dict = manager.dict(config.tracking_parameter_dict)
-#             tracking_param_update_event = manager.Event()
-#             tracking_process_stop_event = manager.Event()
-#             bar_drawer = BarDrawer(bar_file_path = bar_file_path)
-        
-#             mot = MOT(tracking_parameter_dict, thred_map = thred_map, missing_thred = 2)
-            
-#             # Creating processes for Core 2 and Core 3 tasks
-#             if mode == 'online':
-#                 packet_reader_process = Process(target=read_packets_online, args=(port,raw_data_queue,))
-#             elif mode == 'offline':
-#                 packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue,pcap_file_path,))
-
-#             tracking_prcess = Process(target=track_point_clouds, args=(tracking_process_stop_event,mot,point_cloud_queue,tracking_result_queue,tracking_parameter_dict,tracking_param_update_event,))
-#             packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
-#             packet_reader_process.start()
-#             packet_parser_process.start()
-#             tracking_prcess.start()
-#             traffic_stats_process = Process(target=count_traffic_stats, args=(tracking_result_queue,bar_drawer,os.path.join('./','output_files'),data_reporting_interval,))
-#             traffic_stats_process.start()
-            
-            
-#             # # Cleanup
-#             # packet_reader_process.terminate()
-#             # packet_parser_process.terminate()
-#             # tracking_prcess.terminate()
-#             # traffic_stats_process.terminate()
-            
-#             # packet_reader_process.join()
-#             # packet_parser_process.join()
-#             # tracking_prcess.join()
-#             # traffic_stats_process.join()
-
-#     except KeyboardInterrupt :
-#         packet_reader_process.terminate()
-#         packet_parser_process.terminate()
-#         tracking_prcess.terminate()
-#         traffic_stats_process.terminate()
-#         packet_reader_process.join()
-#         packet_parser_process.join()
-#         tracking_prcess.join()
-#         traffic_stats_process.join()
-
-# if __name__ == '__main__':
-#     # set_start_method("spawn")
-#     multiprocessing.set_start_method("spawn") 
-#     thred_map = np.load(r'./thred_map.npy')
-#     main(thred_map = thred_map, mode = 'online', bar_file_path = r'./bar.txt')
