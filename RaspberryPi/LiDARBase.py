@@ -383,12 +383,12 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     
                     point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
-                    if  background_point_copy_event is not None and background_point_copy_event.is_set():
+                    if  (background_point_copy_event is not None) & background_point_copy_event.is_set():
                         background_point_cloud_queue.put(Td_map[arg_omega,:])
 
                 else:
                     point_cloud_queue.put(Td_map) #32*1800
-                    if  background_point_copy_event is not None and background_point_copy_event.is_set():
+                    if  (background_point_copy_event is not None) & background_point_copy_event.is_set():
                         background_point_cloud_queue.put(Td_map)
 
                 culmulative_azimuth_values = []
