@@ -122,6 +122,7 @@ def clear_queue(queue):
 
 def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time):
     """Periodically generates a new background map and updates the tracking process."""
+    print("Background update process started...")
     while True:
         time.sleep(background_update_interval)
         background_point_copy_event.set()  # Copy point cloud data to background queue
