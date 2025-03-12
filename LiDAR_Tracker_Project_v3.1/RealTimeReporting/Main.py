@@ -156,9 +156,8 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         # Step 1: **Initial Background Data Generation**
         free_udp_port(port)
         print("Starting initial background data collection...")
-
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
-        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, background_point_cloud_queue,))
+        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue,point_cloud_queue,))
 
         packet_reader_process.start()
         packet_parser_process.start()
