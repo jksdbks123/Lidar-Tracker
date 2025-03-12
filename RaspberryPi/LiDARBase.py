@@ -326,7 +326,11 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
             # raw_packet = np.random.rand(20000,2) * 600  # Placeholder for actual packet data
                     raw_data_queue.put((ts,data))
 
-def read_packets_online(sock,raw_data_queue):    
+def read_packets_online(port,raw_data_queue):
+
+    sock = socket.socket(socket.AF_INET, # Internet
+                                socket.SOCK_DGRAM) # UDP
+    sock.bind(('', port))     
     while True:
         data,addr = sock.recvfrom(1206)
         raw_data_queue.put((time.time(),data))

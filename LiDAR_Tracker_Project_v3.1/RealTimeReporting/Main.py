@@ -16,9 +16,9 @@ root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 # Add Interface to sys.path
 sys.path.insert(0, root_path)
 print(sys.path)
-from Utils.LiDARBase import * 
+# from Utils.LiDARBase import * 
 from Utils.config import Config
-from RaspberryPi.LiDARBase import parse_packets,track_point_clouds
+from RaspberryPi.LiDARBase import parse_packets,track_point_clouds,read_packets_online
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 from RaspberryPi.GenBckFile import gen_bckmap
@@ -105,7 +105,6 @@ def read_packets_online(port,raw_data_queue):
                     socket.SOCK_DGRAM) # UDP
     sock.bind(('', port))     
     while True:
-        # print(raw_data_queue.qsize())
         data,addr = sock.recvfrom(1206)
         raw_data_queue.put_nowait((time.time(),data))
         
@@ -116,6 +115,8 @@ def clear_queue(queue):
             queue.get_nowait()
         except Exception:
             break  # In case of race conditions
+
+
 
 if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")

@@ -669,7 +669,7 @@ class LidarVisualizer:
             print('Tracking Terminated...')
         pygame.quit()
 
-def main(mode = 'online',pcap_file_path = None):
+def main(mode = 'online',pcap_file_path = None, port = 2368):
     # pcap_file_path = r'/Users/zhihiuchen/Documents/Data/2019-12-21-7-30-0.pcap'
     
     try:
@@ -685,7 +685,7 @@ def main(mode = 'online',pcap_file_path = None):
                 sock = socket.socket(socket.AF_INET, # Internet
                                 socket.SOCK_DGRAM) # UDP
                 sock.bind(('', 2368)) 
-                packet_reader_process = Process(target=read_packets_online, args=(sock,raw_data_queue,))
+                packet_reader_process = Process(target=read_packets_online, args=(port,raw_data_queue,))
             elif mode == 'offline':
                 packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue,pcap_file_path,))
 
