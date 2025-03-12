@@ -212,6 +212,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
+        
         packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
         tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
             tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,

@@ -355,8 +355,8 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     culmulative_azimuth_values.append(azimuth)
     culmulative_laser_ids.append(laser_id)
     culmulative_distances.append(distances)
-    if background_point_copy_event is not None:
-        print('aa',background_point_copy_event.is_set())
+    if background_point_copy_event is None:
+        print('aa')
             
     
     while True:
