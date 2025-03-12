@@ -143,8 +143,13 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
             thred_map_dict["thred_map"] = new_thred_map
             print("Updated thred_map in tracking process.")
 
-def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generating_time):
-    """Runs the processes including real-time tracking and periodic background updating."""
+def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generating_time = 60, background_update_interval = 60):
+    """
+    Runs the processes including real-time tracking and periodic background updating.
+    background_data_generating_time (sec): Time in seconds to generate a background map.
+    background_update_interval (sec): Time in seconds to update the background map.
+    
+    """
     try:
         # Step 1: **Initial Background Data Generation**
         free_udp_port(port)
@@ -215,7 +220,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         ))
 
         background_update_proc = multiprocessing.Process(target=background_update_process, args=(
-            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, 600  # Update every 10 minutes
+            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval  # Update every 10 minutes
         ))
 
         # Start processes
