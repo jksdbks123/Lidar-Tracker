@@ -135,13 +135,12 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
                 aggregated_maps.append(background_point_cloud_queue.get_nowait())
             except Exception:
                 break
-
+        print('Frames to generate background:',len(aggregated_maps))
         if aggregated_maps:
-            print('Frames to generate background:',len(aggregated_maps))
+            
             aggregated_maps = np.array(aggregated_maps)
             new_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
             print("Generated new background map!")
-
             # Update the shared thred_map safely
             thred_map_dict["thred_map"] = new_thred_map
             print("Updated thred_map in tracking process.")
