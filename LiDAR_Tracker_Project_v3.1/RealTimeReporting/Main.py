@@ -120,11 +120,13 @@ def clear_queue(queue):
         except Exception:
             break  # In case of race conditions
 
-def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, update_interval):
+def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time):
     """Periodically generates a new background map and updates the tracking process."""
     while True:
+        time.sleep(background_update_interval)
         background_point_copy_event.set()  # Copy point cloud data to background queue
-        time.sleep(update_interval)  # Wait for update interval (e.g., 10 minutes)
+        print("Listening for background data...")
+        time.sleep(background_data_generating_time)  # Wait for update interval (e.g., 10 minutes)
         background_point_copy_event.clear()  # Stop copying point cloud data
         print("Starting background update process...")
         aggregated_maps = []
@@ -135,6 +137,7 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
                 break
 
         if aggregated_maps:
+            print('Frames to generate background:',len(aggregated_maps))
             aggregated_maps = np.array(aggregated_maps)
             new_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
             print("Generated new background map!")
