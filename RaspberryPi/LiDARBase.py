@@ -345,6 +345,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     Td_map = np.zeros((32,1800))
     # Intens_map = np.zeros((32,1800))
     next_ts = 0
+    print('Parse Packet Process Started 111')
     ts,raw_packet = raw_data_queue.get()
     print('Parse Packet Process Started')
     distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
