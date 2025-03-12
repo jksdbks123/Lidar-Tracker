@@ -18,7 +18,7 @@ sys.path.insert(0, root_path)
 # rasp_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', r'RaspberryPi'))
 # Add Interface to sys.path
 # sys.path.insert(0, rasp_path)
-print(sys.path)
+# print(sys.path)
 from Utils.LiDARBase import *
 # from RaspberryPi.LiDARBase import * 
 from Utils.config import Config
@@ -120,50 +120,49 @@ def clear_queue(queue):
         except Exception:
             break  # In case of race conditions
 
+def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generating_time):
+    """Runs the processes in two phases: background data collection and real-time tracking."""
+    while True:
+        try:
+            # Step 1: **Background Data Generation**
+            free_udp_port(port)
+            print("Starting background data collection...")
 
+            packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
+            packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
 
-if __name__ == "__main__":
-    # multiprocessing.set_start_method("spawn")
-    bar_file_path = r'./bars.txt'
-    port = 2380
-    free_udp_port(2380)
-    mode = "online" 
-    data_reporting_interval = 1
-    background_data_generting_time = 60 # sec
-    
-    try:
-        with multiprocessing.Manager() as manager:
-            raw_data_queue = manager.Queue()
-            point_cloud_queue = manager.Queue()
-            packet_reader_process = Process(target=read_packets_online, args=(port, raw_data_queue,))
-            packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
             packet_reader_process.start()
             packet_parser_process.start()
-            time.sleep(background_data_generting_time)
+
+            time.sleep(background_data_generating_time)  # Run for defined time
+
+            # Terminate background processes
             packet_reader_process.terminate()
             packet_parser_process.terminate()
             packet_reader_process.join()
             packet_parser_process.join()
-            print(point_cloud_queue.qsize())
-            print(point_cloud_queue.empty())
+
+            # Process collected point cloud data
+            print("Processing background data...")
             aggregated_maps = []
             while not point_cloud_queue.empty():
                 try:
                     aggregated_maps.append(point_cloud_queue.get_nowait())
                 except Exception:
                     break
+
             aggregated_maps = np.array(aggregated_maps)
-            print("Generating bck...")
+            print("Generating background map...")
             thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
-            # Clear queues
+
+            # Clear queues instead of redefining them
             clear_queue(raw_data_queue)
             clear_queue(point_cloud_queue)
-            free_udp_port(2380)
-            print("Starting Monitoring...")
+            free_udp_port(port)
 
-            raw_data_queue = manager.Queue()
-            point_cloud_queue = manager.Queue()
-            tracking_result_queue = manager.Queue()
+            print("Starting real-time monitoring...")
+
+            # Step 2: **Real-Time Tracking**
             tracking_param_update_event = manager.Event()
             tracking_process_stop_event = manager.Event()
 
@@ -178,22 +177,17 @@ if __name__ == "__main__":
             mot = MOT(tracking_parameter_dict, thred_map=thred_map, missing_thred=2)
 
             # Creating processes
-            # if mode == "online":
-            packet_reader_process = Process(target=read_packets_online, args=(port, raw_data_queue,))
-            # else:  # mode == "offline"
-            #     packet_reader_process = Process(target=read_packets_offline, args=(raw_data_queue, pcap_file_path,))
-
-            packet_parser_process = Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
-            tracking_process = Process(target=track_point_clouds, args=(
+            packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
+            packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
+            tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
                 tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
                 tracking_parameter_dict, tracking_param_update_event
             ))
-            traffic_stats_process = Process(target=count_traffic_stats, args=(
+            traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
                 tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
             ))
 
-
-            # Start processes
+            # Start real-time processes
             packet_reader_process.start()
             packet_parser_process.start()
             tracking_process.start()
@@ -216,5 +210,22 @@ if __name__ == "__main__":
 
             print("Multiprocessing test complete!")
 
-    except Exception as e:
-        print("Error:", e)
+        except Exception as e:
+            print("Error:", e)
+
+if __name__ == "__main__":
+    # multiprocessing.set_start_method("spawn")
+    bar_file_path = r'./bars.txt'
+    port = 2380
+    free_udp_port(2380)
+    mode = "online" 
+    data_reporting_interval = 1
+    background_data_generting_time = 60 # sec
+    
+    with multiprocessing.Manager() as manager:
+        # Define queues **once** and reuse them
+        raw_data_queue = manager.Queue()
+        point_cloud_queue = manager.Queue()
+        tracking_result_queue = manager.Queue()
+
+        run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generting_time)
