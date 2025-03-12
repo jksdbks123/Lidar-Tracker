@@ -201,15 +201,12 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
                 except KeyboardInterrupt:
                     print("Shutting down processes...")
                     tracking_process_stop_event.set()  # Signal processes to stop cleanly
+                    # Cleanup
+                    for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
+                        proc.terminate()
+                        proc.join()
+                    print("Multiprocessing test complete!")
                     break
-
-            # Cleanup
-            for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
-                proc.terminate()
-                proc.join()
-
-            print("Multiprocessing test complete!")
-
         except Exception as e:
             print("Error:", e)
 
@@ -217,7 +214,6 @@ if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
     bar_file_path = r'./bars.txt'
     port = 2380
-    free_udp_port(2380)
     mode = "online" 
     data_reporting_interval = 1
     background_data_generting_time = 60 # sec
@@ -227,5 +223,4 @@ if __name__ == "__main__":
         raw_data_queue = manager.Queue()
         point_cloud_queue = manager.Queue()
         tracking_result_queue = manager.Queue()
-
         run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generting_time)
