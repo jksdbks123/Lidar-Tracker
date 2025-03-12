@@ -212,7 +212,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
-        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event))
+        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
         tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
             tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
             tracking_parameter_dict, tracking_param_update_event,background_update_event
@@ -220,9 +220,8 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
         ))
-
         background_update_proc = multiprocessing.Process(target=background_update_process, args=(
-            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval  # Update every 10 minutes
+            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,  # Update every 10 minutes
         ))
 
         # Start processes
