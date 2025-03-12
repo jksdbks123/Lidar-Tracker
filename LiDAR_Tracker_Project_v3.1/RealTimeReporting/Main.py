@@ -122,93 +122,101 @@ def clear_queue(queue):
 
 def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generating_time):
     """Runs the processes in two phases: background data collection and real-time tracking."""
-    while True:
-        try:
-            # Step 1: **Background Data Generation**
-            free_udp_port(port)
-            print("Starting background data collection...")
+    try:
+        # Step 1: **Background Data Generation**
+        free_udp_port(port)
+        print("Starting background data collection...")
 
-            packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
-            packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
+        packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
+        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
 
-            packet_reader_process.start()
-            packet_parser_process.start()
+        packet_reader_process.start()
+        packet_parser_process.start()
 
-            time.sleep(background_data_generating_time)  # Run for defined time
+        time.sleep(background_data_generating_time)  # Run for defined time
 
-            # Terminate background processes
-            packet_reader_process.terminate()
-            packet_parser_process.terminate()
-            packet_reader_process.join()
-            packet_parser_process.join()
+        # Terminate background processes
+        packet_reader_process.terminate()
+        packet_parser_process.terminate()
+        packet_reader_process.join()
+        packet_parser_process.join()
 
-            # Process collected point cloud data
-            print("Processing background data...")
-            aggregated_maps = []
-            while not point_cloud_queue.empty():
-                try:
-                    aggregated_maps.append(point_cloud_queue.get_nowait())
-                except Exception:
-                    break
+        # Process collected point cloud data
+        print("Processing background data...")
+        aggregated_maps = []
+        while not point_cloud_queue.empty():
+            try:
+                aggregated_maps.append(point_cloud_queue.get_nowait())
+            except Exception:
+                break
 
-            aggregated_maps = np.array(aggregated_maps)
-            print("Generating background map...")
-            thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
+        aggregated_maps = np.array(aggregated_maps)
+        print("Generating background map...")
+        thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
 
-            # Clear queues instead of redefining them
-            clear_queue(raw_data_queue)
-            clear_queue(point_cloud_queue)
-            free_udp_port(port)
+        # Clear queues instead of redefining them
+        clear_queue(raw_data_queue)
+        clear_queue(point_cloud_queue)
+        free_udp_port(port)
 
-            print("Starting real-time monitoring...")
+        print("Starting real-time monitoring...")
 
-            # Step 2: **Real-Time Tracking**
-            tracking_param_update_event = manager.Event()
-            tracking_process_stop_event = manager.Event()
+        # Step 2: **Real-Time Tracking**
+        tracking_param_update_event = manager.Event()
+        tracking_process_stop_event = manager.Event()
 
-            config = Config()
-            config.tracking_parameter_dict['win_size'] = [
-                config.tracking_parameter_dict['win_width'],
-                config.tracking_parameter_dict['win_height']
-            ]
-            tracking_parameter_dict = manager.dict(config.tracking_parameter_dict)
+        config = Config()
+        config.tracking_parameter_dict['win_size'] = [
+            config.tracking_parameter_dict['win_width'],
+            config.tracking_parameter_dict['win_height']
+        ]
+        tracking_parameter_dict = manager.dict(config.tracking_parameter_dict)
 
-            bar_drawer = BarDrawer(bar_file_path=bar_file_path)
-            mot = MOT(tracking_parameter_dict, thred_map=thred_map, missing_thred=2)
+        bar_drawer = BarDrawer(bar_file_path=bar_file_path)
+        mot = MOT(tracking_parameter_dict, thred_map=thred_map, missing_thred=2)
 
-            # Creating processes
-            packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
-            packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
-            tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
-                tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
-                tracking_parameter_dict, tracking_param_update_event
-            ))
-            traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
-                tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
-            ))
+        # Creating processes
+        packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
+        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
+        tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
+            tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
+            tracking_parameter_dict, tracking_param_update_event
+        ))
+        traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
+            tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
+        ))
 
-            # Start real-time processes
-            packet_reader_process.start()
-            packet_parser_process.start()
-            tracking_process.start()
-            traffic_stats_process.start()
-            print("Processes started!")
+        # Start real-time processes
+        packet_reader_process.start()
+        packet_parser_process.start()
+        tracking_process.start()
+        traffic_stats_process.start()
+        print("Processes started!")
 
-            # Wait for termination signal
-            while True:
-                try:
-                    pass  # Keep running
-                except KeyboardInterrupt:
-                    print("Shutting down processes...")
-                    tracking_process_stop_event.set()  # Signal processes to stop cleanly
-                    # Cleanup
-                    for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
-                        proc.terminate()
-                        proc.join()
-                    print("Multiprocessing test complete!")
-                    break
-        except Exception as e:
-            print("Error:", e)
+        # Wait for termination signal
+        while True:
+            try:
+                pass  # Keep running
+            except KeyboardInterrupt:
+                print("Shutting down processes...")
+                tracking_process_stop_event.set()  # Signal processes to stop cleanly
+                # Cleanup
+                for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
+                    proc.terminate()
+                    proc.join()
+                print("Multiprocessing test complete!")
+                break
+
+    except KeyboardInterrupt as e:
+        print(e)
+        print("Shutting down processes...")
+        tracking_process_stop_event.set()  # Signal processes to stop cleanly
+        # Cleanup
+        for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
+            proc.terminate()
+            proc.join()
+        print("Multiprocessing test complete!")
+        return
 
 if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
