@@ -62,7 +62,7 @@ raw_data_queue: UDP packets from LiDAR snesor
 LidarVisualizer.point_cloud_queue: parsed point cloud frames 
 """
 
-def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event, memory_clear_time = 20):
+def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, memory_clear_time = 20):
     start_tracking_time = time.time()
     while not stop_event.is_set():
         Td_map =  point_cloud_queue.get()
@@ -336,7 +336,7 @@ def read_packets_online(port,raw_data_queue):
         raw_data_queue.put((time.time(),data))
 
 # Function to parse packets into point cloud data (Simulating Core 3)
-def parse_packets(raw_data_queue, point_cloud_queue):
+def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
     
     culmulative_azimuth_values = []
     culmulative_laser_ids = []
@@ -379,9 +379,13 @@ def parse_packets(raw_data_queue, point_cloud_queue):
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     
                     point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
+                    if background_point_cloud_queue is not None and background_point_copy_event.is_set():
+                        background_point_cloud_queue.put(Td_map[arg_omega,:])
+
                 else:
-                    
                     point_cloud_queue.put(Td_map) #32*1800
+                    if background_point_cloud_queue is not None and background_point_copy_event.is_set():
+                        background_point_cloud_queue.put(Td_map)
 
                 culmulative_azimuth_values = []
                 culmulative_laser_ids = []
