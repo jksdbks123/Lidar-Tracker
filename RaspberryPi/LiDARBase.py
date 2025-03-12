@@ -380,6 +380,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     
                     point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
                     if background_point_cloud_queue is not None and background_point_copy_event.is_set():
+                        print('aa')
                         background_point_cloud_queue.put(Td_map[arg_omega,:])
 
                 else:
