@@ -120,12 +120,35 @@ def clear_queue(queue):
         except Exception:
             break  # In case of race conditions
 
+def background_update_process(thred_map_dict, tracking_param_update_event, point_cloud_queue, update_interval):
+    """Periodically generates a new background map and updates the tracking process."""
+    while True:
+        time.sleep(update_interval)  # Wait for update interval (e.g., 10 minutes)
+        
+        print("Starting background update process...")
+        aggregated_maps = []
+        while not point_cloud_queue.empty():
+            try:
+                aggregated_maps.append(point_cloud_queue.get_nowait())
+            except Exception:
+                break
+
+        if aggregated_maps:
+            aggregated_maps = np.array(aggregated_maps)
+            new_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
+            print("Generated new background map!")
+
+            # Update the shared thred_map safely
+            thred_map_dict["thred_map"] = new_thred_map
+            tracking_param_update_event.set()  # Notify tracking process
+            print("Updated thred_map in tracking process.")
+
 def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generating_time):
-    """Runs the processes in two phases: background data collection and real-time tracking."""
+    """Runs the processes including real-time tracking and periodic background updating."""
     try:
-        # Step 1: **Background Data Generation**
+        # Step 1: **Initial Background Data Generation**
         free_udp_port(port)
-        print("Starting background data collection...")
+        print("Starting initial background data collection...")
 
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
         packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
@@ -133,7 +156,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
         packet_reader_process.start()
         packet_parser_process.start()
 
-        time.sleep(background_data_generating_time)  # Run for defined time
+        time.sleep(background_data_generating_time)  # Initial background generation time
 
         # Terminate background processes
         packet_reader_process.terminate()
@@ -141,8 +164,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
         packet_reader_process.join()
         packet_parser_process.join()
 
-        # Process collected point cloud data
-        print("Processing background data...")
+        # Process collected point cloud data for initial background
         aggregated_maps = []
         while not point_cloud_queue.empty():
             try:
@@ -151,8 +173,8 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
                 break
 
         aggregated_maps = np.array(aggregated_maps)
-        print("Generating background map...")
-        thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
+        print("Generating initial background map...")
+        initial_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
 
         # Clear queues instead of redefining them
         clear_queue(raw_data_queue)
@@ -173,7 +195,11 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
         tracking_parameter_dict = manager.dict(config.tracking_parameter_dict)
 
         bar_drawer = BarDrawer(bar_file_path=bar_file_path)
-        mot = MOT(tracking_parameter_dict, thred_map=thred_map, missing_thred=2)
+
+        # Shared dictionary for thred_map updates
+        thred_map_dict = manager.dict({"thred_map": initial_thred_map})
+
+        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=2)
 
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
@@ -186,11 +212,17 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
         ))
 
-        # Start real-time processes
+        background_update_proc = multiprocessing.Process(target=background_update_process, args=(
+            thred_map_dict, tracking_param_update_event, point_cloud_queue, 600  # Update every 10 minutes
+        ))
+
+        # Start processes
         packet_reader_process.start()
         packet_parser_process.start()
         tracking_process.start()
         traffic_stats_process.start()
+        background_update_proc.start()
+        
         print("Processes started!")
 
         # Wait for termination signal
@@ -201,7 +233,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
                 print("Shutting down processes...")
                 tracking_process_stop_event.set()  # Signal processes to stop cleanly
                 # Cleanup
-                for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
+                for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process, background_update_proc]:
                     proc.terminate()
                     proc.join()
                 print("Multiprocessing test complete!")
@@ -212,11 +244,10 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, tracking_result_qu
         print("Shutting down processes...")
         tracking_process_stop_event.set()  # Signal processes to stop cleanly
         # Cleanup
-        for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
+        for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process, background_update_proc]:
             proc.terminate()
             proc.join()
         print("Multiprocessing test complete!")
-        return
 
 if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn")
