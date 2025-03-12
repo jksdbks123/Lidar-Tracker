@@ -126,10 +126,10 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
     while True:
         time.sleep(background_update_interval)
         background_point_copy_event.set()  # Copy point cloud data to background queue
-        print("Listening for background data...")
+        print(background_point_copy_event.is_set(),'a')
         time.sleep(background_data_generating_time)  # Wait for update interval (e.g., 10 minutes)
         background_point_copy_event.clear()  # Stop copying point cloud data
-        print("Starting background update process...")
+        print(background_point_copy_event.is_set(),'b')
         aggregated_maps = []
         while not background_point_cloud_queue.empty():
             try:
