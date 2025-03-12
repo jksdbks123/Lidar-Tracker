@@ -80,7 +80,6 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
                 for i in range(len(bar_drawer.line_counts)):
                     if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
                         cur_time = tracking_dic[obj_id].start_frame + len(tracking_dic[obj_id].mea_seq) - 1
-                        # print(f'Line {i} crossed by object {obj_id}, time: {cur_time}, last count time: {self.bar_drawer.last_count_ts[i]}, diff: {cur_time - self.bar_drawer.last_count_ts[i]}')
                         if cur_time - bar_drawer.last_count_ts[i] > 10:
                             bar_drawer.line_counts[i] += 1
                             bar_drawer.last_count_ts[i] = cur_time
