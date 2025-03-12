@@ -130,6 +130,7 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
         time.sleep(background_data_generating_time)  # Wait for update interval (e.g., 10 minutes)
         background_point_copy_event.clear()  # Stop copying point cloud data
         print(background_point_copy_event.is_set(),'b')
+        print('Length of background_point_cloud_queue:',background_point_cloud_queue.qsize())
         aggregated_maps = []
         while not background_point_cloud_queue.empty():
             try:
@@ -137,8 +138,7 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
             except Exception:
                 break
         print('Frames to generate background:',len(aggregated_maps))
-        if aggregated_maps:
-            
+        if len(aggregated_maps) > 0:
             aggregated_maps = np.array(aggregated_maps)
             new_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
             print("Generated new background map!")
@@ -253,7 +253,6 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         print("Shutting down processes...")
         tracking_process_stop_event.set()  # Signal processes to stop cleanly
         # Cleanup
-        # for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process, background_update_proc]:
         for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process,background_update_proc]:
             proc.terminate()
             proc.join()
