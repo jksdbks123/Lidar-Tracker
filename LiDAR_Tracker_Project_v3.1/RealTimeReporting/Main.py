@@ -158,7 +158,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         free_udp_port(port)
         print("Starting initial background data collection...")
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
-        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue,point_cloud_queue,))
+        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue,background_point_cloud_queue,))
 
         packet_reader_process.start()
         packet_parser_process.start()
@@ -173,9 +173,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Process collected point cloud data for initial background
         aggregated_maps = []
-        while not point_cloud_queue.empty():
+        while not background_point_cloud_queue.empty():
             try:
-                aggregated_maps.append(point_cloud_queue.get_nowait())
+                aggregated_maps.append(background_point_cloud_queue.get_nowait())
             except Exception:
                 break
 
@@ -185,7 +185,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Clear queues instead of redefining them
         clear_queue(raw_data_queue)
-        clear_queue(point_cloud_queue)
+        clear_queue(background_point_cloud_queue)
         free_udp_port(port)
 
         print("Starting real-time monitoring...")
@@ -214,7 +214,6 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
         
         packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
-        # packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,))
         tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
             tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
             tracking_parameter_dict, tracking_param_update_event,background_update_event
@@ -222,16 +221,16 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
         ))
-        # background_update_proc = multiprocessing.Process(target=background_update_process, args=(
-        #     thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,  # Update every 10 minutes
-        # ))
+        background_update_proc = multiprocessing.Process(target=background_update_process, args=(
+            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,  # Update every 10 minutes
+        ))
 
         # Start processes
         packet_reader_process.start()
         packet_parser_process.start()
         tracking_process.start()
         traffic_stats_process.start()
-        # background_update_proc.start()
+        background_update_proc.start()
         
         print("Processes started!")
         # Wait for termination signal
@@ -242,7 +241,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
                 print("Shutting down processes...")
                 tracking_process_stop_event.set()
                 # Cleanup
-                for proc in [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process]:
+                for proc in [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc]:
                     proc.terminate()
                     proc.join()
                 print("Multiprocessing test complete!")
@@ -255,7 +254,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         tracking_process_stop_event.set()  # Signal processes to stop cleanly
         # Cleanup
         # for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process, background_update_proc]:
-        for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process]:
+        for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process,background_update_proc]:
             proc.terminate()
             proc.join()
         print("Multiprocessing test complete!")
