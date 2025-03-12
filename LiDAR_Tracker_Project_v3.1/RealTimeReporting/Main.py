@@ -158,7 +158,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         free_udp_port(port)
         print("Starting initial background data collection...")
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
-        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue,background_point_cloud_queue,))
+        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue,point_cloud_queue,))
 
         packet_reader_process.start()
         packet_parser_process.start()
@@ -173,9 +173,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Process collected point cloud data for initial background
         aggregated_maps = []
-        while not background_point_cloud_queue.empty():
+        while not point_cloud_queue.empty():
             try:
-                aggregated_maps.append(background_point_cloud_queue.get_nowait())
+                aggregated_maps.append(point_cloud_queue.get_nowait())
             except Exception:
                 break
 
@@ -185,7 +185,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Clear queues instead of redefining them
         clear_queue(raw_data_queue)
-        clear_queue(background_point_cloud_queue)
+        clear_queue(point_cloud_queue)
         free_udp_port(port)
 
         print("Starting real-time monitoring...")
