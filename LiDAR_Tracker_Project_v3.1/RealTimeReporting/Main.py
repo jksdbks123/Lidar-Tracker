@@ -233,19 +233,6 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         
         print("Processes started!")
 
-        # Wait for termination signal
-        while True:
-            try:
-                pass  # Keep running
-            except KeyboardInterrupt:
-                print("Shutting down processes...")
-                tracking_process_stop_event.set()  # Signal processes to stop cleanly
-                # Cleanup
-                for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process, background_update_proc]:
-                    proc.terminate()
-                    proc.join()
-                print("Multiprocessing test complete!")
-                break
 
     except KeyboardInterrupt as e:
         print(e)
