@@ -1,7 +1,5 @@
 
 import multiprocessing
-
-from multiprocessing import Process
 import socket
 import sys
 import os
@@ -26,10 +24,9 @@ from RaspberryPi.LiDARBase import parse_packets,track_point_clouds,read_packets_
 from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 from RaspberryPi.GenBckFile import gen_bckmap
-
-
-
 import subprocess
+
+
 
 def free_udp_port(port):
     """Find and kill any process using a given UDP port."""
