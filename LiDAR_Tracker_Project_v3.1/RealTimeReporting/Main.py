@@ -35,12 +35,19 @@ def clear_queue(queue):
             break  # In case of race conditions
 
 def process_health_monitor(process_list, check_interval=5):
-    """Monitor the health of all processes and restart if necessary."""
+    """Monitor the health of all processes using their PIDs."""
+    pid_list = {proc.pid: proc.name for proc in process_list}
+
     while True:
         time.sleep(check_interval)
-        for proc in process_list:
-            if not proc.is_alive():
-                print(f"[ERROR] Process {proc.name} has died unexpectedly!")
+
+        for pid, name in pid_list.items():
+            try:
+                # Send signal 0 (does nothing but checks if process exists)
+                os.kill(pid, 0)
+            except OSError:
+                print(f"[ERROR] Process {name} (PID {pid}) has died unexpectedly!")
+
         print("[INFO] All processes checked. Running normally.")
 
 def queue_monitor_process(raw_data_queue, point_cloud_queue, tracking_result_queue, max_size=5000, check_interval=5):
