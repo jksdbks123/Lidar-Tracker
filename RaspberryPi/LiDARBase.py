@@ -330,15 +330,32 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
             # raw_packet = np.random.rand(20000,2) * 600  # Placeholder for actual packet data
                     raw_data_queue.put((ts,data))
 
-def read_packets_online(port,raw_data_queue):
+# def read_packets_online(port,raw_data_queue):
 
-    sock = socket.socket(socket.AF_INET, # Internet
-                                socket.SOCK_DGRAM) # UDP
-    sock.bind(('', port))     
+#     sock = socket.socket(socket.AF_INET, # Internet
+#                                 socket.SOCK_DGRAM) # UDP
+#     sock.bind(('', port))     
+#     while True:
+#         data,addr = sock.recvfrom(1206)
+#         raw_data_queue.put((time.time(),data))
+
+def read_packets_online(port, raw_data_queue, mode_dict):
+    """Continuously reads packets but behaves differently based on mode."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('', port))
+    sock.settimeout(5)  # Prevent indefinite blocking
+
     while True:
-        data,addr = sock.recvfrom(1206)
-        raw_data_queue.put((time.time(),data))
+        try:
+            data, addr = sock.recvfrom(2048)  # Receive data from LiDAR
+            print(f"[DEBUG] Received {len(data)} bytes from {addr}")
 
+            raw_data_queue.put(data)
+        except socket.timeout:
+            print("[WARNING] No data received in 5 seconds. LiDAR may have stopped sending.")
+        except Exception as e:
+            print(f"[ERROR] Socket error: {e}")
+            break  # Exit if an unrecoverable error occurs
 # Function to parse packets into point cloud data (Simulating Core 3)
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
     
