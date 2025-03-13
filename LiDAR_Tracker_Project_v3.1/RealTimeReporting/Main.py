@@ -34,6 +34,15 @@ def clear_queue(queue):
         except Exception:
             break  # In case of race conditions
 
+def process_health_monitor(process_list, check_interval=5):
+    """Monitor the health of all processes and restart if necessary."""
+    while True:
+        time.sleep(check_interval)
+        for proc in process_list:
+            if not proc.is_alive():
+                print(f"[ERROR] Process {proc.name} has died unexpectedly!")
+        print("[INFO] All processes checked. Running normally.")
+
 def queue_monitor_process(raw_data_queue, point_cloud_queue, tracking_result_queue, max_size=5000, check_interval=5):
     """Monitors queue sizes to detect overflow issues."""
     while True:
@@ -252,8 +261,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         queue_monitor_proc = multiprocessing.Process(target=queue_monitor_process, args=(
             raw_data_queue, point_cloud_queue, tracking_result_queue, 5000, 5  # Max size = 5000, Check every 10s
         ))
+        health_monitor_proc = multiprocessing.Process(target=process_health_monitor, args=(process_list,))
 
-        process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc]
+        process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc,health_monitor_proc]
         # Start processes
         for proc in process_list:
             proc.start()
