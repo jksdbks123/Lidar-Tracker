@@ -120,7 +120,7 @@ def clear_queue(queue):
         except Exception:
             break  # In case of race conditions
 
-def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time):
+def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time,background_update_event):
     """Periodically generates a new background map and updates the tracking process."""
     print("Background update process started...")
     while True:
@@ -145,6 +145,8 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
             # Update the shared thred_map safely
             thred_map_dict["thred_map"] = new_thred_map
             print("Updated thred_map in tracking process.")
+            background_update_event.set()  # Signal tracking process to update background map
+
 
 def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generating_time = 30, background_update_interval = 30):
     """
@@ -216,13 +218,13 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
         tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
             tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
-            tracking_parameter_dict, tracking_param_update_event,background_update_event
+            tracking_parameter_dict, tracking_param_update_event,background_update_event,thred_map_dict
         ))
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
         ))
         background_update_proc = multiprocessing.Process(target=background_update_process, args=(
-            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,  # Update every 10 minutes
+            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
         ))
 
         # Start processes
