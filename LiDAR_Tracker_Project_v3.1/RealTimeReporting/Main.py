@@ -266,7 +266,7 @@ if __name__ == "__main__":
     bar_file_path = r'./bars.txt'
     port = 2380
     mode = "online" 
-    data_reporting_interval = 1
+    data_reporting_interval = 5
     background_data_generting_time = 60 # sec
     background_update_interval = 60 # sec
     with multiprocessing.Manager() as manager:
