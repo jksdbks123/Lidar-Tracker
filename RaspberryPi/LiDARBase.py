@@ -81,7 +81,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                 tracking_param_update_event.clear()
             if background_update_event.is_set():
                 mot.thred_map = thred_map_dict['thred_map']
-                print(mot.thred_map.sum())
+                print(mot.thred_map.sum(), 'Bck Sum')
                 background_update_event.clear()
             time_a = time.time()
             mot.mot_tracking_step(Td_map)
