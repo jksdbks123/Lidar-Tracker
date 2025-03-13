@@ -26,7 +26,37 @@ from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 from RaspberryPi.GenBckFile import gen_bckmap
 import subprocess
 
+def clear_queue(queue):
+    """Clears all items in a multiprocessing queue."""
+    while not queue.empty():
+        try:
+            queue.get_nowait()
+        except Exception:
+            break  # In case of race conditions
 
+def queue_monitor_process(raw_data_queue, point_cloud_queue, tracking_result_queue, max_size=5000, check_interval=5):
+    """Monitors queue sizes to detect overflow issues."""
+    while True:
+        raw_size = raw_data_queue.qsize()
+        pc_size = point_cloud_queue.qsize()
+        track_size = tracking_result_queue.qsize()
+
+        print(f"[Queue Monitor] Raw Data: {raw_size}, Point Cloud: {pc_size}, Tracking: {track_size}")
+
+        # Detect potential overflow
+        if raw_size > max_size:
+            print(f"[WARNING] Raw data queue size {raw_size} exceeds {max_size}, clearing...")
+            clear_queue(raw_data_queue)
+
+        if pc_size > max_size:
+            print(f"[WARNING] Point cloud queue size {pc_size} exceeds {max_size}, clearing...")
+            clear_queue(point_cloud_queue)
+
+        if track_size > max_size:
+            print(f"[WARNING] Tracking result queue size {track_size} exceeds {max_size}, clearing...")
+            clear_queue(tracking_result_queue)
+
+        time.sleep(check_interval)
 
 def free_udp_port(port):
     """Find and kill any process using a given UDP port."""
@@ -108,14 +138,7 @@ def read_packets_online(port,raw_data_queue):
     while True:
         data,addr = sock.recvfrom(1206)
         raw_data_queue.put_nowait((time.time(),data))
-        
-def clear_queue(queue):
-    """Clears all items in a multiprocessing queue."""
-    while not queue.empty():
-        try:
-            queue.get_nowait()
-        except Exception:
-            break  # In case of race conditions
+    
 
 def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time,background_update_event):
     """Periodically generates a new background map and updates the tracking process."""
@@ -225,12 +248,19 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
             thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
         ))
 
+        # **Start Queue Monitoring Process**
+        queue_monitor_proc = multiprocessing.Process(target=queue_monitor_process, args=(
+            raw_data_queue, point_cloud_queue, tracking_result_queue, 5000, 5  # Max size = 5000, Check every 10s
+        ))
+
         # Start processes
         packet_reader_process.start()
         packet_parser_process.start()
         tracking_process.start()
         traffic_stats_process.start()
         background_update_proc.start()
+
+        
         
         print("Processes started!")
         # Wait for termination signal
@@ -246,7 +276,6 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
                     proc.join()
                 print("Multiprocessing test complete!")
                 break
-
 
     except KeyboardInterrupt as e:
         print(e)
