@@ -261,9 +261,10 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         queue_monitor_proc = multiprocessing.Process(target=queue_monitor_process, args=(
             raw_data_queue, point_cloud_queue, tracking_result_queue, 5000, 5  # Max size = 5000, Check every 10s
         ))
+        
+        process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc]
         health_monitor_proc = multiprocessing.Process(target=process_health_monitor, args=(process_list,))
-
-        process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc,health_monitor_proc]
+        health_monitor_proc.start()
         # Start processes
         for proc in process_list:
             proc.start()
