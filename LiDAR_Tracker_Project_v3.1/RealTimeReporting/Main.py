@@ -73,7 +73,7 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
         # print(f'Get tracking result at {cur_ts}')
         tracking_dic,Labeling_map,Td_map,tracking_cums,ts,bf_time, clustering_time, association_time = tracking_result_queue.get()
         # constant show the realtime tracking_cums
-        sys.stdout.write(f'\rData Processing Speed (sec): {clustering_time:.3f}, {bf_time:.3f}, {association_time:.3f}')
+        sys.stdout.write(f'\rData Processing Speed (ms): {clustering_time:.3f}, {bf_time:.3f}, {association_time:.3f}')
         sys.stdout.flush()
         # print(f'Get tracking result at {ts}')
         for obj_id in tracking_dic.keys():
@@ -266,12 +266,12 @@ if __name__ == "__main__":
     bar_file_path = r'./bars.txt'
     port = 2380
     mode = "online" 
-    data_reporting_interval = 5
+    data_reporting_interval = 5 # min
     background_data_generting_time = 60 # sec
     background_update_interval = 60 # sec
     with multiprocessing.Manager() as manager:
         # Define queues **once** and reuse them
-        raw_data_queue = manager.Queue()
+        raw_data_queue = manager.Queue(3000)
         point_cloud_queue = manager.Queue()
         tracking_result_queue = manager.Queue()
         background_point_cloud_queue = manager.Queue()
