@@ -122,29 +122,29 @@ def clear_queue(queue):
 
 def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time,background_update_event):
     """Periodically generates a new background map and updates the tracking process."""
-    print("Background update process started...")
+    # print("Background update process started...")
     while True:
         time.sleep(background_update_interval)
         background_point_copy_event.set()  # Copy point cloud data to background queue
-        print(background_point_copy_event.is_set(),'a')
+        # print(background_point_copy_event.is_set(),'a')
         time.sleep(background_data_generating_time)  # Wait for update interval (e.g., 10 minutes)
         background_point_copy_event.clear()  # Stop copying point cloud data
-        print(background_point_copy_event.is_set(),'b')
-        print('Length of background_point_cloud_queue:',background_point_cloud_queue.qsize())
+        # print(background_point_copy_event.is_set(),'b')
+        # print('Length of background_point_cloud_queue:',background_point_cloud_queue.qsize())
         aggregated_maps = []
         while not background_point_cloud_queue.empty():
             try:
                 aggregated_maps.append(background_point_cloud_queue.get_nowait())
             except Exception:
                 break
-        print('Frames to generate background:',len(aggregated_maps))
+        # print('Frames to generate background:',len(aggregated_maps))
         if len(aggregated_maps) > 0:
             aggregated_maps = np.array(aggregated_maps)
             new_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
-            print("Generated new background map!")
+            # print("Generated new background map!")
             # Update the shared thred_map safely
             thred_map_dict["thred_map"] = new_thred_map
-            print("Updated thred_map in tracking process.")
+            # print("Updated thred_map in tracking process.")
             background_update_event.set()  # Signal tracking process to update background map
 
 
@@ -158,7 +158,8 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
     try:
         # Step 1: **Initial Background Data Generation**
         free_udp_port(port)
-        print("Starting initial background data collection...")
+        # print("Starting initial background data collection...")
+
         packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
         packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue,background_point_cloud_queue,))
 
@@ -182,7 +183,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
                 break
 
         aggregated_maps = np.array(aggregated_maps)
-        print("Generating initial background map...")
+        # print("Generating initial background map...")
         initial_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
 
         # Clear queues instead of redefining them
@@ -190,7 +191,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         clear_queue(background_point_cloud_queue)
         free_udp_port(port)
 
-        print("Starting real-time monitoring...")
+        # print("Starting real-time monitoring...")
 
         # Step 2: **Real-Time Tracking**
         tracking_param_update_event = manager.Event()
