@@ -36,17 +36,29 @@ def clear_queue(queue):
 
 def process_health_monitor(process_list, check_interval=5):
     """Monitor the health of all processes using their PIDs."""
-    pid_list = {proc.pid: proc.name for proc in process_list}
+    
+    # Ensure we only track processes with valid PIDs
+    pid_list = {proc.pid: proc.name for proc in process_list if proc.pid is not None}
+
+    if not pid_list:
+        print("[ERROR] No valid process PIDs found! Health monitor exiting.")
+        return  # Exit if no processes to monitor
 
     while True:
         time.sleep(check_interval)
 
         for pid, name in pid_list.items():
+            if pid is None:
+                print(f"[WARNING] Process {name} has no valid PID. Skipping.")
+                continue
+
             try:
-                # Send signal 0 (does nothing but checks if process exists)
+                # Send signal 0 (checks if process exists)
                 os.kill(pid, 0)
-            except OSError:
+            except ProcessLookupError:
                 print(f"[ERROR] Process {name} (PID {pid}) has died unexpectedly!")
+            except Exception as e:
+                print(f"[ERROR] Unexpected issue checking {name} (PID {pid}): {e}")
 
         print("[INFO] All processes checked. Running normally.")
 
