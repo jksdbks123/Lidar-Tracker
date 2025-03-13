@@ -253,15 +253,11 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
             raw_data_queue, point_cloud_queue, tracking_result_queue, 5000, 5  # Max size = 5000, Check every 10s
         ))
 
+        process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc]
         # Start processes
-        packet_reader_process.start()
-        packet_parser_process.start()
-        tracking_process.start()
-        traffic_stats_process.start()
-        background_update_proc.start()
+        for proc in process_list:
+            proc.start()
 
-        
-        
         print("Processes started!")
         # Wait for termination signal
         while True:
@@ -271,7 +267,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
                 print("Shutting down processes...")
                 tracking_process_stop_event.set()
                 # Cleanup
-                for proc in [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc]:
+                for proc in process_list:
                     proc.terminate()
                     proc.join()
                 print("Multiprocessing test complete!")
@@ -282,7 +278,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         print("Shutting down processes...")
         tracking_process_stop_event.set()  # Signal processes to stop cleanly
         # Cleanup
-        for proc in [packet_reader_process, packet_parser_process, tracking_process, traffic_stats_process,background_update_proc]:
+        for proc in process_list:
             proc.terminate()
             proc.join()
         print("Multiprocessing test complete!")
