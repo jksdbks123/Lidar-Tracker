@@ -320,8 +320,8 @@ if __name__ == "__main__":
     port = 2380
     mode = "online" 
     data_reporting_interval = 5 # min
-    background_data_generting_time = 600 # sec
-    background_update_interval = 180 # sec
+    background_data_generting_time = 150 # sec
+    background_update_interval = 360 # sec
     with multiprocessing.Manager() as manager:
         # Define queues **once** and reuse them
         raw_data_queue = manager.Queue(3000)
