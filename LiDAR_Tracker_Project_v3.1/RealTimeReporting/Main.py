@@ -158,14 +158,6 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
                     bar_drawer.line_counts[i] = 0
             reporting_ts += data_reporting_interval * 60
             cur_ts = ts
-
-def read_packets_online(port,raw_data_queue):
-    sock = socket.socket(socket.AF_INET, # Internet
-                    socket.SOCK_DGRAM) # UDP
-    sock.bind(('', port))     
-    while True:
-        data,addr = sock.recvfrom(1206)
-        raw_data_queue.put_nowait((time.time(),data))
     
 
 def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time,background_update_event):
