@@ -348,8 +348,7 @@ def read_packets_online(port, raw_data_queue):
     while True:
         try:
             data, addr = sock.recvfrom(2048)  # Receive data from LiDAR
-            print(f"[DEBUG] Received {len(data)} bytes from {addr}")
-
+            # print(f"[DEBUG] Received {len(data)} bytes from {addr}")
             raw_data_queue.put(data)
         except socket.timeout:
             print("[WARNING] No data received in 5 seconds. LiDAR may have stopped sending.")
