@@ -6,7 +6,7 @@ import os
 from sklearn.cluster import DBSCAN
 import numpy as np
 import time
-
+import socket
 
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
