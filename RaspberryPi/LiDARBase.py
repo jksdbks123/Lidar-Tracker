@@ -339,7 +339,7 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
 #         data,addr = sock.recvfrom(1206)
 #         raw_data_queue.put((time.time(),data))
 
-def read_packets_online(port, raw_data_queue, mode_dict):
+def read_packets_online(port, raw_data_queue):
     """Continuously reads packets but behaves differently based on mode."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('', port))
