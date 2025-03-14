@@ -316,8 +316,8 @@ if __name__ == "__main__":
     background_update_interval = 360 # sec
     with multiprocessing.Manager() as manager:
         # Define queues **once** and reuse them
-        raw_data_queue = manager.Queue(3000)
+        raw_data_queue = manager.Queue()
         point_cloud_queue = manager.Queue()
-        tracking_result_queue = manager.Queue()
+        tracking_result_queue = manager.Queue(18000)
         background_point_cloud_queue = manager.Queue()
         run_processes(manager, raw_data_queue, point_cloud_queue, background_point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generting_time,background_update_interval)
