@@ -89,8 +89,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             Labeling_map = mot.cur_Labeling_map
             # timely clear memory
             if (time_b - start_tracking_time) > memory_clear_time:
-                 mot.Off_tracking_pool = {}
-                 mot.Tracking_pool = {}
+                 mot.Off_tracking_pool.clear()
+                #  mot.Tracking_pool = {}
                  mot.Global_id = 0
                  start_tracking_time = time.time()
                  print('Memory Cleared at {}'.format(start_tracking_time))

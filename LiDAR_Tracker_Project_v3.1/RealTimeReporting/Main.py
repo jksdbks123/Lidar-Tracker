@@ -133,13 +133,13 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
         # print(f'Get tracking result at {ts}')
         for obj_id in tracking_dic.keys():
             # counting function
-            if len(tracking_dic[obj_id].post_seq) > 7:
-                prev_pos = tracking_dic[obj_id].post_seq[-6][0].flatten()[:2]
+            if len(tracking_dic[obj_id].post_seq) > 4:
+                prev_pos = tracking_dic[obj_id].post_seq[-3][0].flatten()[:2]
                 curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
                 for i in range(len(bar_drawer.line_counts)):
                     if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
                         cur_time = tracking_dic[obj_id].start_frame + len(tracking_dic[obj_id].mea_seq) - 1
-                        if cur_time - bar_drawer.last_count_ts[i] > 10:
+                        if cur_time - bar_drawer.last_count_ts[i] > 5:
                             bar_drawer.line_counts[i] += 1
                             bar_drawer.last_count_ts[i] = cur_time
                         break
@@ -317,7 +317,7 @@ if __name__ == "__main__":
     with multiprocessing.Manager() as manager:
         # Define queues **once** and reuse them
         raw_data_queue = manager.Queue()
-        point_cloud_queue = manager.Queue(100)
-        tracking_result_queue = manager.Queue()
+        point_cloud_queue = manager.Queue()
+        tracking_result_queue = manager.Queue(100)
         background_point_cloud_queue = manager.Queue()
         run_processes(manager, raw_data_queue, point_cloud_queue, background_point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generting_time,background_update_interval)
