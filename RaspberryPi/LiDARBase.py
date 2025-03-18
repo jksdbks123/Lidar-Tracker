@@ -7,6 +7,7 @@ from sklearn.cluster import DBSCAN
 import numpy as np
 import time
 import socket
+import gc
 
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
@@ -90,6 +91,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             # timely clear memory
             if (time_b - start_tracking_time) > memory_clear_time:
                  mot.Off_tracking_pool.clear()
+                 gc.collect()
                 #  mot.Tracking_pool = {}
                  mot.Global_id = 0
                  start_tracking_time = time.time()
