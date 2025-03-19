@@ -91,6 +91,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             # timely clear memory
             if (time_b - start_tracking_time) > memory_clear_time:
                  mot.Off_tracking_pool.clear()
+                 mot.Tracking_pool.clear() 
                  gc.collect()
                  mot.Global_id = 0
                  start_tracking_time = time.time()
