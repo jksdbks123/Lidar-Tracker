@@ -74,7 +74,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             mot.initialization(Td_map)
             time_b = time.time()
             Tracking_pool = mot.Tracking_pool
-            Labeling_map = mot.cur_Labeling_map
+            # Labeling_map = mot.cur_Labeling_map
             
         else:
             if tracking_param_update_event.is_set():
@@ -92,7 +92,6 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             if (time_b - start_tracking_time) > memory_clear_time:
                  mot.Off_tracking_pool.clear()
                  gc.collect()
-                #  mot.Tracking_pool = {}
                  mot.Global_id = 0
                  start_tracking_time = time.time()
                  print('Memory Cleared at {}'.format(start_tracking_time))

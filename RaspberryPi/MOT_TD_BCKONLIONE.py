@@ -116,9 +116,9 @@ class MOT():
         time_b = time.time()
         Labeling_map = self.db.fit_predict(Td_map= Td_map,Foreground_map=Foreground_map)
         time_c = time.time() 
-            # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
-            # app: n x 1 x 7 x 1
-            # first repr point refers to the one with lower azimuth id 
+        # m: n x 2 x 2 x 1 (n objects , 2 repr point, x and y, 1 col )
+        # app: n x 1 x 7 x 1
+        # first repr point refers to the one with lower azimuth id 
         mea_next,app_next,unique_label_next,Labeling_map = extract_xy(Labeling_map,Td_map)
         
         if len(glb_ids) >0: # we have tracklets in current pool
@@ -192,9 +192,9 @@ class MOT():
         time_d = time.time()
         self.cur_Labeling_map = Labeling_map
         self.Td_map_cur = Td_map
-        self.clustering_time = (time_c - time_b)*1000
-        self.bf_time = (time_b - time_a)*1000
-        self.association_time = (time_d - time_c)*1000
+        self.clustering_time = (time_c - time_b) * 1000
+        self.bf_time = (time_b - time_a) * 1000
+        self.association_time = (time_d - time_c) * 1000
         self.CurFrame += 1
         
         # print('Frame:',self.CurFrame)
