@@ -96,7 +96,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  start_tracking_time = time.time()
                  print('Memory Cleared at {}'.format(start_tracking_time))
             
-        result_queue.put((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,time_b - time_a, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
+        result_queue.put((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
 
     print('Terminated tracking process')
 

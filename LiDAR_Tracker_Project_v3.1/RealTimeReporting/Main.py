@@ -238,13 +238,23 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         tracking_process_stop_event = manager.Event()
         background_update_event = manager.Event()
         background_point_copy_event = manager.Event() # copy point cloud from end of parsing process to background_point_cloud_queue
-
-        config = Config()
-        config.tracking_parameter_dict['win_size'] = [
-            config.tracking_parameter_dict['win_width'],
-            config.tracking_parameter_dict['win_height']
+        tracking_parameter_dict = {
+        'win_width': 11,
+        'win_height': 7,
+        'eps': 1.2,
+        'min_samples': 10,
+        'missing_thred': 5,
+        'bck_radius': 0.2,
+        'N' : 10,
+        'd_thred' : 0.1,
+        "bck_n" : 3
+    }
+        # config = Config()
+        tracking_parameter_dict['win_size'] = [
+            tracking_parameter_dict['win_width'],
+            tracking_parameter_dict['win_height']
         ]
-        tracking_parameter_dict = manager.dict(config.tracking_parameter_dict)
+        tracking_parameter_dict = manager.dict(tracking_parameter_dict)
 
         bar_drawer = BarDrawer(bar_file_path=bar_file_path)
 
