@@ -73,7 +73,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             time_a = time.time()
             mot.initialization(Td_map)
             time_b = time.time()
-            Tracking_pool = mot.Tracking_pool
+            # Tracking_pool = mot.Tracking_pool
             # Labeling_map = mot.cur_Labeling_map
             
         else:
@@ -86,8 +86,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
             time_a = time.time()
             mot.mot_tracking_step(Td_map)
             time_b = time.time()
-            Tracking_pool = mot.Tracking_pool
-            Labeling_map = mot.cur_Labeling_map
+            # Tracking_pool = mot.Tracking_pool
+            # Labeling_map = mot.cur_Labeling_map
             # timely clear memory
             if (time_b - start_tracking_time) > memory_clear_time:
                  mot.Off_tracking_pool.clear()
@@ -96,7 +96,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  start_tracking_time = time.time()
                  print('Memory Cleared at {}'.format(start_tracking_time))
             
-        result_queue.put((Tracking_pool,Labeling_map,Td_map,time_b - time_a, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
+        result_queue.put((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,time_b - time_a, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
 
     print('Terminated tracking process')
 
