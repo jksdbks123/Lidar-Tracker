@@ -97,7 +97,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  start_tracking_time = time.time()
                  print('Memory Cleared at {}'.format(start_tracking_time))
             
-        result_queue.put((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
+        result_queue.put_nowait((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
 
     print('Terminated tracking process')
 
@@ -351,7 +351,7 @@ def read_packets_online(port, raw_data_queue):
         try:
             data, addr = sock.recvfrom(2048)  # Receive data from LiDAR
             # print(f"[DEBUG] Received {len(data)} bytes from {addr}")
-            raw_data_queue.put((time.time(),data))
+            raw_data_queue.put_nowait((time.time(),data))
         except socket.timeout:
             print("[WARNING] No data received in 5 seconds. LiDAR may have stopped sending.")
         except Exception as e:
@@ -401,16 +401,16 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     
-                    point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
+                    point_cloud_queue.put_nowait(Td_map[arg_omega,:]) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
-                            background_point_cloud_queue.put(Td_map[arg_omega,:])
+                            background_point_cloud_queue.put_nowait(Td_map[arg_omega,:])
 
                 else:
-                    point_cloud_queue.put(Td_map) #32*1800
+                    point_cloud_queue.put_nowait(Td_map) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
-                            background_point_cloud_queue.put(Td_map)
+                            background_point_cloud_queue.put_nowait(Td_map)
 
 
                 culmulative_azimuth_values = []
