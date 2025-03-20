@@ -62,7 +62,7 @@ def process_health_monitor(process_list, check_interval=5):
 
         print("[INFO] All processes checked. Running normally.")
 
-def queue_monitor_process(raw_data_queue, point_cloud_queue, tracking_result_queue, max_size=5000, check_interval=5):
+def queue_monitor_process(raw_data_queue, point_cloud_queue, tracking_result_queue, max_size=100, check_interval=5):
     """Monitors queue sizes to detect overflow issues."""
     while True:
         raw_size = raw_data_queue.qsize()
@@ -328,6 +328,6 @@ if __name__ == "__main__":
         # Define queues **once** and reuse them
         raw_data_queue = manager.Queue()
         point_cloud_queue = manager.Queue()
-        tracking_result_queue = manager.Queue(100)
+        tracking_result_queue = manager.Queue()
         background_point_cloud_queue = manager.Queue()
         run_processes(manager, raw_data_queue, point_cloud_queue, background_point_cloud_queue, tracking_result_queue, port, bar_file_path, data_reporting_interval, background_data_generting_time,background_update_interval)
