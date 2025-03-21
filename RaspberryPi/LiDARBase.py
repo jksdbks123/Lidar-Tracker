@@ -8,6 +8,8 @@ import numpy as np
 import time
 import socket
 import gc
+from Utils import line_segments_intersect
+
 
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
