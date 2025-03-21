@@ -8,7 +8,6 @@ import numpy as np
 import time
 import socket
 import gc
-from Utils import line_segments_intersect
 
 
 np.random.seed(412)
