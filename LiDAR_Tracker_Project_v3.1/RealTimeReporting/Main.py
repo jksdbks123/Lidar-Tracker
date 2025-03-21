@@ -262,22 +262,22 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=2)
 
         # Creating processes
-        packet_reader_process = multiprocessing.Process(target=read_packets_online, args=(port, raw_data_queue,))
+        packet_reader_process = multiprocessing.Process(target=read_packets_online, name= 'ReadPacket', args=(port, raw_data_queue,))
         
-        packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
-        tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
+        packet_parser_process = multiprocessing.Process(target=parse_packets, name= 'ParsePacket', args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
+        tracking_process = multiprocessing.Process(target=track_point_clouds,name= 'Tracking', args=(
             tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
             tracking_parameter_dict, tracking_param_update_event,background_update_event,thred_map_dict,bar_drawer
         ))
-        traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
+        traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
         ))
-        background_update_proc = multiprocessing.Process(target=background_update_process, args=(
+        background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
             thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
         ))
 
         # **Start Queue Monitoring Process**
-        queue_monitor_proc = multiprocessing.Process(target=queue_monitor_process, args=(
+        queue_monitor_proc = multiprocessing.Process(target=queue_monitor_process, name= 'QueueMonitor', args=(
             raw_data_queue, point_cloud_queue, tracking_result_queue, 5000, 5  # Max size = 5000, Check every 10s
         ))
         
@@ -286,7 +286,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         # Start processes
         for proc in process_list:
             proc.start()
-        health_monitor_proc = multiprocessing.Process(target=process_health_monitor, args=(process_list,))
+        health_monitor_proc = multiprocessing.Process(target=process_health_monitor, name= 'HealthMonitor' , args=(process_list,))
         health_monitor_proc.start()
         print("Processes started!")
         # Wait for termination signal
