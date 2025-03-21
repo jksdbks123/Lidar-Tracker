@@ -282,12 +282,12 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         ))
         
         process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc]
-        health_monitor_proc = multiprocessing.Process(target=process_health_monitor, args=(process_list,))
-        health_monitor_proc.start()
+        
         # Start processes
         for proc in process_list:
             proc.start()
-
+        health_monitor_proc = multiprocessing.Process(target=process_health_monitor, args=(process_list,))
+        health_monitor_proc.start()
         print("Processes started!")
         # Wait for termination signal
         while True:
