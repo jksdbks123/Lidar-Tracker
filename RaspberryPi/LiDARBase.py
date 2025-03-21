@@ -119,6 +119,9 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  start_tracking_time = time.time()
                  print('Memory Cleared at {}'.format(start_tracking_time))
             tracking_dic = mot.Tracking_pool
+            # constant show the realtime tracking_cums
+            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}')
+            sys.stdout.flush()
             for obj_id in tracking_dic.keys():
                 # counting function
                 if len(tracking_dic[obj_id].post_seq) > 4:
