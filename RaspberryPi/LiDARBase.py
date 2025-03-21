@@ -87,59 +87,61 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
 
 def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,bar_drawer,memory_clear_time = 10):
     start_tracking_time = time.time()
-    while not stop_event.is_set():
-        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: A')
-        sys.stdout.flush()
-        Td_map =  point_cloud_queue.get()
-        # some steps
-        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: B')
-        sys.stdout.flush()
-        if not mot.if_initialized:
-            time_a = time.time()
-            mot.initialization(Td_map)
-            time_b = time.time()
-            # Tracking_pool = mot.Tracking_pool
-            # Labeling_map = mot.cur_Labeling_map
-        else:
-            if tracking_param_update_event.is_set():
-                mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
-                tracking_param_update_event.clear()
-            if background_update_event.is_set():
-                mot.thred_map = thred_map_dict['thred_map']
-                background_update_event.clear()
-            time_a = time.time()
-            mot.mot_tracking_step(Td_map)
-            time_b = time.time()
-            # Tracking_pool = mot.Tracking_pool
-            # Labeling_map = mot.cur_Labeling_map
-            # timely clear memory
-            if (time_b - start_tracking_time) > memory_clear_time:
-                 mot.Off_tracking_pool.clear()
-                 mot.Tracking_pool.clear() 
-                 gc.collect()
-                 mot.Global_id = 0
-                 start_tracking_time = time.time()
-                 print('Memory Cleared at {}'.format(start_tracking_time))
-            tracking_dic = mot.Tracking_pool
-            # constant show the realtime tracking_cums
-            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: C')
+    try:
+        while not stop_event.is_set():
+            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: A')
             sys.stdout.flush()
-            for obj_id in tracking_dic.keys():
-                # counting function
-                if len(tracking_dic[obj_id].post_seq) > 4:
-                    prev_pos = tracking_dic[obj_id].post_seq[-3][0].flatten()[:2]
-                    curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
-                    for i in range(len(bar_drawer.line_counts)):
-                        if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
-                            cur_time = tracking_dic[obj_id].start_frame + len(tracking_dic[obj_id].mea_seq) - 1
-                            if cur_time - bar_drawer.last_count_ts[i] > 5:
-                                bar_drawer.line_counts[i] += 1
-                                bar_drawer.last_count_ts[i] = cur_time
-                            break
-            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: D')
+            Td_map =  point_cloud_queue.get()
+            # some steps
+            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: B')
             sys.stdout.flush()
-        # result_queue.put_nowait((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
-
+            if not mot.if_initialized:
+                time_a = time.time()
+                mot.initialization(Td_map)
+                time_b = time.time()
+                # Tracking_pool = mot.Tracking_pool
+                # Labeling_map = mot.cur_Labeling_map
+            else:
+                if tracking_param_update_event.is_set():
+                    mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
+                    tracking_param_update_event.clear()
+                if background_update_event.is_set():
+                    mot.thred_map = thred_map_dict['thred_map']
+                    background_update_event.clear()
+                time_a = time.time()
+                mot.mot_tracking_step(Td_map)
+                time_b = time.time()
+                # Tracking_pool = mot.Tracking_pool
+                # Labeling_map = mot.cur_Labeling_map
+                # timely clear memory
+                if (time_b - start_tracking_time) > memory_clear_time:
+                    mot.Off_tracking_pool.clear()
+                    mot.Tracking_pool.clear() 
+                    gc.collect()
+                    mot.Global_id = 0
+                    start_tracking_time = time.time()
+                    print('Memory Cleared at {}'.format(start_tracking_time))
+                tracking_dic = mot.Tracking_pool
+                # constant show the realtime tracking_cums
+                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: C')
+                sys.stdout.flush()
+                for obj_id in tracking_dic.keys():
+                    # counting function
+                    if len(tracking_dic[obj_id].post_seq) > 4:
+                        prev_pos = tracking_dic[obj_id].post_seq[-3][0].flatten()[:2]
+                        curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
+                        for i in range(len(bar_drawer.line_counts)):
+                            if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
+                                cur_time = tracking_dic[obj_id].start_frame + len(tracking_dic[obj_id].mea_seq) - 1
+                                if cur_time - bar_drawer.last_count_ts[i] > 5:
+                                    bar_drawer.line_counts[i] += 1
+                                    bar_drawer.last_count_ts[i] = cur_time
+                                break
+                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: D')
+                sys.stdout.flush()
+            # result_queue.put_nowait((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
+    except Exception as ex:
+        print(str(ex), 'Error in tracking process')
     print('Terminated tracking process')
 
 def load_pcap(file_path):
@@ -383,6 +385,7 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
 #         raw_data_queue.put((time.time(),data))
 
 def read_packets_online(port, raw_data_queue):
+    
     """Continuously reads packets but behaves differently based on mode."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('', port))
@@ -398,7 +401,7 @@ def read_packets_online(port, raw_data_queue):
         except Exception as e:
             print(f"[ERROR] Socket error: {e}")
             break  # Exit if an unrecoverable error occurs
-# Function to parse packets into point cloud data (Simulating Core 3)
+    
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
     
     culmulative_azimuth_values = []

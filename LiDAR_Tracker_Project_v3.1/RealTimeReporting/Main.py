@@ -169,8 +169,6 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
         # print(background_point_copy_event.is_set(),'a')
         time.sleep(background_data_generating_time)  # Wait for update interval (e.g., 10 minutes)
         background_point_copy_event.clear()  # Stop copying point cloud data
-        # print(background_point_copy_event.is_set(),'b')
-        # print('Length of background_point_cloud_queue:',background_point_cloud_queue.qsize())
         aggregated_maps = []
         while not background_point_cloud_queue.empty():
             try:
@@ -184,7 +182,7 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
             # print("Generated new background map!")
             # Update the shared thred_map safely
             thred_map_dict["thred_map"] = new_thred_map
-            # print("Updated thred_map in tracking process.")
+            print("Updated thred_map in tracking process.")
             background_update_event.set()  # Signal tracking process to update background map
 
 
@@ -313,6 +311,8 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         for proc in process_list:
             proc.terminate()
             proc.join()
+        health_monitor_proc.terminate()
+        health_monitor_proc.join()
         print("Multiprocessing test complete!")
 
 if __name__ == "__main__":
