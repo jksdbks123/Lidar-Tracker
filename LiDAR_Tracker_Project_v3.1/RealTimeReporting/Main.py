@@ -269,7 +269,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         packet_parser_process = multiprocessing.Process(target=parse_packets, args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
         tracking_process = multiprocessing.Process(target=track_point_clouds, args=(
             tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
-            tracking_parameter_dict, tracking_param_update_event,background_update_event,thred_map_dict
+            tracking_parameter_dict, tracking_param_update_event,background_update_event,thred_map_dict,bar_drawer
         ))
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats, args=(
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
