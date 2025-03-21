@@ -124,7 +124,9 @@ def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_re
     reporting_ts = cur_ts + data_reporting_interval * 60
     print(f'Reporting at {reporting_ts}')
     print(len(bar_drawer.line_counts))
-    # while True:
+    while True:
+        time.sleep(1)
+        pass
     #     # print(f'Get tracking result at {cur_ts}')
     #     tracking_dic,Labeling_map,Td_map,tracking_cums,ts,bf_time, clustering_time, association_time = tracking_result_queue.get()
     #     # constant show the realtime tracking_cums
