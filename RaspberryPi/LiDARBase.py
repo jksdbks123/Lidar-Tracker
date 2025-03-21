@@ -88,16 +88,18 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
 def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,bar_drawer,memory_clear_time = 10):
     start_tracking_time = time.time()
     while not stop_event.is_set():
+        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: A')
+        sys.stdout.flush()
         Td_map =  point_cloud_queue.get()
         # some steps
-        
+        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: B')
+        sys.stdout.flush()
         if not mot.if_initialized:
             time_a = time.time()
             mot.initialization(Td_map)
             time_b = time.time()
             # Tracking_pool = mot.Tracking_pool
             # Labeling_map = mot.cur_Labeling_map
-            
         else:
             if tracking_param_update_event.is_set():
                 mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
@@ -120,7 +122,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                  print('Memory Cleared at {}'.format(start_tracking_time))
             tracking_dic = mot.Tracking_pool
             # constant show the realtime tracking_cums
-            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}')
+            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: C')
             sys.stdout.flush()
             for obj_id in tracking_dic.keys():
                 # counting function
@@ -134,7 +136,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                                 bar_drawer.line_counts[i] += 1
                                 bar_drawer.last_count_ts[i] = cur_time
                             break
-            
+            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: D')
+            sys.stdout.flush()
         # result_queue.put_nowait((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
 
     print('Terminated tracking process')
