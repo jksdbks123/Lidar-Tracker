@@ -39,7 +39,7 @@ def process_health_monitor(process_list, check_interval=5):
     
     # Ensure we only track processes with valid PIDs
     pid_list = {proc.pid: proc.name for proc in process_list if proc.pid is not None}
-
+    print(f"[INFO] Monitoring {len(pid_list)} processes: {pid_list}")
     if not pid_list:
         print("[ERROR] No valid process PIDs found! Health monitor exiting.")
         return  # Exit if no processes to monitor
@@ -313,6 +313,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
             proc.join()
         health_monitor_proc.terminate()
         health_monitor_proc.join()
+        
         print("Multiprocessing test complete!")
 
 if __name__ == "__main__":
