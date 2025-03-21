@@ -88,11 +88,11 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
 def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,bar_drawer,memory_clear_time = 10):
     start_tracking_time = time.time()
     while not stop_event.is_set():
-        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{len(tracking_dic.keys()):.1f}, stage: A')
+        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: A')
         sys.stdout.flush()
         Td_map =  point_cloud_queue.get()
         # some steps
-        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{len(tracking_dic.keys()):.1f}, stage: B')
+        sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: B')
         sys.stdout.flush()
         if not mot.if_initialized:
             time_a = time.time()
