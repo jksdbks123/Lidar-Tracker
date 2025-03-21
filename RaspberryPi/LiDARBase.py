@@ -384,23 +384,51 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
 #         data,addr = sock.recvfrom(1206)
 #         raw_data_queue.put((time.time(),data))
 
-def read_packets_online(port, raw_data_queue):
+# def read_packets_online(port, raw_data_queue):
     
-    """Continuously reads packets but behaves differently based on mode."""
+#     """Continuously reads packets but behaves differently based on mode."""
+#     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#     sock.bind(('', port))
+#     sock.settimeout(5)  # Prevent indefinite blocking
+
+#     while True:
+#         try:
+#             data, addr = sock.recvfrom(2048)  # Receive data from LiDAR
+#             # print(f"[DEBUG] Received {len(data)} bytes from {addr}")
+#             raw_data_queue.put_nowait((time.time(),data))
+#         except socket.timeout:
+#             print("[WARNING] No data received in 5 seconds. LiDAR may have stopped sending.")
+#         except Exception as e:
+#             print(f"[ERROR] Socket error: {e}")
+#             break  # Exit if an unrecoverable error occurs
+def read_packets_online(port, raw_data_queue):
+    """Continuously reads packets and logs receiving rate every 5 seconds."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('', port))
-    sock.settimeout(5)  # Prevent indefinite blocking
+    sock.settimeout(1)  # Shorter timeout allows more responsive counting
+
+    packet_count = 0
+    interval_start = time.time()
 
     while True:
         try:
-            data, addr = sock.recvfrom(2048)  # Receive data from LiDAR
-            # print(f"[DEBUG] Received {len(data)} bytes from {addr}")
-            raw_data_queue.put_nowait((time.time(),data))
+            data, addr = sock.recvfrom(2048)
+            raw_data_queue.put_nowait((time.time(), data))
+            packet_count += 1
         except socket.timeout:
-            print("[WARNING] No data received in 5 seconds. LiDAR may have stopped sending.")
+            # Not an error, just no data for 1 second
+            pass
         except Exception as e:
             print(f"[ERROR] Socket error: {e}")
-            break  # Exit if an unrecoverable error occurs
+            break
+
+        # Every 5 seconds, print the packet rate
+        if time.time() - interval_start >= 5:
+            print(f"[INFO] Received {packet_count} packets in the last 5 seconds.")
+            if packet_count == 0:
+                print("[WARNING] No packets received! Possible sensor failure or network issue.")
+            packet_count = 0
+            interval_start = time.time()
     
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
     
