@@ -63,6 +63,27 @@ arg_omega = np.argsort(omega)
 raw_data_queue: UDP packets from LiDAR snesor 
 LidarVisualizer.point_cloud_queue: parsed point cloud frames 
 """
+def ccw(A, B, C):
+        return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+def intersect_angle(A,B,C,D):
+    vec_1 = np.array(A) - np.array(B)
+    vec_2 = np.array(C) - np.array(D)
+    norm_1 = np.linalg.norm(vec_1)
+    norm_2 = np.linalg.norm(vec_2)
+    if norm_1 == 0 or norm_2 == 0:
+        return False
+    cos_theta = np.dot(vec_1,vec_2) / (norm_1 * norm_2)
+    # if almost vertical, then return true
+    if np.abs(cos_theta) < 0.4: 
+        return True
+    return False
+
+def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
+    # seg : (x,y)
+    """Returns True if line segments seg1 and seg2 intersect."""
+    flag_1 = ccw(seg1_start, seg2_start, seg2_end) != ccw(seg1_end, seg2_start, seg2_end) and ccw(seg1_start, seg1_end, seg2_start) != ccw(seg1_start, seg1_end, seg2_end)
+    flag_2 = intersect_angle(seg1_start,seg1_end,seg2_start,seg2_end)
+    return flag_1 & flag_2
 
 def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,bar_drawer,memory_clear_time = 10):
     start_tracking_time = time.time()
