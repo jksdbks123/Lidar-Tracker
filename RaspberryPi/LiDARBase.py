@@ -119,14 +119,13 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
     start_tracking_time = time.time()
     try:
         while not stop_event.is_set():
-            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: A')
-            sys.stdout.flush()
-
             # Td_map =  point_cloud_queue.get()
+            print("[Tracking] Waiting for new point cloud...")
             Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
+            print("[Tracking] Got point cloud, proceeding...")
+
             # some steps
-            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: B')
-            sys.stdout.flush()
+            
             if not mot.if_initialized:
                 time_a = time.time()
                 mot.initialization(Td_map)
@@ -143,8 +142,6 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                 time_a = time.time()
                 mot.mot_tracking_step(Td_map)
                 time_b = time.time()
-                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: C')
-                sys.stdout.flush()
                 # Tracking_pool = mot.Tracking_pool
                 # Labeling_map = mot.cur_Labeling_map
                 # timely clear memory
@@ -157,8 +154,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                     print('Memory Cleared at {}'.format(start_tracking_time))
                 tracking_dic = mot.Tracking_pool
                 # constant show the realtime tracking_cums
-                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: D')
-                sys.stdout.flush()
+
                 for obj_id in tracking_dic.keys():
                     # counting function
                     if len(tracking_dic[obj_id].post_seq) > 4:
