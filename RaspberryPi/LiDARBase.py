@@ -111,6 +111,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                 time_a = time.time()
                 mot.mot_tracking_step(Td_map)
                 time_b = time.time()
+                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: C')
+                sys.stdout.flush()
                 # Tracking_pool = mot.Tracking_pool
                 # Labeling_map = mot.cur_Labeling_map
                 # timely clear memory
@@ -123,7 +125,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                     print('Memory Cleared at {}'.format(start_tracking_time))
                 tracking_dic = mot.Tracking_pool
                 # constant show the realtime tracking_cums
-                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: C')
+                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: D')
                 sys.stdout.flush()
                 for obj_id in tracking_dic.keys():
                     # counting function
@@ -137,7 +139,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                                     bar_drawer.line_counts[i] += 1
                                     bar_drawer.last_count_ts[i] = cur_time
                                 break
-                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: D')
+                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: E')
                 sys.stdout.flush()
             # result_queue.put_nowait((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
     except Exception as ex:
