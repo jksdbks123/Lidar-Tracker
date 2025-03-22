@@ -495,7 +495,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
             
             if Timestamp > next_ts:
-                
+                print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
                 if len(culmulative_azimuth_values) > 0:
                     
                     culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
@@ -520,6 +520,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     # point_cloud_queue.put(Td_map) #32*1800
                     safe_queue_put(point_cloud_queue, Td_map, timeout=0.5, queue_name="point_cloud_queue")
                     print("[Parsing] Put for new point cloud...")
+                    
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
                             # background_point_cloud_queue.put(Td_map,timeout = 0.5)
