@@ -415,7 +415,7 @@ def read_packets_online(port, raw_data_queue):
     while True:
         try:
             data, addr = sock.recvfrom(2048)
-            raw_data_queue.put_nowait((time.time(), data))
+            raw_data_queue.put((time.time(), data))
             packet_count += 1
         except socket.timeout:
             # Not an error, just no data for 1 second
@@ -475,16 +475,16 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     
-                    point_cloud_queue.put_nowait(Td_map[arg_omega,:]) #32*1800
+                    point_cloud_queue.put(Td_map[arg_omega,:]) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
-                            background_point_cloud_queue.put_nowait(Td_map[arg_omega,:])
+                            background_point_cloud_queue.put(Td_map[arg_omega,:])
 
                 else:
-                    point_cloud_queue.put_nowait(Td_map) #32*1800
+                    point_cloud_queue.put(Td_map) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
-                            background_point_cloud_queue.put_nowait(Td_map)
+                            background_point_cloud_queue.put(Td_map)
 
 
                 culmulative_azimuth_values = []
