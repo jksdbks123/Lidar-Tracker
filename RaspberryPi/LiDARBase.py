@@ -507,6 +507,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     safe_queue_put(point_cloud_queue, Td_map[arg_omega,:], timeout=0.5, queue_name="point_cloud_queue")
+                    print("[Parsing] Put for new point cloud...")
                     # point_cloud_queue.put(Td_map[arg_omega,:],timeout = 0.5) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
@@ -516,6 +517,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                 else:
                     # point_cloud_queue.put(Td_map) #32*1800
                     safe_queue_put(point_cloud_queue, Td_map, timeout=0.5, queue_name="point_cloud_queue")
+                    print("[Parsing] Put for new point cloud...")
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
                             # background_point_cloud_queue.put(Td_map,timeout = 0.5)
