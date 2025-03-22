@@ -8,7 +8,7 @@ import numpy as np
 import time
 import socket
 import gc
-
+from queue import Empty, Full  # Standard exceptions
 def safe_queue_get(q, timeout=5, default=None, queue_name="queue"):
     """
     Safely get an item from the queue with timeout.
