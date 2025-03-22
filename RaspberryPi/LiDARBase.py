@@ -408,7 +408,7 @@ def read_packets_online(port, raw_data_queue):
     sock.settimeout(1)  # Shorter timeout allows more responsive counting
 
     packet_count = 0
-    interval_start = time.time()
+    # interval_start = time.time()
 
     while True:
         try:
@@ -422,13 +422,13 @@ def read_packets_online(port, raw_data_queue):
             print(f"[ERROR] Socket error: {e}")
             break
 
-        # Every 5 seconds, print the packet rate
-        if time.time() - interval_start >= 5:
-            print(f"[INFO] Received {packet_count} packets in the last 5 seconds.")
-            if packet_count == 0:
-                print("[WARNING] No packets received! Possible sensor failure or network issue.")
-            packet_count = 0
-            interval_start = time.time()
+        # # Every 5 seconds, print the packet rate
+        # if time.time() - interval_start >= 5:
+        #     print(f"[INFO] Received {packet_count} packets in the last 5 seconds.")
+        #     if packet_count == 0:
+        #         print("[WARNING] No packets received! Possible sensor failure or network issue.")
+        #     packet_count = 0
+        #     interval_start = time.time()
     
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
     
