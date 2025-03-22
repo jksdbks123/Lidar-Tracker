@@ -9,7 +9,37 @@ import time
 import socket
 import gc
 
+def safe_queue_get(q, timeout=5, default=None, queue_name="queue"):
+    """
+    Safely get an item from the queue with timeout.
+    Returns `default` if queue is empty.
+    """
+    try:
+        item = q.get(timeout=timeout)
+        return item
+    except Empty:
+        print(f"[WARNING] {queue_name}: get() timed out after {timeout}s — queue is empty.")
+        return default
+    except Exception as e:
+        print(f"[ERROR] {queue_name}: unexpected exception during get(): {e}")
+        return default
 
+
+def safe_queue_put(q, item, timeout=5, queue_name="queue"):
+    """
+    Safely put an item into the queue with timeout.
+    Returns True if success, False if failed (queue full or error).
+    """
+    try:
+        q.put(item, timeout=timeout)
+        return True
+    except Full:
+        print(f"[WARNING] {queue_name}: put() timed out after {timeout}s — queue is full.")
+        return False
+    except Exception as e:
+        print(f"[ERROR] {queue_name}: unexpected exception during put(): {e}")
+        return False
+    
 np.random.seed(412)
 color_map = (np.random.random((100,3)) * 255).astype(int)
 color_map = np.concatenate([color_map,np.array([[255,255,255]]).astype(int)])
@@ -91,7 +121,9 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
         while not stop_event.is_set():
             sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: A')
             sys.stdout.flush()
-            Td_map =  point_cloud_queue.get()
+
+            # Td_map =  point_cloud_queue.get()
+            Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
             # some steps
             sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f}, stage: B')
             sys.stdout.flush()
@@ -403,6 +435,8 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
 #         except Exception as e:
 #             print(f"[ERROR] Socket error: {e}")
 #             break  # Exit if an unrecoverable error occurs
+
+    
 def read_packets_online(port, raw_data_queue):
     """Continuously reads packets and logs receiving rate every 5 seconds."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -415,7 +449,8 @@ def read_packets_online(port, raw_data_queue):
     while True:
         try:
             data, addr = sock.recvfrom(2048)
-            raw_data_queue.put((time.time(), data),timeout = 0.5)
+            safe_queue_put(raw_data_queue, (time.time(), data), timeout=0.5)
+            # raw_data_queue.put((time.time(), data),timeout = 0.5)
             packet_count += 1
         except socket.timeout:
             # Not an error, just no data for 1 second
@@ -442,7 +477,8 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     # Intens_map = np.zeros((32,1800))
     next_ts = 0
     print('Parse Packet Process Started 111')
-    ts,raw_packet = raw_data_queue.get()
+    ts,raw_packet = safe_queue_get(raw_data_queue, timeout=5, default=(0, None), queue_name="raw_data_queue")
+    # ts,raw_packet = raw_data_queue.get()
     print('Parse Packet Process Started')
     distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
     print(Timestamp)
@@ -454,7 +490,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     
     while True:
         while True:
-            ts,raw_packet = raw_data_queue.get()
+            ts,raw_packet = safe_queue_get(raw_data_queue, timeout=5, default=(0, None), queue_name="raw_data_queue")
             # Placeholder for parsing logic; here we just pass the data through
             distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
             # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
@@ -474,17 +510,20 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
 
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
-                    
-                    point_cloud_queue.put(Td_map[arg_omega,:],timeout = 0.5) #32*1800
+                    safe_queue_put(Td_map[arg_omega,:], Td_map, timeout=0.5, queue_name="point_cloud_queue")
+                    # point_cloud_queue.put(Td_map[arg_omega,:],timeout = 0.5) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
-                            background_point_cloud_queue.put(Td_map[arg_omega,:],timeout = 0.5)
+                            # background_point_cloud_queue.put(Td_map[arg_omega,:],timeout = 0.5)
+                            safe_queue_put(background_point_cloud_queue, Td_map[arg_omega,:], timeout=0.5, queue_name="background_point_cloud_queue")
 
                 else:
-                    point_cloud_queue.put(Td_map) #32*1800
+                    # point_cloud_queue.put(Td_map) #32*1800
+                    safe_queue_put(point_cloud_queue, Td_map, timeout=0.5, queue_name="point_cloud_queue")
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
-                            background_point_cloud_queue.put(Td_map,timeout = 0.5)
+                            # background_point_cloud_queue.put(Td_map,timeout = 0.5)
+                            safe_queue_put(background_point_cloud_queue, Td_map, timeout=0.5, queue_name="background_point_cloud_queue")
 
 
                 culmulative_azimuth_values = []

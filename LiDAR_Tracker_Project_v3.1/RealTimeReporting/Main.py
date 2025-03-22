@@ -25,7 +25,40 @@ from RaspberryPi.MOT_TD_BCKONLIONE import MOT
 from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 from RaspberryPi.GenBckFile import gen_bckmap
 import subprocess
+from queue import Empty, Full  # Standard exceptions
 
+
+def safe_queue_get(q, timeout=5, default=None, queue_name="queue"):
+    """
+    Safely get an item from the queue with timeout.
+    Returns `default` if queue is empty.
+    """
+    try:
+        item = q.get(timeout=timeout)
+        return item
+    except Empty:
+        print(f"[WARNING] {queue_name}: get() timed out after {timeout}s — queue is empty.")
+        return default
+    except Exception as e:
+        print(f"[ERROR] {queue_name}: unexpected exception during get(): {e}")
+        return default
+
+
+def safe_queue_put(q, item, timeout=5, queue_name="queue"):
+    """
+    Safely put an item into the queue with timeout.
+    Returns True if success, False if failed (queue full or error).
+    """
+    try:
+        q.put(item, timeout=timeout)
+        return True
+    except Full:
+        print(f"[WARNING] {queue_name}: put() timed out after {timeout}s — queue is full.")
+        return False
+    except Exception as e:
+        print(f"[ERROR] {queue_name}: unexpected exception during put(): {e}")
+        return False
+    
 def clear_queue(queue):
     """Clears all items in a multiprocessing queue."""
     while not queue.empty():
@@ -173,10 +206,9 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
         background_point_copy_event.clear()  # Stop copying point cloud data
         aggregated_maps = []
         while not background_point_cloud_queue.empty():
-            try:
-                aggregated_maps.append(background_point_cloud_queue.get_nowait())
-            except Exception:
-                break
+            Td_map = safe_queue_get(background_point_cloud_queue, default=None)
+            aggregated_maps.append(Td_map)
+            
         # print('Frames to generate background:',len(aggregated_maps))
         if len(aggregated_maps) > 0:
             aggregated_maps = np.array(aggregated_maps)
@@ -217,10 +249,8 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         # Process collected point cloud data for initial background
         aggregated_maps = []
         while not background_point_cloud_queue.empty():
-            try:
-                aggregated_maps.append(background_point_cloud_queue.get_nowait())
-            except Exception:
-                break
+            Td_map = safe_queue_get(background_point_cloud_queue, default=None)
+            aggregated_maps.append(Td_map)
 
         aggregated_maps = np.array(aggregated_maps)
         # print("Generating initial background map...")
