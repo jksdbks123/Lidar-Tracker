@@ -449,7 +449,7 @@ def read_packets_online(port, raw_data_queue):
     while True:
         try:
             data, addr = sock.recvfrom(2048)
-            safe_queue_put(raw_data_queue, (time.time(), data), timeout=0.5)
+            safe_queue_put(raw_data_queue, (time.time(), data), timeout=0.5, queue_name="raw_data_queue")
             # raw_data_queue.put((time.time(), data),timeout = 0.5)
             packet_count += 1
         except socket.timeout:
@@ -510,7 +510,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
 
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
-                    safe_queue_put(Td_map[arg_omega,:], Td_map, timeout=0.5, queue_name="point_cloud_queue")
+                    safe_queue_put(point_cloud_queue, Td_map[arg_omega,:], timeout=0.5, queue_name="point_cloud_queue")
                     # point_cloud_queue.put(Td_map[arg_omega,:],timeout = 0.5) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
