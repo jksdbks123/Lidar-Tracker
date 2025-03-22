@@ -167,8 +167,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                                     bar_drawer.line_counts[i] += 1
                                     bar_drawer.last_count_ts[i] = cur_time
                                 break
-                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: E')
-                sys.stdout.flush()
+                # sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: E')
+                # sys.stdout.flush()
             # result_queue.put_nowait((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
     except Exception as ex:
         print(str(ex), 'Error in tracking process')
@@ -472,10 +472,10 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     Td_map = np.zeros((32,1800))
     # Intens_map = np.zeros((32,1800))
     next_ts = 0
-    print('Parse Packet Process Started 111')
+    # print('Parse Packet Process Started 111')
     ts,raw_packet = safe_queue_get(raw_data_queue, timeout=5, default=(0, None), queue_name="raw_data_queue")
     # ts,raw_packet = raw_data_queue.get()
-    print('Parse Packet Process Started')
+    # print('Parse Packet Process Started')
     distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
     print(Timestamp)
     next_ts = Timestamp + 100000

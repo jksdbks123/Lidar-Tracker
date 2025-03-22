@@ -67,7 +67,7 @@ def clear_queue(queue):
         except Exception:
             break  # In case of race conditions
 
-def process_health_monitor(process_list, check_interval=5):
+def process_health_monitor(process_list, check_interval=20):
     """Monitor the health of all processes using their PIDs."""
     
     # Ensure we only track processes with valid PIDs
@@ -93,7 +93,7 @@ def process_health_monitor(process_list, check_interval=5):
             except Exception as e:
                 print(f"[ERROR] Unexpected issue checking {name} (PID {pid}): {e}")
 
-        print("[INFO] All processes checked. Running normally.")
+        # print("[INFO] All processes checked. Running normally.")
 
 def queue_monitor_process(raw_data_queue, point_cloud_queue, tracking_result_queue, max_size=100, check_interval=5):
     """Monitors queue sizes to detect overflow issues."""
