@@ -445,6 +445,7 @@ def read_packets_online(port, raw_data_queue):
     while True:
         try:
             data, addr = sock.recvfrom(2048)
+            print(f"[DEBUG] Received {len(data)} bytes from {addr}")
             safe_queue_put(raw_data_queue, (time.time(), data), timeout=0.5, queue_name="raw_data_queue")
             
             # raw_data_queue.put((time.time(), data),timeout = 0.5)
