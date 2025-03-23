@@ -495,7 +495,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
             distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
             # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
-            print(Timestamp, next_ts)
+            # print(Timestamp, next_ts)
             if Timestamp > next_ts:
                 # print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
                 if len(culmulative_azimuth_values) > 0:
