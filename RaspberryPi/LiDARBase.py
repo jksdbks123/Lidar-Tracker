@@ -439,19 +439,19 @@ def read_packets_online(port, raw_data_queue):
     sock.bind(('', port))
     sock.settimeout(1)  # Shorter timeout allows more responsive counting
 
-    packet_count = 0
+    # packet_count = 0
     # interval_start = time.time()
 
     while True:
         try:
             data, addr = sock.recvfrom(2048)
-            print(f"[DEBUG] Received {len(data)} bytes from {addr}")
+            # print(f"[DEBUG] Received {len(data)} bytes from {addr}")
             if len(data) != 1206:
                 print(f"[WARNING] Received packet of unexpected length: {len(data)} bytes.")
                 continue
             safe_queue_put(raw_data_queue, (time.time(), data), timeout=0.5, queue_name="raw_data_queue")
             # raw_data_queue.put((time.time(), data),timeout = 0.5)
-            packet_count += 1
+            # packet_count += 1
         except socket.timeout:
             # Not an error, just no data for 1 second
             pass
@@ -466,7 +466,27 @@ def read_packets_online(port, raw_data_queue):
         #         print("[WARNING] No packets received! Possible sensor failure or network issue.")
         #     packet_count = 0
         #     interval_start = time.time()
-    
+
+import csv
+
+class TimestampLogger:
+    def __init__(self, log_path="./timestamp_log.csv"):
+        self.log_path = log_path
+        self.first_time = time.time()
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+
+        with open(self.log_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["WallTime", "TimestampFromPacket", "ElapsedSinceStart(s)"])
+
+    def log(self, packet_timestamp):
+        now = time.time()
+        elapsed = now - self.first_time
+        with open(self.log_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([now, packet_timestamp, elapsed])
+
+
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
     
     culmulative_azimuth_values = []
@@ -487,16 +507,19 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     culmulative_azimuth_values.append(azimuth)
     culmulative_laser_ids.append(laser_id)
     culmulative_distances.append(distances)
-    
+    timestamp_logger = TimestampLogger(log_path="./logs/timestamp_log.csv")
+    os.makedirs("./logs", exist_ok=True)
     while True:
         while True:
             ts,raw_packet = safe_queue_get(raw_data_queue, timeout=5, default=(0, None), queue_name="raw_data_queue")
             # print("[Parsing] Get for new packets...")
             # Placeholder for parsing logic; here we just pass the data through
             distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
+            timestamp_logger.log(Timestamp)
             # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
             # print(Timestamp, next_ts)
+            
             if Timestamp > next_ts:
                 # print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
                 if len(culmulative_azimuth_values) > 0:
