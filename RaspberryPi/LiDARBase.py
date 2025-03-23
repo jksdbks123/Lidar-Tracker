@@ -120,9 +120,9 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
     try:
         while not stop_event.is_set():
             # Td_map =  point_cloud_queue.get()
-            print("[Tracking] Waiting for new point cloud...")
+            # print("[Tracking] Waiting for new point cloud...")
             Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
-            print("[Tracking] Got point cloud, proceeding...")
+            # print("[Tracking] Got point cloud, proceeding...")
 
             # some steps
             
@@ -167,8 +167,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,result_queue,tracking_pa
                                     bar_drawer.line_counts[i] += 1
                                     bar_drawer.last_count_ts[i] = cur_time
                                 break
-                # sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: E')
-                # sys.stdout.flush()
+                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},{len(tracking_dic.keys()):.1f}, stage: E')
+                sys.stdout.flush()
             # result_queue.put_nowait((mot.Tracking_pool,mot.cur_Labeling_map,Td_map,(time_b - time_a)*1000, time_b,mot.bf_time, mot.clustering_time, mot.association_time))
     except Exception as ex:
         print(str(ex), 'Error in tracking process')
@@ -445,9 +445,10 @@ def read_packets_online(port, raw_data_queue):
     while True:
         try:
             data, addr = sock.recvfrom(2048)
-            print(f"[DEBUG] Received {len(data)} bytes from {addr}")
+            if len(data) != 1206:
+                print(f"[WARNING] Received packet of unexpected length: {len(data)} bytes.")
+                continue
             safe_queue_put(raw_data_queue, (time.time(), data), timeout=0.5, queue_name="raw_data_queue")
-            
             # raw_data_queue.put((time.time(), data),timeout = 0.5)
             packet_count += 1
         except socket.timeout:
@@ -479,7 +480,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     # ts,raw_packet = raw_data_queue.get()
     # print('Parse Packet Process Started')
     distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
-    print(Timestamp)
+    # print(Timestamp)
     next_ts = Timestamp + 100000
     azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
     culmulative_azimuth_values.append(azimuth)
@@ -496,7 +497,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
             print(Timestamp, next_ts)
             if Timestamp > next_ts:
-                print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
+                # print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
                 if len(culmulative_azimuth_values) > 0:
                     
                     culmulative_azimuth_values = np.concatenate(culmulative_azimuth_values,axis = 1)
@@ -510,7 +511,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
                     safe_queue_put(point_cloud_queue, Td_map[arg_omega,:], timeout=0.5, queue_name="point_cloud_queue")
-                    print("[Parsing] Put for new point cloud...")
+                    # print("[Parsing] Put for new point cloud...")
                     # point_cloud_queue.put(Td_map[arg_omega,:],timeout = 0.5) #32*1800
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
@@ -520,7 +521,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                 else:
                     # point_cloud_queue.put(Td_map) #32*1800
                     safe_queue_put(point_cloud_queue, Td_map, timeout=0.5, queue_name="point_cloud_queue")
-                    print("[Parsing] Put for new point cloud...")
+                    # print("[Parsing] Put for new point cloud...")
                     
                     if  background_point_copy_event is not None:
                         if background_point_copy_event.is_set():
