@@ -486,23 +486,9 @@ class TimestampLogger:
             writer = csv.writer(f)
             writer.writerow([now, packet_timestamp, elapsed])
 
-class TimestampUnwrapper:
-    def __init__(self):
-        self.last_timestamp = None
-        self.rollover_count = 0
-        self.max_val = 2 ** 32
-
-    def unwrap(self, current_ts):
-        if self.last_timestamp is not None:
-            if current_ts < self.last_timestamp:
-                print(f"[TimestampUnwrapper] Rollover detected: {self.last_timestamp} → {current_ts}")
-                self.rollover_count += 1
-
-        self.last_timestamp = current_ts
-        return current_ts + self.rollover_count * self.max_val
-
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
-    timestamp_unwrapper = TimestampUnwrapper()
+    C_1 = 2**32
+    C_2 = 2**16
     culmulative_azimuth_values = []
     culmulative_laser_ids = []
     culmulative_distances = []
@@ -516,28 +502,32 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
     # print('Parse Packet Process Started')
     distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
     # print(Timestamp)
-    unwrapped_ts = timestamp_unwrapper.unwrap(Timestamp)
-
-    next_ts = unwrapped_ts + 100000
+    next_ts = Timestamp + 100_000
     azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
     culmulative_azimuth_values.append(azimuth)
     culmulative_laser_ids.append(laser_id)
     culmulative_distances.append(distances)
-    # timestamp_logger = TimestampLogger(log_path="./logs/timestamp_log.csv")
-    # os.makedirs("./logs", exist_ok=True)
+
     while True:
         while True:
             ts,raw_packet = safe_queue_get(raw_data_queue, timeout=5, default=(0, None), queue_name="raw_data_queue")
             # print("[Parsing] Get for new packets...")
             # Placeholder for parsing logic; here we just pass the data through
             distances,intensities,azimuth_per_block,Timestamp = parse_one_packet(raw_packet)
-            unwrapped_ts = timestamp_unwrapper.unwrap(Timestamp)
-            # timestamp_logger.log(Timestamp)
-            # flag = self.if_rollover(azimuth_per_block,Initial_azimuth)
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
             # print(Timestamp, next_ts)
-            
-            if unwrapped_ts > next_ts:
+            new_frame_flag = False
+            if Timestamp - next_ts > 100_000:
+                # it's a roll over
+                if Timestamp < C_1:
+                    if Timestamp > next_ts:
+                        print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
+                        new_frame_flag = True
+            else:
+                if Timestamp > next_ts:
+                    new_frame_flag = True
+
+            if new_frame_flag:
                 # print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
                 if len(culmulative_azimuth_values) > 0:
                     
@@ -577,7 +567,9 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
 
                 Td_map = np.zeros((32,1800))
                 # Intens_map = np.zeros((32,1800))
-                next_ts = unwrapped_ts + 100000
+                next_ts += 100_000
+                if next_ts > C_1:
+                    next_ts -= C_2
                 break
             else:
                 culmulative_azimuth_values.append(azimuth)
