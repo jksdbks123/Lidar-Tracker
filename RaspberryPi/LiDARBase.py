@@ -488,7 +488,7 @@ class TimestampLogger:
 
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
     C_1 = 2**32
-    C_2 = 2**16
+    C_2 = C_1/2
     culmulative_azimuth_values = []
     culmulative_laser_ids = []
     culmulative_distances = []
@@ -517,9 +517,10 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
             azimuth = calc_precise_azimuth(azimuth_per_block) # 32 x 12
             # print(Timestamp, next_ts)
             new_frame_flag = False
+            
             if Timestamp - next_ts > 100_000:
                 # it's a roll over
-                if Timestamp < C_1:
+                if Timestamp < C_2:
                     if Timestamp > next_ts:
                         print(f"[Parsing] packet timestamp{Timestamp} next_ts{next_ts} diff{Timestamp - next_ts}")
                         new_frame_flag = True
