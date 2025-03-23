@@ -304,17 +304,17 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
         ))
-        # background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
-        #     thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
-        # ))
+        background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
+            thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
+        ))
 
         # **Start Queue Monitoring Process**
         queue_monitor_proc = multiprocessing.Process(target=queue_monitor_process, name= 'QueueMonitor', args=(
             raw_data_queue, point_cloud_queue, tracking_result_queue, 5000, 5  # Max size = 5000, Check every 10s
         ))
         
-        # process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc]
-        process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process,queue_monitor_proc]
+        process_list = [tracking_process, traffic_stats_process, packet_reader_process, packet_parser_process, background_update_proc,queue_monitor_proc]
+        
         # Start processes
         for proc in process_list:
             proc.start()
