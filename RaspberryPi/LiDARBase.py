@@ -487,8 +487,8 @@ class TimestampLogger:
             writer.writerow([now, packet_timestamp, elapsed])
 
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
-    C_1 = 2**32
-    C_2 = C_1/2
+    C_1 = 3599999999
+    C_2 = C_1 / 2
     culmulative_azimuth_values = []
     culmulative_laser_ids = []
     culmulative_distances = []
