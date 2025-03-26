@@ -487,8 +487,8 @@ class TimestampLogger:
             writer.writerow([now, packet_timestamp, elapsed])
 
 def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue = None, background_point_copy_event = None):
-    C_1 = 3599999999
-    C_2 = C_1 / 2
+    C_1 = np.int64(3599999999)
+    C_2 = np.int64(C_1 / 2)
     culmulative_azimuth_values = []
     culmulative_laser_ids = []
     culmulative_distances = []
@@ -518,7 +518,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
             # print(Timestamp, next_ts)
             new_frame_flag = False
             
-            if Timestamp - next_ts > 100_000:
+            if np.int64(Timestamp) - np.int64(next_ts) > np.int64(100_000):
                 # it's a roll over
                 if Timestamp < C_2:
                     if Timestamp > next_ts:
@@ -570,7 +570,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                 # Intens_map = np.zeros((32,1800))
                 next_ts += 100_000
                 if next_ts > C_1:
-                    next_ts -= C_2
+                    next_ts -= C_1
                 break
             else:
                 culmulative_azimuth_values.append(azimuth)
