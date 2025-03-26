@@ -146,55 +146,59 @@ def free_udp_port(port):
         print(f"❌ Error freeing port {port}: {e}")
         return False
 
-def report_results(tracking_result_queue):
-    pass
-
-"""
-This program is to report volumn counts in real-time trend
-"""
-def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,output_file_dir,data_reporting_interval = 5):
+def report_results(tracking_result_queue,output_file_dir):
+    """
+    This function is used to constantly report the tracking results and save them to a file.
+    Logic: as long as tracking_result_queue is not empty, keep reporting and saving the results.
+    """
     if not os.path.exists(output_file_dir):
         os.makedirs(output_file_dir)
     cur_ts = time.time()
     reporting_ts = cur_ts + data_reporting_interval * 60
     print(f'Reporting at {reporting_ts}')
-    print(len(bar_drawer.line_counts))
+    # print(len(bar_drawer.line_counts))
     while True:
-        time.sleep(1)
-        pass
-    #     # print(f'Get tracking result at {cur_ts}')
-    #     tracking_dic,Labeling_map,Td_map,tracking_cums,ts,bf_time, clustering_time, association_time = tracking_result_queue.get()
-    #     # constant show the realtime tracking_cums
-    #     sys.stdout.write(f'\rData Processing Speed (ms): {clustering_time:.3f}, {bf_time:.3f}, {association_time:.3f},{tracking_cums:.3f},{len(tracking_dic.keys()):.1f}')
-    #     sys.stdout.flush()
-    #     # print(f'Get tracking result at {ts}')
-    #     for obj_id in tracking_dic.keys():
-    #         # counting function
-    #         if len(tracking_dic[obj_id].post_seq) > 4:
-    #             prev_pos = tracking_dic[obj_id].post_seq[-3][0].flatten()[:2]
-    #             curr_pos = tracking_dic[obj_id].post_seq[-1][0].flatten()[:2]
-    #             for i in range(len(bar_drawer.line_counts)):
-    #                 if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
-    #                     cur_time = tracking_dic[obj_id].start_frame + len(tracking_dic[obj_id].mea_seq) - 1
-    #                     if cur_time - bar_drawer.last_count_ts[i] > 5:
-    #                         bar_drawer.line_counts[i] += 1
-    #                         bar_drawer.last_count_ts[i] = cur_time
-    #                     break
+        cur_ts_str = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(cur_ts))
+        output_path = os.path.join(output_file_dir,cur_ts_str + '.txt')
         
-    #     if ts >= reporting_ts:
-    #         print(f'Reporting at {ts}')
-    #         # print(f'Line counts: {bar_drawer.line_counts}')
-    #         # convert cur_ts to datetime string
-    #         cur_ts_str = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(cur_ts))
-    #         output_path = os.path.join(output_file_dir,cur_ts_str + '.txt')
-            
-    #         with open(output_path, 'w') as f:
-    #             for i in range(len(bar_drawer.line_counts)):
-    #                 print(f'Line {i}: {bar_drawer.line_counts[i]}')
-    #                 f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
-    #                 bar_drawer.line_counts[i] = 0
-    #         reporting_ts += data_reporting_interval * 60
-    #         cur_ts = ts
+        with open(output_path, 'w') as f:
+            for i in range(len(bar_drawer.line_counts)):
+                print(f'Line {i}: {bar_drawer.line_counts[i]}')
+                f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
+                bar_drawer.line_counts[i] = 0
+    pass
+
+"""
+This program is to report volumn counts in real-time trend
+"""
+def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,data_update_interval = 5):
+    cur_ts = time.time()
+    update_ts = cur_ts + data_update_interval * 60
+    while True:
+        
+        for obj_id in tracking_pool_dict.keys():
+            # counting function
+            if len(tracking_pool_dict[obj_id].post_seq) > 4:
+                prev_pos = tracking_pool_dict[obj_id].post_seq[-3][0].flatten()[:2]
+                curr_pos = tracking_pool_dict[obj_id].post_seq[-1][0].flatten()[:2]
+                for i in range(len(bar_drawer.line_counts)):
+                    if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
+                        cur_time = tracking_pool_dict[obj_id].start_frame + len(tracking_pool_dict[obj_id].mea_seq) - 1
+                        if cur_time - bar_drawer.last_count_ts[i] > 5:
+                            bar_drawer.line_counts[i] += 1
+                            bar_drawer.last_count_ts[i] = cur_time
+                        break
+        report_dict = {'counting_res':{},'time':cur_ts}
+        for i in range(len(bar_drawer.line_counts)):
+            report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
+        safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
+        if cur_ts >= update_ts:
+            print(f'Update at {cur_ts}')
+            for i in range(len(bar_drawer.line_counts)):
+                print(f'Line {i}: {bar_drawer.line_counts[i]}')
+                bar_drawer.line_counts[i] = 0
+            cur_ts = time.time()
+            update_ts = cur_ts + data_update_interval * 60
     
 
 def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time,background_update_event):
@@ -301,8 +305,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         
         packet_parser_process = multiprocessing.Process(target=parse_packets, name= 'ParsePacket', args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
         tracking_process = multiprocessing.Process(target=track_point_clouds,name= 'Tracking', args=(
-            tracking_process_stop_event, mot, point_cloud_queue, tracking_result_queue,
-            tracking_parameter_dict, tracking_param_update_event,background_update_event,thred_map_dict,bar_drawer
+            tracking_process_stop_event, mot, point_cloud_queue,
+            tracking_parameter_dict, tracking_param_update_event,
+            background_update_event,thred_map_dict,bar_drawer
         ))
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
             tracking_result_queue, bar_drawer, os.path.join("./", "output_files"), data_reporting_interval
