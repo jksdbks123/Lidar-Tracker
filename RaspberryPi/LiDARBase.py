@@ -538,7 +538,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                     culmulative_distances = np.concatenate(culmulative_distances,axis = 1).flatten()
                     # culmulative_intensities = np.concatenate(culmulative_intensities,axis = 1).flatten()
                     culmulative_azimuth_inds = np.around(culmulative_azimuth_values/0.2).astype('int').flatten()
-                    culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)] = culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)]%1799
+                    culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)] = culmulative_azimuth_inds[(culmulative_azimuth_inds<0)|(culmulative_azimuth_inds>1799)] % 1799
 
                     Td_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_distances
                     # Intens_map[culmulative_laser_ids,culmulative_azimuth_inds] = culmulative_intensities
@@ -568,7 +568,7 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
 
                 Td_map = np.zeros((32,1800))
                 # Intens_map = np.zeros((32,1800))
-                next_ts += 100_000
+                next_ts += np.int64(100_000) 
                 if next_ts > C_1:
                     next_ts -= C_1
                 break

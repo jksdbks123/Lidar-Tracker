@@ -23,7 +23,7 @@ Once some objects are detected, just forward.
 """
 
 class MOT():
-    def __init__(self,tracking_parameter_dict, thred_map, missing_thred):
+    def __init__(self,tracking_parameter_dict, thred_map, missing_thred, Tracking_pool = None, Off_tracking_pool = None):
         """
         background_update_time : background update time (sec)
         """
@@ -42,8 +42,17 @@ class MOT():
         self.thred_map = thred_map     
         self.start_timestamp = 0    
         ###
-        self.Tracking_pool = {}
-        self.Off_tracking_pool = {}
+        self.Tracking_pool = None
+        self.Off_tracking_pool = None
+        if Tracking_pool is not None:
+            self.Tracking_pool = Tracking_pool
+        else:
+            self.Tracking_pool = {}
+        if Off_tracking_pool is not None:
+            self.Off_tracking_pool = Off_tracking_pool
+        else:
+            self.Off_tracking_pool = {}
+        
         self.Global_id = 0
         self.CurFrame = 0
         self.cur_mea = None

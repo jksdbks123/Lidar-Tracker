@@ -146,11 +146,13 @@ def free_udp_port(port):
         print(f"❌ Error freeing port {port}: {e}")
         return False
 
+def report_results(tracking_result_queue):
+    pass
 
 """
 This program is to report volumn counts in real-time trend
 """
-def count_traffic_stats(tracking_result_queue,bar_drawer,output_file_dir,data_reporting_interval = 5):
+def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,output_file_dir,data_reporting_interval = 5):
     if not os.path.exists(output_file_dir):
         os.makedirs(output_file_dir)
     cur_ts = time.time()
@@ -290,8 +292,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Shared dictionary for thred_map updates
         thred_map_dict = manager.dict({"thred_map": initial_thred_map})
-
-        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=2)
+        tracking_pool_dict = manager.dict({})
+        off_tracking_pool_dict = manager.dict({})
+        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10, Tracking_pool = tracking_pool_dict, Off_tracking_pool = off_tracking_pool_dict)
 
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, name= 'ReadPacket', args=(port, raw_data_queue,))
