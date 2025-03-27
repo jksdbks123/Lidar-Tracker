@@ -296,6 +296,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
             tracking_parameter_dict['win_width'],
             tracking_parameter_dict['win_height']
         ]
+        lock = Lock()
         tracking_parameter_dict = manager.dict(tracking_parameter_dict)
 
         bar_drawer = BarDrawer(bar_file_path=bar_file_path)
@@ -314,9 +315,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         tracking_process = multiprocessing.Process(target=track_point_clouds,name= 'Tracking', args=(
             tracking_process_stop_event, mot, point_cloud_queue,
             tracking_parameter_dict, tracking_param_update_event,
-            background_update_event,thred_map_dict,bar_drawer,
+            background_update_event,thred_map_dict,bar_drawer,lock
         ))
-        lock = Lock()
+        
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
             tracking_result_queue, mot,bar_drawer, lock,data_reporting_interval
         ))
