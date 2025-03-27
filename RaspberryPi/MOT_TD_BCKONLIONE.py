@@ -106,6 +106,7 @@ class MOT():
             return False
         Td_map = Frame
         glb_ids,state_cur,app_cur,unique_label_cur,P_cur = [],[],[],[],[]
+        print(self.Tracking_pool.keys())
         for glb_id in self.Tracking_pool.keys():
             glb_ids.append(glb_id)
             P_cur.append(self.Tracking_pool[glb_id].P)
