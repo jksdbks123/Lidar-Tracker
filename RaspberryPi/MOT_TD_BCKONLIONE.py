@@ -130,7 +130,7 @@ class MOT():
         # app: n x 1 x 7 x 1
         # first repr point refers to the one with lower azimuth id 
         mea_next,app_next,unique_label_next,Labeling_map = extract_xy(Labeling_map,Td_map)
-        time_d = time.time()
+        
         if len(glb_ids) >0: # we have tracklets in current pool
              
              state_cur_,P_cur_ = state_predict(A,Q,state_cur,P_cur) 
@@ -199,7 +199,7 @@ class MOT():
                     create_new_detection(self.Tracking_pool,self.Global_id,P_init,state_init,
                                             app_next[n_id],unique_label_next[n_id],mea_next[n_id],self.CurFrame)
                     self.Global_id += 1
-        
+        time_d = time.time()
         self.cur_Labeling_map = Labeling_map
         self.Td_map_cur = Td_map
         self.clustering_time = (time_c - time_b) * 1000
