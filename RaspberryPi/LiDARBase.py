@@ -119,7 +119,7 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
 #             tracking_parameter_dict, tracking_param_update_event,
 #             background_update_event,thred_map_dict,bar_drawer
 
-def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,lock, memory_clear_time = 10):
+def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict, tracking_pool_update_event,memory_clear_time = 10):
     start_tracking_time = time.time()
     # try:
     while not stop_event.is_set():
@@ -130,8 +130,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
         
         if not mot.if_initialized:
             time_a = time.time()
-            with lock:
-                mot.initialization(Td_map)
+            mot.initialization(Td_map)
             time_b = time.time()
         else:
             if tracking_param_update_event.is_set():
@@ -141,8 +140,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                 mot.thred_map = thred_map_dict['thred_map']
                 background_update_event.clear()
             time_a = time.time()
-            with lock:
-                mot.mot_tracking_step(Td_map)
+            mot.mot_tracking_step(Td_map)
             time_b = time.time()
             # timely clear memory
             # if (time_b - start_tracking_time) > memory_clear_time:
