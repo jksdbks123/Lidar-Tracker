@@ -561,32 +561,32 @@ def parse_packets(raw_data_queue, point_cloud_queue,background_point_cloud_queue
                 culmulative_distances.append(distances)
                 # culmulative_intensities.append(intensities)
 
-def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
+# def associate_detections(Tracking_pool,glb_id,state,app,P,next_label,mea_next):
     
-    Tracking_pool[glb_id].state = state
-    Tracking_pool[glb_id].apperance = app
-    Tracking_pool[glb_id].P = P
-    Tracking_pool[glb_id].label_seq.append(next_label)
-    Tracking_pool[glb_id].mea_seq.append(mea_next)
-    Tracking_pool[glb_id].post_seq.append(state)
-    Tracking_pool[glb_id].app_seq.append(app)
-    Tracking_pool[glb_id].missing_count = 0
+#     Tracking_pool[glb_id].state = state
+#     Tracking_pool[glb_id].apperance = app
+#     Tracking_pool[glb_id].P = P
+#     Tracking_pool[glb_id].label_seq.append(next_label)
+#     Tracking_pool[glb_id].mea_seq.append(mea_next)
+#     Tracking_pool[glb_id].post_seq.append(state)
+#     Tracking_pool[glb_id].app_seq.append(app)
+#     Tracking_pool[glb_id].missing_count = 0
 
-def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
-    Tracking_pool[glb_id].missing_count += 1
-    fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
-    # dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
-    if  fail_condition1:
-        # Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
-        Tracking_pool.pop(glb_id)
-        pass
-    else:
-        Tracking_pool[glb_id].state = state_cur_
-        Tracking_pool[glb_id].P = P_cur_
-        Tracking_pool[glb_id].label_seq.append(-1)
-        Tracking_pool[glb_id].mea_seq.append(None)
-        Tracking_pool[glb_id].app_seq.append(-1)
-        Tracking_pool[glb_id].post_seq.append(state_cur_)
+# def process_fails(Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
+#     Tracking_pool[glb_id].missing_count += 1
+#     fail_condition1 = Tracking_pool[glb_id].missing_count > missing_thred
+#     # dis = np.sqrt(np.sum(state_cur_[0][:2]**2))
+#     if  fail_condition1:
+#         # Off_tracking_pool[glb_id] = Tracking_pool.pop(glb_id)
+#         Tracking_pool.pop(glb_id)
+#         pass
+#     else:
+#         Tracking_pool[glb_id].state = state_cur_
+#         Tracking_pool[glb_id].P = P_cur_
+#         Tracking_pool[glb_id].label_seq.append(-1)
+#         Tracking_pool[glb_id].mea_seq.append(None)
+#         Tracking_pool[glb_id].app_seq.append(-1)
+#         Tracking_pool[glb_id].post_seq.append(state_cur_)
 
 def state_predict(A,Q,state,P):
     """
@@ -611,8 +611,55 @@ def state_update(A,H,state_,P_,R,mea):
     
     return state, P 
 
-def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,label_init,mea_init,start_frame):
+# def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,label_init,mea_init,start_frame):
 
+#     dis = np.sqrt(np.sum(state_init[0][:2]**2))
+
+#     if dis > 10:
+#         new_detection = detected_obj()
+#         new_detection.glb_id = Global_id
+#         new_detection.P = P_init
+#         new_detection.state = state_init
+#         new_detection.apperance = app_init
+#         new_detection.label_seq.append(label_init)
+#         new_detection.start_frame = start_frame
+#         new_detection.mea_seq.append(mea_init)
+#         new_detection.post_seq.append(state_init)
+#         new_detection.app_seq.append(app_init)
+#         Tracking_pool[Global_id] = new_detection
+
+def associate_detections(Tracking_pool, glb_id, state, app, P, next_label, mea_next):
+    """Associate new detections with existing tracking objects."""
+    obj = Tracking_pool[glb_id]  # Fetch from shared dict proxy
+    obj.state = state
+    obj.apperance = app
+    obj.P = P
+    obj.label_seq.append(next_label)
+    obj.mea_seq.append(mea_next)
+    obj.post_seq.append(state)
+    obj.app_seq.append(app)
+    obj.missing_count = 0
+    Tracking_pool[glb_id] = obj  # Reassign to ensure changes persist in Manager.dict()
+
+def process_fails(Tracking_pool, glb_id, state_cur_, P_cur_, missing_thred):
+    """Handle lost detections by either updating state or removing them from tracking."""
+    obj = Tracking_pool[glb_id]
+    obj.missing_count += 1
+    fail_condition1 = obj.missing_count > missing_thred
+
+    if fail_condition1:
+        del Tracking_pool[glb_id]  # Properly delete from shared dict
+    else:
+        obj.state = state_cur_
+        obj.P = P_cur_
+        obj.label_seq.append(-1)
+        obj.mea_seq.append(None)
+        obj.app_seq.append(-1)
+        obj.post_seq.append(state_cur_)
+        Tracking_pool[glb_id] = obj  # Reassign to update changes
+
+def create_new_detection(Tracking_pool, Global_id, P_init, state_init, app_init, label_init, mea_init, start_frame):
+    """Create a new detection and add it to the tracking pool."""
     dis = np.sqrt(np.sum(state_init[0][:2]**2))
 
     if dis > 10:
@@ -626,7 +673,8 @@ def create_new_detection(Tracking_pool,Global_id,P_init,state_init,app_init,labe
         new_detection.mea_seq.append(mea_init)
         new_detection.post_seq.append(state_init)
         new_detection.app_seq.append(app_init)
-        Tracking_pool[Global_id] = new_detection
+        Tracking_pool[Global_id] = new_detection  # Add to shared dict properly
+
 
 def if_bck(rows,cols,Td_map,Plane_model):
     # check if an object is background
