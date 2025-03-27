@@ -123,6 +123,9 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
     cur_ts = time.time()
     update_ts = cur_ts + 5 * 60
     print(f'Update at {update_ts}')
+    output_folder = os.path.join(r'./output_folder')
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder, exist_ok=True)
     while not stop_event.is_set():
         
         Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
@@ -170,12 +173,17 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                 # for i in range(len(bar_drawer.line_counts)):
                 #     report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
                 # safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
+
             cur_ts = time.time()
             if cur_ts >= update_ts:
                 print(f'Update at {cur_ts}')
-                for i in range(len(bar_drawer.line_counts)):
-                    print(f'Line {i}: {bar_drawer.line_counts[i]}')
-                    bar_drawer.line_counts[i] = 0
+                cur_ts_str = time.strftime('%Y-%m-%d_%H-%M-%S', time.localtime(update_ts))
+                output_path = os.path.join(output_folder, f'counting_result_{cur_ts_str}.txt')
+                with open(output_path, 'w') as f:
+                    for i in range(len(bar_drawer.line_counts)):
+                        print(f'Line {i}: {bar_drawer.line_counts[i]}')
+                        f.write(f'Line {i}: {bar_drawer.line_counts[i]}\n') 
+                        bar_drawer.line_counts[i] = 0
                 update_ts = cur_ts + 5 * 60
             time_b = time.time()
 
