@@ -543,7 +543,7 @@ def process_fails(Tracking_pool, Off_tracking_pool, glb_id, state_cur_, P_cur_, 
     fail_condition1 = obj.missing_count > missing_thred
 
     if fail_condition1:
-        Tracking_pool[glb_id].pop()  # Properly delete from shared dict
+        Tracking_pool.pop(glb_id)  # Properly delete from shared dict
     else:
         obj.state = state_cur_
         obj.P = P_cur_
