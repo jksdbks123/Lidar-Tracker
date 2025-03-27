@@ -119,10 +119,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
     start_tracking_time = time.time()
     try:
         while not stop_event.is_set():
-            # Td_map =  point_cloud_queue.get()
-            # print("[Tracking] Waiting for new point cloud...")
+
             Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
-            # print("[Tracking] Got point cloud, proceeding...")
 
             # some steps
             

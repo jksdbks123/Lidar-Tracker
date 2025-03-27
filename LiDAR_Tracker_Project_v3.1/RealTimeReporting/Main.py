@@ -174,8 +174,9 @@ This program is to report volumn counts in real-time trend
 def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,data_update_interval = 5):
     cur_ts = time.time()
     update_ts = cur_ts + data_update_interval * 60
+
     while True:
-        
+        print(tracking_pool_dict)
         for obj_id in tracking_pool_dict.keys():
             # counting function
             if len(tracking_pool_dict[obj_id].post_seq) > 4:
@@ -188,10 +189,10 @@ def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,data
                             bar_drawer.line_counts[i] += 1
                             bar_drawer.last_count_ts[i] = cur_time
                         break
-        report_dict = {'counting_res':{},'time':cur_ts}
-        for i in range(len(bar_drawer.line_counts)):
-            report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
-        safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
+        # report_dict = {'counting_res':{},'time':cur_ts}
+        # for i in range(len(bar_drawer.line_counts)):
+        #     report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
+        # safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
         if cur_ts >= update_ts:
             print(f'Update at {cur_ts}')
             for i in range(len(bar_drawer.line_counts)):
