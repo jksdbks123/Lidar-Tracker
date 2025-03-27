@@ -115,11 +115,9 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
     flag_2 = intersect_angle(seg1_start,seg1_end,seg2_start,seg2_end)
     return flag_1 & flag_2
 
-# tracking_process_stop_event, mot, point_cloud_queue,
-#             tracking_parameter_dict, tracking_param_update_event,
-#             background_update_event,thred_map_dict,bar_drawer
 
-def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict, tracking_pool_update_event,memory_clear_time = 10):
+
+def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,bar_drawer, tracking_pool_update_event,memory_clear_time = 10):
     start_tracking_time = time.time()
     # try:
     while not stop_event.is_set():
