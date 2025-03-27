@@ -140,8 +140,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                     mot.thred_map = thred_map_dict['thred_map']
                     background_update_event.clear()
                 time_a = time.time()
-                # mot.mot_tracking_step(Td_map)
-                # time_b = time.time()
+                mot.mot_tracking_step(Td_map)
+                time_b = time.time()
                 # timely clear memory
                 # if (time_b - start_tracking_time) > memory_clear_time:
                 #     mot.Off_tracking_pool.clear()
