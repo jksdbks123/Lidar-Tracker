@@ -115,7 +115,11 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
     flag_2 = intersect_angle(seg1_start,seg1_end,seg2_start,seg2_end)
     return flag_1 & flag_2
 
-def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,bar_drawer,memory_clear_time = 10):
+# tracking_process_stop_event, mot, point_cloud_queue,
+#             tracking_parameter_dict, tracking_param_update_event,
+#             background_update_event,thred_map_dict,bar_drawer
+
+def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,memory_clear_time = 10):
     start_tracking_time = time.time()
     try:
         while not stop_event.is_set():
@@ -129,7 +133,6 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                 mot.initialization(Td_map)
                 time_b = time.time()
             else:
-                print('aaa')
                 if tracking_param_update_event.is_set():
                     mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
                     tracking_param_update_event.clear()
@@ -137,8 +140,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                     mot.thred_map = thred_map_dict['thred_map']
                     background_update_event.clear()
                 time_a = time.time()
-                mot.mot_tracking_step(Td_map)
-                time_b = time.time()
+                # mot.mot_tracking_step(Td_map)
+                # time_b = time.time()
                 # timely clear memory
                 # if (time_b - start_tracking_time) > memory_clear_time:
                 #     mot.Off_tracking_pool.clear()
