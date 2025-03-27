@@ -176,7 +176,7 @@ def count_traffic_stats(tracking_result_queue,mot,bar_drawer,data_update_interva
     update_ts = cur_ts + data_update_interval * 60
     print(f'Update at {update_ts}')
     while True:
-        # print('saassa',len(mot.Tracking_pool))
+        print(list(mot.Tracking_pool.keys()),'count list')
         for obj_id in list(mot.Tracking_pool.keys()):
             # counting function
             if len(mot.Tracking_pool.get(obj_id).post_seq) > 4:
