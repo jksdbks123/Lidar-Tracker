@@ -193,12 +193,12 @@ def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,data
         # for i in range(len(bar_drawer.line_counts)):
         #     report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
         # safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
+        cur_ts = time.time()
         if cur_ts >= update_ts:
             print(f'Update at {cur_ts}')
             for i in range(len(bar_drawer.line_counts)):
                 print(f'Line {i}: {bar_drawer.line_counts[i]}')
                 bar_drawer.line_counts[i] = 0
-            cur_ts = time.time()
             update_ts = cur_ts + data_update_interval * 60
     
 
@@ -368,7 +368,7 @@ if __name__ == "__main__":
     bar_file_path = r'./bars.txt'
     port = 2380
     mode = "online" 
-    data_reporting_interval = 5 # min
+    data_reporting_interval = 1 # min
     background_data_generting_time = 30 # sec used frames to generate background
     background_update_interval = 360 # sec
     with multiprocessing.Manager() as manager:
