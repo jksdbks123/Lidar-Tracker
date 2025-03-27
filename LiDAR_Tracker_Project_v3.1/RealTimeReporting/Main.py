@@ -296,12 +296,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         bar_drawer = BarDrawer(bar_file_path=bar_file_path)
 
         # Shared dictionary for thred_map updates
-        thred_map_dict = manager.Namespace()
-        thred_map_dict.data = {"thred_map": initial_thred_map}
-        tracking_pool_dict = manager.Namespace()
-        tracking_pool_dict.data = {}
-        off_tracking_pool_dict = manager.Namespace()
-        off_tracking_pool_dict.data = {}
+        thred_map_dict = manager.dict({"thred_map": initial_thred_map})
+        tracking_pool_dict = manager.dict()
+        off_tracking_pool_dict = manager.dict()
 
         mot = MOT(tracking_parameter_dict, thred_map_dict.data["thred_map"], missing_thred=10,Tracking_pool=tracking_pool_dict.data,Off_tracking_pool=off_tracking_pool_dict.data)
         # Creating processes
