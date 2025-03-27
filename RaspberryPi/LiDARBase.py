@@ -170,16 +170,17 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                 # for i in range(len(bar_drawer.line_counts)):
                 #     report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
                 # safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
-                cur_ts = time.time()
-                if cur_ts >= update_ts:
-                    print(f'Update at {cur_ts}')
-                    for i in range(len(bar_drawer.line_counts)):
-                        print(f'Line {i}: {bar_drawer.line_counts[i]}')
-                        bar_drawer.line_counts[i] = 0
-                    update_ts = cur_ts + 5 * 60
+            cur_ts = time.time()
+            if cur_ts >= update_ts:
+                print(f'Update at {cur_ts}')
+                for i in range(len(bar_drawer.line_counts)):
+                    print(f'Line {i}: {bar_drawer.line_counts[i]}')
+                    bar_drawer.line_counts[i] = 0
+                update_ts = cur_ts + 5 * 60
+            time_b = time.time()
 
 
-            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},Tracking{len(tracking_dic.keys()):.1f}')
+            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},Tracking Pool {len(tracking_dic.keys()):.1f}')
             sys.stdout.flush()
         # except Exception as ex:
         #     print(str(ex), 'Error in tracking process')
