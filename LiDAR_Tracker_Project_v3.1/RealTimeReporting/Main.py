@@ -174,9 +174,9 @@ This program is to report volumn counts in real-time trend
 def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,data_update_interval = 5):
     cur_ts = time.time()
     update_ts = cur_ts + data_update_interval * 60
-
+    print(f'Update at {update_ts}')
     while True:
-        # print(tracking_pool_dict)
+        print('saassa',len(tracking_pool_dict))
         for obj_id in tracking_pool_dict.keys():
             # counting function
             if len(tracking_pool_dict[obj_id].post_seq) > 4:
@@ -316,7 +316,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         ))
 
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
-            tracking_result_queue, tracking_pool_dict.data,bar_drawer, data_reporting_interval
+            tracking_result_queue, mot.Tracking_pool.data,bar_drawer, data_reporting_interval
         ))
         background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
             thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
