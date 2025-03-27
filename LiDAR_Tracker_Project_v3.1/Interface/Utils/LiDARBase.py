@@ -534,6 +534,7 @@ def associate_detections(Tracking_pool, glb_id, state, app, P, next_label, mea_n
     obj.missing_count = 0
     Tracking_pool[glb_id] = obj  # Reassign to ensure changes persist in Manager.dict()
 
+
 # (Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
 def process_fails(Tracking_pool, Off_tracking_pool, glb_id, state_cur_, P_cur_, missing_thred):
     """Handle lost detections by either updating state or removing them from tracking."""
@@ -542,7 +543,7 @@ def process_fails(Tracking_pool, Off_tracking_pool, glb_id, state_cur_, P_cur_, 
     fail_condition1 = obj.missing_count > missing_thred
 
     if fail_condition1:
-        del Tracking_pool[glb_id]  # Properly delete from shared dict
+        Tracking_pool[glb_id].pop()  # Properly delete from shared dict
     else:
         obj.state = state_cur_
         obj.P = P_cur_
@@ -550,13 +551,16 @@ def process_fails(Tracking_pool, Off_tracking_pool, glb_id, state_cur_, P_cur_, 
         obj.mea_seq.append(None)
         obj.app_seq.append(-1)
         obj.post_seq.append(state_cur_)
+        obj.pred_state.append(1)  # Update prediction state
         Tracking_pool[glb_id] = obj  # Reassign to update changes
+
+
 
 def create_new_detection(Tracking_pool, Global_id, P_init, state_init, app_init, label_init, mea_init, start_frame):
     """Create a new detection and add it to the tracking pool."""
     dis = np.sqrt(np.sum(state_init[0][:2]**2))
 
-    if dis > 10:
+    if dis > 0.5:
         new_detection = detected_obj()
         new_detection.glb_id = Global_id
         new_detection.P = P_init

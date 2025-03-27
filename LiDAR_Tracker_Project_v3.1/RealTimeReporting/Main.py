@@ -178,7 +178,6 @@ def count_traffic_stats(tracking_result_queue,mot,bar_drawer,data_update_interva
     while True:
         # print('saassa',len(mot.Tracking_pool))
         for obj_id in list(mot.Tracking_pool.keys()):
-
             # counting function
             if len(mot.Tracking_pool.get(obj_id).post_seq) > 4:
                 prev_pos = mot.Tracking_pool.get(obj_id).post_seq[-3][0].flatten()[:2]
