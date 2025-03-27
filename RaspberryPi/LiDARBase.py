@@ -130,7 +130,8 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
         
         if not mot.if_initialized:
             time_a = time.time()
-            mot.initialization(Td_map)
+            with lock:
+                mot.initialization(Td_map)
             time_b = time.time()
         else:
             if tracking_param_update_event.is_set():
