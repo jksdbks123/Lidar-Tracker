@@ -5,6 +5,7 @@ import sys
 import os
 import time
 import numpy as np
+from multiprocessing import Lock
 
 # Get absolute path of the Interface directory (parent of Utils)
 interface_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', r'Interface'))
@@ -26,6 +27,7 @@ from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 from RaspberryPi.GenBckFile import gen_bckmap
 import subprocess
 from queue import Empty, Full  # Standard exceptions
+lock = Lock()
 
 
 def safe_queue_get(q, timeout=5, default=None, queue_name="queue"):
@@ -176,15 +178,16 @@ def count_traffic_stats(tracking_result_queue,mot,bar_drawer,data_update_interva
     update_ts = cur_ts + data_update_interval * 60
     print(f'Update at {update_ts}')
     while True:
-        print(list(mot.Tracking_pool.keys()),'count list')
+        # print(list(mot.Tracking_pool.keys()),'count list')
         for obj_id in list(mot.Tracking_pool.keys()):
+            obj = mot.Tracking_pool.get(obj_id)
             # counting function
-            if len(mot.Tracking_pool.get(obj_id).post_seq) > 4:
-                prev_pos = mot.Tracking_pool.get(obj_id).post_seq[-3][0].flatten()[:2]
-                curr_pos = mot.Tracking_pool.get(obj_id).post_seq[-1][0].flatten()[:2]
+            if len(obj.post_seq) > 4:
+                prev_pos = obj.post_seq[-3][0].flatten()[:2]
+                curr_pos = obj.post_seq[-1][0].flatten()[:2]
                 for i in range(len(bar_drawer.line_counts)):
                     if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
-                        cur_time = mot.Tracking_pool.get(obj_id).start_frame + len(mot.Tracking_pool.get(obj_id).mea_seq) - 1
+                        cur_time = obj.start_frame + len(obj.mea_seq) - 1
                         if cur_time - bar_drawer.last_count_ts[i] > 5:
                             bar_drawer.line_counts[i] += 1
                             bar_drawer.last_count_ts[i] = cur_time
