@@ -27,7 +27,7 @@ from RaspberryPi.Utils import BarDrawer,line_segments_intersect
 from RaspberryPi.GenBckFile import gen_bckmap
 import subprocess
 from queue import Empty, Full  # Standard exceptions
-lock = Lock()
+
 
 
 def safe_queue_get(q, timeout=5, default=None, queue_name="queue"):
@@ -173,36 +173,38 @@ def report_results(tracking_result_queue,output_file_dir):
 """
 This program is to report volumn counts in real-time trend
 """
-def count_traffic_stats(tracking_result_queue,mot,bar_drawer,data_update_interval = 5):
+def count_traffic_stats(tracking_result_queue,mot,bar_drawer,lock, data_update_interval = 5):
     cur_ts = time.time()
     update_ts = cur_ts + data_update_interval * 60
     print(f'Update at {update_ts}')
+    
     while True:
         # print(list(mot.Tracking_pool.keys()),'count list')
-        for obj_id in list(mot.Tracking_pool.keys()):
-            obj = mot.Tracking_pool.get(obj_id)
-            # counting function
-            if len(obj.post_seq) > 4:
-                prev_pos = obj.post_seq[-3][0].flatten()[:2]
-                curr_pos = obj.post_seq[-1][0].flatten()[:2]
+        with lock:
+            for obj_id in list(mot.Tracking_pool.keys()):
+                obj = mot.Tracking_pool.get(obj_id)
+                # counting function
+                if len(obj.post_seq) > 4:
+                    prev_pos = obj.post_seq[-3][0].flatten()[:2]
+                    curr_pos = obj.post_seq[-1][0].flatten()[:2]
+                    for i in range(len(bar_drawer.line_counts)):
+                        if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
+                            cur_time = obj.start_frame + len(obj.mea_seq) - 1
+                            if cur_time - bar_drawer.last_count_ts[i] > 5:
+                                bar_drawer.line_counts[i] += 1
+                                bar_drawer.last_count_ts[i] = cur_time
+                            break
+            # report_dict = {'counting_res':{},'time':cur_ts}
+            # for i in range(len(bar_drawer.line_counts)):
+            #     report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
+            # safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
+            cur_ts = time.time()
+            if cur_ts >= update_ts:
+                print(f'Update at {cur_ts}')
                 for i in range(len(bar_drawer.line_counts)):
-                    if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
-                        cur_time = obj.start_frame + len(obj.mea_seq) - 1
-                        if cur_time - bar_drawer.last_count_ts[i] > 5:
-                            bar_drawer.line_counts[i] += 1
-                            bar_drawer.last_count_ts[i] = cur_time
-                        break
-        # report_dict = {'counting_res':{},'time':cur_ts}
-        # for i in range(len(bar_drawer.line_counts)):
-        #     report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
-        # safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
-        cur_ts = time.time()
-        if cur_ts >= update_ts:
-            print(f'Update at {cur_ts}')
-            for i in range(len(bar_drawer.line_counts)):
-                print(f'Line {i}: {bar_drawer.line_counts[i]}')
-                bar_drawer.line_counts[i] = 0
-            update_ts = cur_ts + data_update_interval * 60
+                    print(f'Line {i}: {bar_drawer.line_counts[i]}')
+                    bar_drawer.line_counts[i] = 0
+                update_ts = cur_ts + data_update_interval * 60
     
 
 def background_update_process(thred_map_dict, background_point_copy_event, background_point_cloud_queue, background_update_interval, background_data_generating_time,background_update_event):
@@ -314,9 +316,9 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
             tracking_parameter_dict, tracking_param_update_event,
             background_update_event,thred_map_dict,bar_drawer,
         ))
-
+        lock = Lock()
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
-            tracking_result_queue, mot,bar_drawer, data_reporting_interval
+            tracking_result_queue, mot,bar_drawer, lock,data_reporting_interval
         ))
         background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
             thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
