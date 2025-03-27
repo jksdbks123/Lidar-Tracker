@@ -303,7 +303,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         off_tracking_pool_dict = manager.Namespace()
         off_tracking_pool_dict.data = {}
 
-        mot = MOT(tracking_parameter_dict, thred_map_dict.data["thred_map"], missing_thred=10,Tracking_pool = tracking_pool_dict,Off_tracking_pool = off_tracking_pool_dict)
+        mot = MOT(tracking_parameter_dict, thred_map_dict.data["thred_map"], missing_thred=10)
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, name= 'ReadPacket', args=(port, raw_data_queue,))
         
