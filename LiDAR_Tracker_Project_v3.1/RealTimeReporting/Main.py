@@ -316,7 +316,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         ))
 
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
-            tracking_result_queue, mot.Tracking_pool.data,bar_drawer, data_reporting_interval
+            tracking_result_queue, mot.Tracking_pool,bar_drawer, data_reporting_interval
         ))
         background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
             thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
