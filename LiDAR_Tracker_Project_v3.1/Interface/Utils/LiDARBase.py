@@ -651,7 +651,7 @@ def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labelin
         next_ind = unique_label_next == next_label
         IoU_matrix[cur_ind,next_ind] = Intersection_p/Union_p
         dis = np.abs(app_next[next_ind,-1,0] - app_cur[cur_ind,-1,0])
-        print(dis.shape)
+        
         if dis > 2:
             IoU_matrix[cur_ind,next_ind] = 0
             continue

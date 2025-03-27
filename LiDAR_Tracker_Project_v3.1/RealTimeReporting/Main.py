@@ -299,7 +299,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         thred_map_dict = manager.dict({"thred_map": initial_thred_map})
         tracking_pool_dict = manager.dict({})
         off_tracking_pool_dict = manager.dict({})
-        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10, Tracking_pool = tracking_pool_dict, Off_tracking_pool = off_tracking_pool_dict)
+        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10)
 
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, name= 'ReadPacket', args=(port, raw_data_queue,))
