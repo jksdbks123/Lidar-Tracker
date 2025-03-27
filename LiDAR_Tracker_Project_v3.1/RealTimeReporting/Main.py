@@ -174,7 +174,7 @@ This program is to report volumn counts in real-time trend
 def count_traffic_stats(tracking_result_queue,mot,bar_drawer,data_update_interval = 5):
     cur_ts = time.time()
     update_ts = cur_ts + data_update_interval * 60
-    print(f'Update at {update_ts}')
+    # print(f'Update at {update_ts}')
     while True:
         print('saassa',len(mot.Tracking_pool))
         for obj_id in mot.Tracking_pool.keys():
