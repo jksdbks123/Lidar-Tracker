@@ -299,19 +299,21 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         thred_map_dict = manager.dict({"thred_map": initial_thred_map})
         tracking_pool_dict = manager.dict({})
         off_tracking_pool_dict = manager.dict({})
-        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10)
-
+        
+        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10,Tracking_pool = tracking_pool_dict,Off_tracking_pool = off_tracking_pool_dict)
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, name= 'ReadPacket', args=(port, raw_data_queue,))
         
         packet_parser_process = multiprocessing.Process(target=parse_packets, name= 'ParsePacket', args=(raw_data_queue, point_cloud_queue,background_point_cloud_queue,background_point_copy_event,))
+            
         tracking_process = multiprocessing.Process(target=track_point_clouds,name= 'Tracking', args=(
             tracking_process_stop_event, mot, point_cloud_queue,
             tracking_parameter_dict, tracking_param_update_event,
-            background_update_event,thred_map_dict,bar_drawer
+            background_update_event,thred_map_dict,bar_drawer,
         ))
+
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
-            tracking_result_queue, tracking_pool_dict ,bar_drawer, data_reporting_interval
+            tracking_result_queue, tracking_pool_dict,bar_drawer, data_reporting_interval
         ))
         background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
             thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
