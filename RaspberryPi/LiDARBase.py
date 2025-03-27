@@ -120,6 +120,9 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
 def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,bar_drawer, tracking_pool_update_event,memory_clear_time = 10):
     start_tracking_time = time.time()
     # try:
+    cur_ts = time.time()
+    update_ts = cur_ts + 5 * 60
+    print(f'Update at {update_ts}')
     while not stop_event.is_set():
         
         Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
