@@ -176,7 +176,7 @@ def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,data
     update_ts = cur_ts + data_update_interval * 60
 
     while True:
-        print(tracking_pool_dict)
+        # print(tracking_pool_dict)
         for obj_id in tracking_pool_dict.keys():
             # counting function
             if len(tracking_pool_dict[obj_id].post_seq) > 4:
