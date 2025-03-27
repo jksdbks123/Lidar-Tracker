@@ -206,7 +206,7 @@ class MOT():
         self.bf_time = (time_b - time_a) * 1000
         self.association_time = (time_d - time_c) * 1000
         self.CurFrame += 1
-        print(list(self.Tracking_pool.keys()),'count list')
+        print(list(self.Tracking_pool.keys()),'track list')
         
         # print('Frame:',self.CurFrame)
 
