@@ -129,6 +129,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                 mot.initialization(Td_map)
                 time_b = time.time()
             else:
+                print('aaa')
                 if tracking_param_update_event.is_set():
                     mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
                     tracking_param_update_event.clear()
