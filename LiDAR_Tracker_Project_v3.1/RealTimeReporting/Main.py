@@ -222,7 +222,7 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
             new_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
             # print("Generated new background map!")
             # Update the shared thred_map safely
-            thred_map_dict["thred_map"] = new_thred_map
+            thred_map_dict.data["thred_map"] = new_thred_map
             print("Updated thred_map in tracking process.")
             background_update_event.set()  # Signal tracking process to update background map
 
@@ -296,11 +296,14 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         bar_drawer = BarDrawer(bar_file_path=bar_file_path)
 
         # Shared dictionary for thred_map updates
-        thred_map_dict = manager.dict({"thred_map": initial_thred_map})
-        tracking_pool_dict = manager.dict()
-        off_tracking_pool_dict = manager.dict()
+        thred_map_dict = manager.Namespace()
+        thred_map_dict.data = {"thred_map": initial_thred_map}
+        tracking_pool_dict = manager.Namespace()
+        tracking_pool_dict.data = {}
+        off_tracking_pool_dict = manager.Namespace()
+        off_tracking_pool_dict.data = {}
 
-        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10,Tracking_pool = tracking_pool_dict,Off_tracking_pool = off_tracking_pool_dict)
+        mot = MOT(tracking_parameter_dict, thred_map_dict.data["thred_map"], missing_thred=10,Tracking_pool = tracking_pool_dict,Off_tracking_pool = off_tracking_pool_dict)
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, name= 'ReadPacket', args=(port, raw_data_queue,))
         
