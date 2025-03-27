@@ -534,7 +534,8 @@ def associate_detections(Tracking_pool, glb_id, state, app, P, next_label, mea_n
     obj.missing_count = 0
     Tracking_pool[glb_id] = obj  # Reassign to ensure changes persist in Manager.dict()
 
-def process_fails(Tracking_pool, glb_id, state_cur_, P_cur_, missing_thred):
+# (Tracking_pool,Off_tracking_pool,glb_id,state_cur_,P_cur_,missing_thred):
+def process_fails(Tracking_pool, Off_tracking_pool, glb_id, state_cur_, P_cur_, missing_thred):
     """Handle lost detections by either updating state or removing them from tracking."""
     obj = Tracking_pool[glb_id]
     obj.missing_count += 1
