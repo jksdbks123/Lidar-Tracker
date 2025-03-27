@@ -137,7 +137,7 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                 mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
                 tracking_param_update_event.clear()
             if background_update_event.is_set():
-                mot.thred_map = thred_map_dict.data['thred_map']
+                mot.thred_map = thred_map_dict['thred_map']
                 background_update_event.clear()
             time_a = time.time()
             mot.mot_tracking_step(Td_map)
