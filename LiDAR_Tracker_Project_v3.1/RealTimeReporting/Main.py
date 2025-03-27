@@ -171,20 +171,20 @@ def report_results(tracking_result_queue,output_file_dir):
 """
 This program is to report volumn counts in real-time trend
 """
-def count_traffic_stats(tracking_result_queue,tracking_pool_dict,bar_drawer,data_update_interval = 5):
+def count_traffic_stats(tracking_result_queue,mot,bar_drawer,data_update_interval = 5):
     cur_ts = time.time()
     update_ts = cur_ts + data_update_interval * 60
     print(f'Update at {update_ts}')
     while True:
-        print('saassa',len(tracking_pool_dict))
-        for obj_id in tracking_pool_dict.keys():
+        print('saassa',len(mot.Tracking_pool))
+        for obj_id in mot.Tracking_pool.keys():
             # counting function
-            if len(tracking_pool_dict[obj_id].post_seq) > 4:
-                prev_pos = tracking_pool_dict[obj_id].post_seq[-3][0].flatten()[:2]
-                curr_pos = tracking_pool_dict[obj_id].post_seq[-1][0].flatten()[:2]
+            if len(mot.Tracking_pool[obj_id].post_seq) > 4:
+                prev_pos = mot.Tracking_pool[obj_id].post_seq[-3][0].flatten()[:2]
+                curr_pos = mot.Tracking_pool[obj_id].post_seq[-1][0].flatten()[:2]
                 for i in range(len(bar_drawer.line_counts)):
                     if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
-                        cur_time = tracking_pool_dict[obj_id].start_frame + len(tracking_pool_dict[obj_id].mea_seq) - 1
+                        cur_time = mot.Tracking_pool[obj_id].start_frame + len(mot.Tracking_pool[obj_id].mea_seq) - 1
                         if cur_time - bar_drawer.last_count_ts[i] > 5:
                             bar_drawer.line_counts[i] += 1
                             bar_drawer.last_count_ts[i] = cur_time
@@ -222,7 +222,7 @@ def background_update_process(thred_map_dict, background_point_copy_event, backg
             new_thred_map = gen_bckmap(aggregated_maps, N=10, d_thred=0.1, bck_n=3)
             # print("Generated new background map!")
             # Update the shared thred_map safely
-            thred_map_dict.data["thred_map"] = new_thred_map
+            thred_map_dict["thred_map"] = new_thred_map
             print("Updated thred_map in tracking process.")
             background_update_event.set()  # Signal tracking process to update background map
 
@@ -300,7 +300,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         tracking_pool_dict = manager.dict()
         off_tracking_pool_dict = manager.dict()
 
-        mot = MOT(tracking_parameter_dict, thred_map_dict.data["thred_map"], missing_thred=10,Tracking_pool=tracking_pool_dict.data,Off_tracking_pool=off_tracking_pool_dict.data)
+        mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10,Tracking_pool=tracking_pool_dict,Off_tracking_pool=off_tracking_pool_dict)
         # Creating processes
         packet_reader_process = multiprocessing.Process(target=read_packets_online, name= 'ReadPacket', args=(port, raw_data_queue,))
         
@@ -313,7 +313,7 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
         ))
 
         traffic_stats_process = multiprocessing.Process(target=count_traffic_stats,name= 'Functional', args=(
-            tracking_result_queue, tracking_pool_dict.data,bar_drawer, data_reporting_interval
+            tracking_result_queue, mot,bar_drawer, data_reporting_interval
         ))
         background_update_proc = multiprocessing.Process(target=background_update_process, name= 'BackgroundUpdate', args=(
             thred_map_dict,background_point_copy_event ,background_point_cloud_queue, background_update_interval,background_data_generating_time,background_update_event,  # Update every 10 minutes
