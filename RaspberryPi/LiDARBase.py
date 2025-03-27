@@ -121,41 +121,41 @@ def line_segments_intersect(seg1_start, seg1_end, seg2_start, seg2_end):
 
 def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,tracking_param_update_event,background_update_event, thred_map_dict,memory_clear_time = 10):
     start_tracking_time = time.time()
-    try:
-        while not stop_event.is_set():
+    # try:
+    while not stop_event.is_set():
 
-            Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
+        Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
 
-            # some steps
-            
-            if not mot.if_initialized:
-                time_a = time.time()
-                mot.initialization(Td_map)
-                time_b = time.time()
-            else:
-                if tracking_param_update_event.is_set():
-                    mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
-                    tracking_param_update_event.clear()
-                if background_update_event.is_set():
-                    mot.thred_map = thred_map_dict['thred_map']
-                    background_update_event.clear()
-                time_a = time.time()
-                mot.mot_tracking_step(Td_map)
-                time_b = time.time()
-                # timely clear memory
-                # if (time_b - start_tracking_time) > memory_clear_time:
-                #     mot.Off_tracking_pool.clear()
-                #     mot.Tracking_pool.clear() 
-                #     gc.collect()
-                #     mot.Global_id = 0
-                #     start_tracking_time = time.time()
-                #     print('Memory Cleared at {}'.format(start_tracking_time))
-                tracking_dic = mot.Tracking_pool
-                sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},Tracking{len(tracking_dic.keys()):.1f}')
-                sys.stdout.flush()
-    except Exception as ex:
-        print(str(ex), 'Error in tracking process')
-    print('Terminated tracking process')
+        # some steps
+        
+        if not mot.if_initialized:
+            time_a = time.time()
+            mot.initialization(Td_map)
+            time_b = time.time()
+        else:
+            if tracking_param_update_event.is_set():
+                mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
+                tracking_param_update_event.clear()
+            if background_update_event.is_set():
+                mot.thred_map = thred_map_dict['thred_map']
+                background_update_event.clear()
+            time_a = time.time()
+            mot.mot_tracking_step(Td_map)
+            time_b = time.time()
+            # timely clear memory
+            # if (time_b - start_tracking_time) > memory_clear_time:
+            #     mot.Off_tracking_pool.clear()
+            #     mot.Tracking_pool.clear() 
+            #     gc.collect()
+            #     mot.Global_id = 0
+            #     start_tracking_time = time.time()
+            #     print('Memory Cleared at {}'.format(start_tracking_time))
+            tracking_dic = mot.Tracking_pool
+            sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},Tracking{len(tracking_dic.keys()):.1f}')
+            sys.stdout.flush()
+    # except Exception as ex:
+    #     print(str(ex), 'Error in tracking process')
+    # print('Terminated tracking process')
 
 def load_pcap(file_path):
     try:
