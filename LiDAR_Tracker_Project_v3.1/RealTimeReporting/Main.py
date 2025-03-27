@@ -180,12 +180,12 @@ def count_traffic_stats(tracking_result_queue,mot,bar_drawer,data_update_interva
         for obj_id in list(mot.Tracking_pool.keys()):
 
             # counting function
-            if len(mot.Tracking_pool[obj_id].post_seq) > 4:
-                prev_pos = mot.Tracking_pool[obj_id].post_seq[-3][0].flatten()[:2]
-                curr_pos = mot.Tracking_pool[obj_id].post_seq[-1][0].flatten()[:2]
+            if len(mot.Tracking_pool.get(obj_id).post_seq) > 4:
+                prev_pos = mot.Tracking_pool.get(obj_id).post_seq[-3][0].flatten()[:2]
+                curr_pos = mot.Tracking_pool.get(obj_id).post_seq[-1][0].flatten()[:2]
                 for i in range(len(bar_drawer.line_counts)):
                     if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
-                        cur_time = mot.Tracking_pool[obj_id].start_frame + len(mot.Tracking_pool[obj_id].mea_seq) - 1
+                        cur_time = mot.Tracking_pool.get(obj_id).start_frame + len(mot.Tracking_pool.get(obj_id).mea_seq) - 1
                         if cur_time - bar_drawer.last_count_ts[i] > 5:
                             bar_drawer.line_counts[i] += 1
                             bar_drawer.last_count_ts[i] = cur_time
