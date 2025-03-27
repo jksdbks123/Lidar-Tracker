@@ -143,13 +143,13 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
             mot.mot_tracking_step(Td_map)
             time_b = time.time()
             # timely clear memory
-            # if (time_b - start_tracking_time) > memory_clear_time:
-            #     mot.Off_tracking_pool.clear()
-            #     mot.Tracking_pool.clear() 
-            #     gc.collect()
-            #     mot.Global_id = 0
-            #     start_tracking_time = time.time()
-            #     print('Memory Cleared at {}'.format(start_tracking_time))
+            if (time_b - start_tracking_time) > memory_clear_time:
+                mot.Off_tracking_pool.clear()
+                mot.Tracking_pool.clear() 
+                gc.collect()
+                mot.Global_id = 0
+                start_tracking_time = time.time()
+                print('Memory Cleared at {}'.format(start_tracking_time))
             tracking_dic = mot.Tracking_pool
             sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},Tracking{len(tracking_dic.keys()):.1f}')
             sys.stdout.flush()
