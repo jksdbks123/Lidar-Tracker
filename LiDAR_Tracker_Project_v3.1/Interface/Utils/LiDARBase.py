@@ -621,7 +621,7 @@ def get_xy_set(new_uni_labels,Labeling_map,Td_map,if_app):
 def get_affinity_IoU(app_cur,app_next,unique_label_next,unique_label_cur,Labeling_map_cur,Labeling_map_next):
     # Union: only A or B 
     # Intersect : only A and B 
-    print(app_cur.shape,app_next.shape)
+    print(unique_label_next,unique_label_cur)
     Fore_next = Labeling_map_next != -1
     Fore_cur = Labeling_map_cur != -1
     Union = Fore_cur|Fore_next
