@@ -149,6 +149,33 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
                 start_tracking_time = time.time()
                 print('Memory Cleared at {}'.format(start_tracking_time))
             tracking_dic = mot.Tracking_pool
+
+            for obj_id in list(tracking_dic.keys()):
+                obj = tracking_dic.get(obj_id)
+                # counting function
+                if len(obj.post_seq) > 4:
+                    prev_pos = obj.post_seq[-3][0].flatten()[:2]
+                    curr_pos = obj.post_seq[-1][0].flatten()[:2]
+                    for i in range(len(bar_drawer.line_counts)):
+                        if line_segments_intersect(prev_pos, curr_pos, bar_drawer.lines[i][0], bar_drawer.lines[i][1]):
+                            cur_time = obj.start_frame + len(obj.mea_seq) - 1
+                            if cur_time - bar_drawer.last_count_ts[i] > 5:
+                                bar_drawer.line_counts[i] += 1
+                                bar_drawer.last_count_ts[i] = cur_time
+                            break
+                # report_dict = {'counting_res':{},'time':cur_ts}
+                # for i in range(len(bar_drawer.line_counts)):
+                #     report_dict[f'Bar {i}'] = bar_drawer.line_counts[i]
+                # safe_queue_put(tracking_result_queue, report_dict, queue_name="tracking_result_queue")
+                cur_ts = time.time()
+                if cur_ts >= update_ts:
+                    print(f'Update at {cur_ts}')
+                    for i in range(len(bar_drawer.line_counts)):
+                        print(f'Line {i}: {bar_drawer.line_counts[i]}')
+                        bar_drawer.line_counts[i] = 0
+                    update_ts = cur_ts + 5 * 60
+
+
             sys.stdout.write(f'\rData Processing Speed (ms): {mot.clustering_time:.3f}, {mot.bf_time:.3f}, {mot.association_time:.3f},{(time_b - time_a)*1000:.3f},Tracking{len(tracking_dic.keys()):.1f}')
             sys.stdout.flush()
         # except Exception as ex:

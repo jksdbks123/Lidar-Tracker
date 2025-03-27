@@ -304,8 +304,6 @@ def run_processes(manager, raw_data_queue, point_cloud_queue, background_point_c
 
         # Shared dictionary for thred_map updates
         thred_map_dict = manager.dict({"thred_map": initial_thred_map})
-        tracking_pool_dict = manager.dict()
-        off_tracking_pool_dict = manager.dict()
 
         mot = MOT(tracking_parameter_dict, thred_map_dict["thred_map"], missing_thred=10)
         # Creating processes
