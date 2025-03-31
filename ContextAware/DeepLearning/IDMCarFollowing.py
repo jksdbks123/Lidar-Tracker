@@ -149,3 +149,79 @@ def run_simulation(lane_length, red_light_time, green_light_time, simulation_tim
     num_vehicles = np.array(num_vehicles) 
 
     return vehicles, exited_vehicles, queue_record, num_vehicles
+
+def create_time_space_diagram(vehicles, lane_length, simulation_time, delta_t,delta_x):
+    # Set up the grid
+    time_resolution = delta_t # seconds per pixel
+    space_resolution = delta_x  # meters per pixel
+    time_pixels = int(simulation_time / time_resolution)
+    space_pixels = int(lane_length / space_resolution)
+    
+    # Create an empty grid
+    time_space_mask = np.zeros((space_pixels, time_pixels), dtype=int)
+    time_space_mask_occ_effect = np.zeros((space_pixels, time_pixels), dtype=int) # this is for simulate the effect of the vehicle length on the space (some part of the vehicle cannot be observed)
+    vehicle_trajs = []
+    for v_id,vehicle in enumerate(vehicles):
+        vehicle_length_pixels = int(vehicle.vehicle_length / space_resolution)
+        for t, x, v in zip(vehicle.history_t, vehicle.history_x, vehicle.history_v):
+            time_idx = int(t / time_resolution) - 1
+            space_idx = int(x / space_resolution) - 1
+            if 0 <= space_idx < space_pixels:
+                vehicle_trajs.append((v_id, time_idx, space_idx, v))
+                # Mark the space occupied by the vehicle
+                length_decay = x / (lane_length - 20)
+       
+                preserved_pixels_occ = int(vehicle_length_pixels * length_decay) - np.random.randint(0,6)
+                if preserved_pixels_occ < 0:
+                    preserved_pixels_occ = 0
+                for i in range(vehicle_length_pixels):
+                    if 0 <= space_idx - i < space_pixels:
+                        time_space_mask[space_idx - i, time_idx] = 1
+
+                for i in range(preserved_pixels_occ):
+                    if 0 <= space_idx - i < space_pixels:
+                        time_space_mask_occ_effect[space_idx - i, time_idx] = 1
+                        
+    return time_space_mask,time_space_mask_occ_effect,vehicle_trajs
+
+# Randomly add some regular patches with angles to block the time_space_mask to simulate the occlusion events
+def add_occlusions(binary_mask):
+    # Convert binary mask to uint8 type (required for OpenCV operations)
+    occluded_mask = (binary_mask * 1).astype(np.uint8)
+    occlusion_mask = np.zeros_like(occluded_mask) # indicating the occlusion area where the binary mask is 1 and the occlusion is 0
+    num_occlusions = occluded_mask.shape[1] // 20
+    height, width = occluded_mask.shape
+    for _ in range(num_occlusions):
+        # Random center point
+        center = (np.random.randint(0, width), np.random.randint(0, height))
+        
+        # Random width and height (between 5% and 20% of image dimensions)
+        rect_width = int(np.random.normal(12,2))
+        rect_height = int(np.random.normal(60,3))
+        
+        # Random angle (0 to 180 degrees)
+        angle = np.random.randint(0, 45)
+        
+        # Create rotated rectangle
+        rect = ((center[0], center[1]), (rect_width, rect_height), angle)
+        box = cv2.boxPoints(rect)
+        box = np.intp(box)
+        
+        # Fill the rotated rectangle with white (255)
+        cv2.fillPoly(occlusion_mask, [box], 1)
+        cv2.fillPoly(occluded_mask, [box], 0)
+    # find common area of occlusion and binary mask
+    occlusion_mask = occlusion_mask * binary_mask
+    
+    return occluded_mask,occlusion_mask
+
+# add noise to the occulded diagram
+def add_noise(binary_mask,emit_rate = 0.1,noise_rate = 0.005):
+    binary_mask = binary_mask.copy()
+    emit_mask = np.random.choice([0, 1], size=binary_mask.shape, p=[1-emit_rate, emit_rate])
+    binary_mask[emit_mask == 1] = 0
+    noise_mask = np.random.choice([0, 1], size=binary_mask.shape, p=[1-noise_rate, noise_rate])
+    binary_mask[noise_mask == 1] = 1
+
+    return binary_mask
+    
