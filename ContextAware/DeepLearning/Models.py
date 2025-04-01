@@ -12,32 +12,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import json
 
-class EnhancedSpatialLoss(nn.Module):
-    def __init__(self, alpha=0.4, beta=0.1):
-        super(EnhancedSpatialLoss, self).__init__()
-        self.alpha = alpha  # Weight for element-wise BCE loss
-        self.beta = beta    # Weight for temporal consistency loss
-        # self.gamma = gamma  # Weight for spatial consistency loss
 
-    def forward(self, predictions, targets):
-        # Element-wise BCE loss
-        bce_loss = F.binary_cross_entropy(predictions, targets, reduction='mean')
-        
-        # Spatial consistency loss (vertical differential)
-        spatial_loss = F.mse_loss(predictions[:, :, 1:] - predictions[:, :, :-1],
-                                  targets[:, :, 1:] - targets[:, :, :-1],
-                                  reduction='mean')
-        
-        # Combine losses
-        total_loss = self.alpha * bce_loss + self.beta * spatial_loss
-        loss_dict = {
-            'total_loss': total_loss,
-            'bce_loss': bce_loss,
-            # 'temporal_loss': temporal_loss,
-            'spatial_loss': spatial_loss
-        }
-        
-        return loss_dict
 #PyTorch
 class FocalLoss(nn.Module):
     """
