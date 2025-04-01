@@ -66,9 +66,13 @@ class LaneDrawer:
                 for key in lane_widths.keys():
                     self.lane_widths.append(lane_widths[key])
             with open(self.lane_poly_path, 'rb') as f:
+                print(self.lane_poly_path)
                 self.lane_subsections_poly = pickle.load(f)
+                print('Lane polys loaded')
             with open(self.lane_centerline_path, 'rb') as f:
+                print(self.lane_centerline_path)
                 self.lane_centerline = pickle.load(f)
+                print('Lane centerline loaded')
     def save(self):
 
         lane_dic = {}

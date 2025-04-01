@@ -544,7 +544,12 @@ class LidarVisualizer:
                 self.tracking_parameter_dict['min_samples'] = min_samples
                 self.tracking_parameter_dict['eps'] = eps_dis
                 self.mot = MOT(self.tracking_parameter_dict, thred_map = self.thred_map, missing_thred = 2)
-                self.tracking_prcess = Process(target=track_point_clouds, args=(self.tracking_process_stop_event,self.mot,self.point_cloud_queue,self.tracking_result_queue,self.tracking_parameter_dict,self.tracking_param_update_event,))
+                self.tracking_prcess = Process(target=track_point_clouds_offline, args=(self.tracking_process_stop_event,
+                                                                                        self.mot,
+                                                                                        self.point_cloud_queue,
+                                                                                        self.tracking_result_queue,
+                                                                                        self.tracking_parameter_dict,
+                                                                                        self.tracking_param_update_event,))
                 self.tracking_prcess.start()
         else:
             if self.tracking_prcess and self.tracking_prcess.is_alive():
@@ -675,9 +680,9 @@ def main(mode = 'online',pcap_file_path = None, port = 2368):
     try:
         with Manager() as manager:
             # set_start_method('fork',force=True)
-            raw_data_queue = manager.Queue(1) # Packet Queue
-            point_cloud_queue = manager.Queue(1)
-            tracking_result_queue = manager.Queue(1) # this is for the tracking results (pt,...)
+            raw_data_queue = manager.Queue(2000) # Packet Queue
+            point_cloud_queue = manager.Queue(2000)
+            tracking_result_queue = manager.Queue(2000) # this is for the tracking results (pt,...)
             tracking_parameter_dict = manager.dict({})
             tracking_param_update_event = Event()
             # Creating processes for Core 2 and Core 3 tasks
@@ -719,7 +724,7 @@ def main(mode = 'online',pcap_file_path = None, port = 2368):
 
 if __name__ == '__main__':
     # pcap_file_path = r'../../2024-03-14-23-30-00.pcap'# mac
-    pcap_file_path = r'D:\LiDAR_Data\Artemisia\2025-02-28-21-00-00.pcap'
+    pcap_file_path = r'D:\LiDAR_Data\Artemisia\2025-04-01-02-30-00.pcap'
     mode = 'offline'
     main(mode=mode, pcap_file_path=pcap_file_path)
     # mode = 'online'

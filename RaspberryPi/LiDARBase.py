@@ -194,6 +194,62 @@ def track_point_clouds(stop_event,mot,point_cloud_queue,tracking_parameter_dict,
         #     print(str(ex), 'Error in tracking process')
         # print('Terminated tracking process')
 
+def track_point_clouds_offline(stop_event,
+                               mot,
+                               point_cloud_queue,
+                               tracking_result_queue,
+                               tracking_parameter_dict,
+                               tracking_param_update_event,
+                                memory_clear_time = 10):
+    start_tracking_time = time.time()
+    # try:
+    cur_ts = time.time()
+    update_ts = cur_ts + 5 * 60
+    output_folder = os.path.join(r'./output_folder')
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder, exist_ok=True)
+    while not stop_event.is_set():
+        
+        Td_map = safe_queue_get(point_cloud_queue, timeout=5, default=None, queue_name="point_cloud_queue")
+
+        # some steps
+        
+        if not mot.if_initialized:
+            time_a = time.time()
+            mot.initialization(Td_map)
+            time_b = time.time()
+        else:
+            time_a = time.time()
+            if tracking_param_update_event.is_set():
+                mot.db = Raster_DBSCAN(window_size=tracking_parameter_dict['win_size'],eps = tracking_parameter_dict['eps'], min_samples= tracking_parameter_dict['min_samples'],Td_map_szie=(32,1800))
+                tracking_param_update_event.clear()
+            # if background_update_event.is_set():
+            #     mot.thred_map = thred_map_dict['thred_map']
+            #     background_update_event.clear()
+            mot.mot_tracking_step(Td_map)
+            time_b = time.time()
+            # timely clear memory
+            if (time_b - start_tracking_time) > memory_clear_time:
+                mot.Off_tracking_pool.clear()
+                mot.Tracking_pool.clear() 
+                gc.collect()
+                mot.Global_id = 0
+                start_tracking_time = time.time()
+                print('Memory Cleared at {}'.format(start_tracking_time))
+            tracking_dic = mot.Tracking_pool
+            safe_queue_put(tracking_result_queue, (mot.Tracking_pool,
+                                                   mot.cur_Labeling_map,
+                                                   Td_map,
+                                                   time_b - time_a,
+                                                   time_a,
+                                                   mot.bf_time,
+                                                   mot.clustering_time,
+                                                   mot.association_time), timeout=0.5, queue_name="tracking_result_queue")
+
+            
+
+
+
 def load_pcap(file_path):
     try:
         fpcap = open(file_path, 'rb')
@@ -422,7 +478,6 @@ def read_packets_offline(raw_data_queue,pcap_file_path):
                 if packet_status == 2368:
                     if len(data) != 1206:
                         continue
-            # raw_packet = np.random.rand(20000,2) * 600  # Placeholder for actual packet data
                     raw_data_queue.put((ts,data),timeout = 0.5)
 
 # def read_packets_online(port,raw_data_queue):
