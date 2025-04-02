@@ -95,14 +95,15 @@ if __name__ == '__main__':
     num_epochs = 100
     alpha= 0.95
     gamma= 4
-    model = BidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers,droupout=dropout).to(device)
+    # model = BidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers,droupout=dropout).to(device)
+    model = BidirectionalRNNLaneReconstructor(input_size, hidden_size, num_layers,droupout=dropout).to(device)
     # model = UnidirectionalLSTMLaneReconstructor(input_size, hidden_size, num_layers).to(device)
     criterion = FocalLoss(alpha,gamma).to(device)
     # criterion = SpeedFocalLoss(alpha,gamma).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
     # Create datasets
-    model_save_path = r"D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\models"
+    model_save_path = r"D:\TimeSpaceDiagramDataset\RNN_EncoderDecoder_EvenlySampled_FreeflowAug_0401_5res_lanechange_signal\models"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)
     # new training folder will be named as "train_num"

@@ -131,8 +131,146 @@ class BidirectionalLSTMLaneReconstructor(nn.Module):
         reconstructed = reconstructed.reshape(-1,num_lane_unit, time_span)
         return reconstructed
 
+class BidirectionalRNNLaneReconstructor(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, droupout=0.2):
+        super(BidirectionalRNNLaneReconstructor, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
 
+        # Bidirectional Encoder RNN (replacing LSTM)
+        self.encoder = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
 
+        # Decoder RNN (replacing LSTM)
+        self.decoder = nn.RNN(hidden_size * 2, hidden_size * 2, num_layers, batch_first=True)
+
+        self.dropout = nn.Dropout(droupout)
+        # Output layer
+        self.output_layer = nn.Linear(hidden_size * 2, input_size)
+
+        # Activation function
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # x shape: (batch_size, time_span, num_lane_unit)
+        batch_size, num_lane_unit, time_span = x.size()
+        x = x.view(batch_size, time_span, num_lane_unit)
+        
+        # Encode the input sequence
+        encoder_outputs, hidden = self.encoder(x)
+        
+        # Prepare hidden state for the decoder (RNN has no cell state)
+        hidden = hidden.view(self.num_layers, 2, batch_size, self.hidden_size)
+        hidden = torch.cat([hidden[:, 0, :, :], hidden[:, 1, :, :]], dim=2)
+        
+        # Decode - RNN only needs hidden state (no cell state)
+        decoder_outputs, _ = self.decoder(encoder_outputs, hidden)
+        decoder_outputs = self.dropout(decoder_outputs)
+        
+        # Apply output layer
+        outputs = self.output_layer(decoder_outputs)
+        
+        # Apply sigmoid to get values between 0 and 1
+        reconstructed = self.sigmoid(outputs)
+        reconstructed = reconstructed.reshape(-1, num_lane_unit, time_span)
+        return reconstructed
+class AttentionModule(nn.Module):
+    def __init__(self, hidden_size):
+        super(AttentionModule, self).__init__()
+        self.hidden_size = hidden_size
+        self.attention = nn.Linear(hidden_size * 2, hidden_size * 2)
+        self.attention_combine = nn.Linear(hidden_size * 4, hidden_size * 2)
+        
+    def forward(self, decoder_hidden, encoder_outputs):
+        # Calculate attention weights
+        attn_weights = F.softmax(
+            self.attention(encoder_outputs), dim=1
+        )
+        
+        # Apply attention weights to encoder outputs
+        attn_applied = torch.bmm(attn_weights.unsqueeze(1), encoder_outputs)
+        attn_applied = attn_applied.squeeze(1)
+        
+        # Combine attention result with decoder hidden state
+        output = torch.cat((decoder_hidden, attn_applied), 1)
+        output = self.attention_combine(output)
+        output = F.relu(output)
+        
+        return output, attn_weights
+
+class BidirectionalRNNLaneReconstructorWithAttention(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, dropout=0.2):
+        super(BidirectionalRNNLaneReconstructorWithAttention, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        
+        # Bidirectional Encoder RNN
+        self.encoder = nn.RNN(input_size, hidden_size, num_layers, 
+                             batch_first=True, bidirectional=True)
+        
+        # Attention module
+        self.attention = AttentionModule(hidden_size)
+        
+        # Decoder RNN
+        self.decoder = nn.RNN(hidden_size * 2, hidden_size * 2, 
+                             num_layers, batch_first=True)
+        
+        self.dropout = nn.Dropout(dropout)
+        
+        # Output layer
+        self.output_layer = nn.Linear(hidden_size * 2, input_size)
+        
+        # Activation function
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, x):
+        # x shape: (batch_size, time_span, num_lane_unit)
+        batch_size, num_lane_unit, time_span = x.size()
+        x = x.view(batch_size, time_span, num_lane_unit)
+        
+        # Encode the input sequence
+        encoder_outputs, hidden = self.encoder(x)
+        
+        # Prepare hidden state for the decoder
+        hidden = hidden.view(self.num_layers, 2, batch_size, self.hidden_size)
+        hidden_forward = hidden[:, 0, :, :]
+        hidden_backward = hidden[:, 1, :, :]
+        hidden = torch.cat([hidden_forward, hidden_backward], dim=2)
+        
+        # Initialize decoder input as zero tensor
+        decoder_input = torch.zeros(batch_size, 1, self.hidden_size * 2, 
+                                   device=x.device)
+        
+        # Create container for decoder outputs
+        decoder_outputs = torch.zeros(batch_size, time_span, 
+                                     self.hidden_size * 2, 
+                                     device=x.device)
+        
+        # Decode step by step with attention
+        for t in range(time_span):
+            # Apply attention mechanism
+            context, _ = self.attention(hidden[-1], encoder_outputs)
+            
+            # Feed context vector to decoder RNN
+            decoder_input = context.unsqueeze(1)
+            output, hidden = self.decoder(decoder_input, hidden)
+            
+            # Store decoder output
+            decoder_outputs[:, t:t+1, :] = output
+        
+        # Apply dropout
+        decoder_outputs = self.dropout(decoder_outputs)
+        
+        # Apply output layer
+        outputs = self.output_layer(decoder_outputs)
+        
+        # Apply sigmoid to get values between 0 and 1
+        reconstructed = self.sigmoid(outputs)
+        reconstructed = reconstructed.reshape(batch_size, num_lane_unit, time_span)
+        
+        return reconstructed
+    
 class TrajDataset(Dataset):
     def __init__(self, data_dir, time_span):
         self.data_dir = data_dir
