@@ -5,48 +5,59 @@ class ImprovedSocialLSTM(nn.Module):
     def __init__(self, 
                  hidden_size=64,         # LSTM hidden state size
                  social_size=32,         # Social context embedding size
+                 num_layers=1,           # Number of LSTM layers
                  input_frames=10,        # Number of input frames 
                  output_size=2,          # Number of outputs: [position, confidence]
                  dropout=0.2,            # Dropout probability
-                 use_cuda=True):         # GPU acceleration
+                 device='cuda' if torch.cuda.is_available() else 'cpu'
+                 
+):         # GPU acceleration
         """
         Improved Social LSTM with confidence output
         """
         super(ImprovedSocialLSTM, self).__init__()
-
+        self.device = device
         self.hidden_size = hidden_size
         self.social_size = social_size
         self.input_frames = input_frames
         self.output_size = output_size
-        self.use_cuda = use_cuda and torch.cuda.is_available()
         
         # Position embedding
         self.position_embedding = nn.Linear(1, hidden_size)
+
         
         # Social context embeddings with explicit presence flags
         self.front_vehicle_embedding = nn.Linear(2, social_size)  # [distance, presence_flag]
+
         self.back_vehicle_embedding = nn.Linear(2, social_size)   # [distance, presence_flag]
+
         
         # Combine social embeddings into context
         self.social_context_combine = nn.Linear(2 * social_size, hidden_size)
+
         
         # LSTM for sequence processing
         self.lstm = nn.LSTM(
             input_size=2 * hidden_size,  # Position embedding + social context
             hidden_size=hidden_size,
+            num_layers=num_layers,
             batch_first=True,
-            dropout=dropout if input_frames > 1 else 0
+            dropout=dropout if num_layers > 1 else 0
         )
+
         
         # Output layer - now outputs position and confidence
         self.output_layer = nn.Linear(hidden_size, output_size)
-        
+
         # Activation
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()  # For confidence scoring
         self.dropout = nn.Dropout(dropout)
+        self.to(device)  # Move model to device
+            
 
     def forward(self, inputs):
+        inputs = self.prepare_input_data(inputs[:,:,0], inputs[:, :, 1], inputs[:, :, 2])
         """
         Forward pass with confidence output
         
@@ -65,9 +76,7 @@ class ImprovedSocialLSTM(nn.Module):
         seq_length = inputs.size(1)
         
         # Prepare output tensor
-        lstm_inputs = torch.zeros(batch_size, seq_length, 2 * self.hidden_size)
-        if self.use_cuda:
-            lstm_inputs = lstm_inputs.cuda()
+        lstm_inputs = torch.zeros(batch_size, seq_length, 2 * self.hidden_size,device=self.device)
         
         # Process each time step to create embeddings
         for t in range(seq_length):
@@ -122,9 +131,7 @@ class ImprovedSocialLSTM(nn.Module):
         seq_len = positions.size(1)
         
         # Create input tensor with proper structure
-        inputs = torch.zeros(batch_size, seq_len, 5)
-        if self.use_cuda:
-            inputs = inputs.cuda()
+        inputs = torch.zeros(batch_size, seq_len, 5,device=self.device)
         
         # Set positions
         inputs[:, :, 0] = positions
@@ -132,61 +139,15 @@ class ImprovedSocialLSTM(nn.Module):
         # Set front vehicle info with presence flags
         if front_distances is not None:
             # Where distances are valid (not None), set presence flag to 1
-            front_present = (front_distances != 0).float()
+            front_present = (front_distances > -200).float() 
             inputs[:, :, 1] = front_distances
             inputs[:, :, 2] = front_present
         
         # Set back vehicle info with presence flags
         if back_distances is not None:
             # Where distances are valid (not None), set presence flag to 1
-            back_present = (back_distances != 0).float()
+            back_present = (back_distances < 200).float()
             inputs[:, :, 3] = back_distances
             inputs[:, :, 4] = back_present
         
         return inputs
-        
-    def train_step(self, positions, front_distances, back_distances, targets, optimizer, criterion=None):
-        """
-        Training step with confidence-aware loss
-        
-        Args:
-            positions: Positions of tracked vehicles [batch, seq_len]
-            front_distances: Distances to front vehicles [batch, seq_len] (or None)
-            back_distances: Distances to back vehicles [batch, seq_len] (or None)
-            targets: Target positions [batch, 1]
-            optimizer: PyTorch optimizer
-            criterion: Loss function (if None, use custom confidence-aware loss)
-            
-        Returns:
-            loss: Training loss
-        """
-        # Prepare input data
-        inputs = self.prepare_input_data(positions, front_distances, back_distances)
-        
-        # Forward pass
-        outputs = self.forward(inputs)
-        
-        # Extract predicted position and confidence
-        pred_position = outputs[:, 0]
-        pred_confidence = outputs[:, 1]
-        
-        # If no custom criterion is provided, use confidence-aware MSE loss
-        if criterion is None:
-            # Position error
-            position_error = (pred_position - targets.squeeze(1)) ** 2
-            
-            # Scale error by confidence and add confidence regularization
-            # Higher confidence → higher penalty for being wrong
-            # Lower confidence → lower penalty but penalize low confidence
-            confidence_penalty = -torch.log(pred_confidence)
-            loss = (position_error * pred_confidence + confidence_penalty).mean()
-        else:
-            # Use provided criterion
-            loss = criterion(pred_position, targets.squeeze(1))
-        
-        # Backward pass
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-        return loss.item()
