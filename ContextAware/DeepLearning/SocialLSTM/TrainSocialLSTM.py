@@ -6,7 +6,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 import json
-from Dataset import TrajDataset
+from Dataset import TrajectoryDataset
 from ModelSocial import ImprovedSocialLSTM
 
 class ConfidenceLoss(nn.Module):
@@ -89,13 +89,12 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
         train_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Train]')
         
         for batch in train_bar:
-            targets = batch['target']  
-            post_occlusion = batch['post_occ_X']
+            inputs = batch['inputs'].to(device)
+            targets = batch['targets'].to(device)
 
-            targets, post_occlusion = targets.to(device), post_occlusion.to(device)
             optimizer.zero_grad()
             
-            outputs = model(post_occlusion)
+            outputs = model(inputs)
             loss_dict = criterion(outputs, targets)
             loss = loss_dict['total_loss']
             
@@ -169,7 +168,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
     # Create model save directory
-    model_save_path = "models/social_lstm"
+    model_save_path = "D:\TimeSpaceDiagramDataset\SocialLSTMDataset\models\social_lstm"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path)
     
@@ -186,7 +185,8 @@ if __name__ == '__main__':
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
     early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=5)
     os.makedirs(model_save_path)
-    
+    train_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\train\train_dataset.h5'
+    val_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\val\val_dataset.h5'
     # Save training parameters
     with open(os.path.join(model_save_path, 'training_parameters.json'), 'w') as f:
         json.dump({
@@ -206,14 +206,16 @@ if __name__ == '__main__':
             'num_epochs': num_epochs,
             'loss_func': criterion.__class__.__name__,
             'optimizer': optimizer.__class__.__name__,
-            'model': model.__class__.__name__
+            'model': model.__class__.__name__,
+            'train_dir': train_dir,
+            'val_dir': val_dir
         }, f)
     
     # Load datasets
-    train_dataset = TrajDataset(data_dir="data/train", time_span=time_span)
+    train_dataset = TrajectoryDataset(data_path = train_dir)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
     
-    val_dataset = TrajDataset(data_dir="data/val", time_span=time_span)
+    val_dataset = TrajectoryDataset(data_path= val_dir)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=4)
 
     # Train model
