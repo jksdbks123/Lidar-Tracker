@@ -96,13 +96,12 @@ def train_model(model,
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
             optimizer.step()
-            
-            train_loss += loss.item()
-            # Record loss
+                        # Record loss
             train_losses.append(loss.item())
             train_mses.append(mse.item())
             # print(f"Train Loss: {loss.item()}, MSE: {mse.item()}")
-            post_fix = f'Train Loss: {loss.item():.4f}, MSE: {mse.item():.4f}'
+            post_fix = {'Train Loss': loss.item(), 'MSE': mse.item()}
+            # Record average confidence
             train_bar.set_postfix(post_fix)
         
         # Validation phase
@@ -133,7 +132,7 @@ def train_model(model,
                 avg_conf = valid_conf.sum() / (output_masks.sum() + 1e-6)
                 val_confidences.append(avg_conf.item())
 
-                post_fix = f'Val Loss: {loss.item():.4f}, MSE: {mse.item():.4f}, Avg Conf: {avg_conf:.4f}'
+                post_fix = {'Val Loss': loss.item(), 'MSE': mse.item(), 'Avg Confidence': avg_conf.item()}
                 val_bar.set_postfix(post_fix)
         
         # Calculate average metrics
@@ -173,7 +172,7 @@ def train_model(model,
 if __name__ == '__main__':
     # Training parameters
     patience = 8 
-    hidden_size=64,
+    hidden_size=64
     social_size=32
     neighborhood_size=16
     num_layers=1
@@ -190,6 +189,7 @@ if __name__ == '__main__':
     model = SimplifiedLaneSocialLSTM(
         hidden_size=hidden_size,
         social_size=social_size,
+        neighborhood_size=neighborhood_size,
         num_layers=num_layers,
         input_frames=input_frames,
         output_frames=output_frames,
@@ -201,12 +201,12 @@ if __name__ == '__main__':
     # Loss and optimizer
     criterion = social_trajectory_loss
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    scheduler = torch.optim.ReduceLROnPlateau(optimizer, patience=5, factor=0.5, verbose=True)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
     
     # Create model save directory
     model_save_path = "D:\TimeSpaceDiagramDataset\SocialLSTMDataset\models\social_lstm"
     if not os.path.exists(model_save_path):
-        os.makedirs(model_save_path)
+        os.makedirs(model_save_path, exist_ok=True)
     
     # Find next train number
     history_train_list = os.listdir(model_save_path)
@@ -220,8 +220,8 @@ if __name__ == '__main__':
     
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
     early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.01)
-    os.makedirs(model_save_path)
-    train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\train\social_lstm_data.h5'
+    os.makedirs(model_save_path, exist_ok=True)
+    train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\train\social_lstm_data.h5'
     train_dataset = SocialLSTMDataset(
         h5_path=train_h5_dir,
         input_frames=10,
@@ -233,7 +233,7 @@ if __name__ == '__main__':
             shuffle=False,
             num_workers=8,
         )
-    val_h5_path = r':\TimeSpaceDiagramDataset\SocialLSTMDataset\val\social_lstm_data.h5'
+    val_h5_path = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\val\social_lstm_data.h5'
     val_dataset = SocialLSTMDataset(
         h5_path=val_h5_path,
         input_frames=10,
@@ -265,6 +265,14 @@ if __name__ == '__main__':
     
 
     # Train model
-    train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device, early_stopping)
+    train_model(model, 
+                train_loader, 
+                val_loader,
+                criterion, 
+                optimizer, 
+                num_epochs, 
+                device, 
+                early_stopping,
+                scheduler)
 
     print("Training complete")
