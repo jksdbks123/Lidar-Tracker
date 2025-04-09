@@ -1,153 +1,277 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
 
-class ImprovedSocialLSTM(nn.Module):
+
+class LaneSocialLSTM(nn.Module):
     def __init__(self, 
-                 hidden_size=64,         # LSTM hidden state size
-                 social_size=32,         # Social context embedding size
-                 num_layers=1,           # Number of LSTM layers
-                 input_frames=10,        # Number of input frames 
-                 output_size=2,          # Number of outputs: [position, confidence]
-                 dropout=0.2,            # Dropout probability
-                 device='cuda' if torch.cuda.is_available() else 'cpu'
-                 
-):         # GPU acceleration
+                 input_frames=10,
+                 output_frames=12,
+                 lane_cells=200,
+                 hidden_size=64,
+                 social_size=32,
+                 neighborhood_size=20,  # Size of neighborhood to consider in lane cells
+                 num_layers=1,
+                 dropout=0.2,
+                 device='cuda' if torch.cuda.is_available() else 'cpu'):
         """
-        Improved Social LSTM with confidence output
+        Social LSTM model adapted for lane-based traffic context diagrams
+        
+        Args:
+            input_frames: Number of input frames to observe
+            output_frames: Number of frames to predict
+            lane_cells: Number of cells in the lane (200 in your case)
+            hidden_size: Size of LSTM hidden state
+            social_size: Size of social context embedding
+            neighborhood_size: Size of neighborhood to consider for social context
+            num_layers: Number of LSTM layers
+            dropout: Dropout probability
+            device: Device to run the model on
         """
-        super(ImprovedSocialLSTM, self).__init__()
-        self.device = device
+        super(LaneSocialLSTM, self).__init__()
+        self.input_frames = input_frames
+        self.output_frames = output_frames
+        self.lane_cells = lane_cells
         self.hidden_size = hidden_size
         self.social_size = social_size
-        self.input_frames = input_frames
-        self.output_size = output_size
+        self.neighborhood_size = neighborhood_size
+        self.device = device
         
-        # Position embedding
+        # Position and vehicle embedding
         self.position_embedding = nn.Linear(1, hidden_size)
-
         
-        # Social context embeddings with explicit presence flags
-        self.front_vehicle_embedding = nn.Linear(2, social_size)  # [distance, presence_flag]
-
-        self.back_vehicle_embedding = nn.Linear(2, social_size)   # [distance, presence_flag]
-
+        # Social context embedding
+        self.social_pooling = nn.Linear(neighborhood_size, social_size)
         
-        # Combine social embeddings into context
-        self.social_context_combine = nn.Linear(2 * social_size, hidden_size)
-
+        # Combined embedding
+        self.combined_embedding = nn.Linear(hidden_size + social_size, hidden_size)
         
-        # LSTM for sequence processing
+        # LSTM cell
         self.lstm = nn.LSTM(
-            input_size=2 * hidden_size,  # Position embedding + social context
+            input_size=hidden_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0
         )
-
         
-        # Output layer - now outputs position and confidence
-        self.output_layer = nn.Linear(hidden_size, output_size)
-
-        # Activation
+        # Output layer for position prediction
+        self.output_layer = nn.Linear(hidden_size, 2)  # position and confidence
+        
+        # Activation functions
         self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()  # For confidence scoring
-        self.dropout = nn.Dropout(dropout)
-        self.to(device)  # Move model to device
-            
-
-    def forward(self, inputs):
-        inputs = self.prepare_input_data(inputs[:,:,0], inputs[:, :, 1], inputs[:, :, 2])
+        self.sigmoid = nn.Sigmoid()
+        self.dropout_layer = nn.Dropout(dropout)
+        
+        self.to(device)
+    
+    def extract_vehicle_trajectories(self, traffic_context, start_frame, num_frames):
         """
-        Forward pass with confidence output
+        Extract individual vehicle trajectories from traffic context diagram
         
         Args:
-            inputs: Input tensor structure [batch_size, input_frames, 5]
-                inputs[:,:,0] = tracked vehicle position
-                inputs[:,:,1] = distance to front vehicle (0 if none)
-                inputs[:,:,2] = front vehicle presence flag (0 or 1)
-                inputs[:,:,3] = distance to back vehicle (0 if none)
-                inputs[:,:,4] = back vehicle presence flag (0 or 1)
+            traffic_context: Traffic context diagram [batch_size, lane_cells, time_span]
+            start_frame: Starting frame index
+            num_frames: Number of frames to extract
             
         Returns:
-            outputs: Predicted [position, confidence] [batch_size, output_size]
+            vehicle_positions: Dict mapping vehicle_id to trajectory positions
+            vehicle_frames: Dict mapping vehicle_id to frame indices
         """
-        batch_size = inputs.size(0)
-        seq_length = inputs.size(1)
+        batch_size = traffic_context.shape[0]
+        vehicle_positions = {}
+        vehicle_frames = {}
         
-        # Prepare output tensor
-        lstm_inputs = torch.zeros(batch_size, seq_length, 2 * self.hidden_size,device=self.device)
-        
-        # Process each time step to create embeddings
-        for t in range(seq_length):
-            # Extract data for current time step
-            pos = inputs[:, t, 0].unsqueeze(1)  # [batch, 1]
+        for b in range(batch_size):
+            vehicle_positions[b] = {}
+            vehicle_frames[b] = {}
             
-            front_data = inputs[:, t, 1:3]      # [batch, 2] - [distance, presence]
-            back_data = inputs[:, t, 3:5]       # [batch, 2] - [distance, presence]
+            # Extract frames of interest
+            context_window = traffic_context[b, :, start_frame:start_frame+num_frames]
             
-            # Embed position
-            pos_embedded = self.dropout(self.relu(self.position_embedding(pos)))
+            # Find unique vehicle IDs (excluding 0 which is empty)
+            vehicle_ids = torch.unique(context_window)
+            vehicle_ids = vehicle_ids[vehicle_ids > 0]
             
-            # Embed social context with presence flags
-            front_embedded = self.dropout(self.relu(self.front_vehicle_embedding(front_data)))
-            back_embedded = self.dropout(self.relu(self.back_vehicle_embedding(back_data)))
-            
-            # Combine social context
-            social_context = torch.cat((front_embedded, back_embedded), dim=1)
-            social_embedded = self.dropout(self.relu(self.social_context_combine(social_context)))
-            
-            # Combine all features
-            lstm_inputs[:, t] = torch.cat((pos_embedded, social_embedded), dim=1)
+            for vid in vehicle_ids:
+                vid_int = vid.item()
+                positions = []
+                frames = []
+                
+                # For each frame, find the vehicle position (front-most cell)
+                for t in range(num_frames):
+                    # Get positions where this vehicle exists in this frame
+                    vehicle_mask = (context_window[:, t] == vid)
+                    if torch.any(vehicle_mask):
+                        # Get front-most position (smallest index)
+                        pos_indices = torch.nonzero(vehicle_mask)
+                        front_pos = torch.min(pos_indices)
+                        positions.append(front_pos.item())
+                        frames.append(t)
+                
+                if positions:  # Only add if vehicle was visible
+                    vehicle_positions[b][vid_int] = positions
+                    vehicle_frames[b][vid_int] = frames
         
-        # Process through LSTM
-        lstm_out, (h_n, _) = self.lstm(lstm_inputs)
-        
-        # Get raw outputs
-        raw_output = self.output_layer(h_n[-1])
-        
-        # Split into position and confidence
-        position = raw_output[:, 0]
-        confidence = self.sigmoid(raw_output[:, 1])  # Sigmoid to get 0-1 confidence
-        
-        # Combine into final output
-        output = torch.cat((position.unsqueeze(1), confidence.unsqueeze(1)), dim=1)
-        
-        return output
-
-    def prepare_input_data(self, positions, front_distances, back_distances):
+        return vehicle_positions, vehicle_frames
+    
+    def get_social_context(self, traffic_context, frame_idx, vehicle_id, position):
         """
-        Prepare input data with proper presence flags
+        Extract social context (neighborhood) for a vehicle
         
         Args:
-            positions: Positions of tracked vehicles [batch, seq_len]
-            front_distances: Distances to front vehicles [batch, seq_len] (or None)
-            back_distances: Distances to back vehicles [batch, seq_len] (or None)
+            traffic_context: Traffic context diagram [lane_cells, time_span]
+            frame_idx: Current frame index
+            vehicle_id: ID of the vehicle
+            position: Current position of the vehicle
             
         Returns:
-            inputs: Formatted input tensor [batch, seq_len, 5]
+            social_context: Binary occupancy vector of neighborhood [neighborhood_size]
         """
-        batch_size = positions.size(0)
-        seq_len = positions.size(1)
+        # Create binary context (1 for occupied, 0 for empty)
+        social_context = torch.zeros(self.neighborhood_size, device=self.device)
         
-        # Create input tensor with proper structure
-        inputs = torch.zeros(batch_size, seq_len, 5,device=self.device)
+        # Calculate neighborhood boundaries
+        start_idx = max(0, position - self.neighborhood_size // 2)
+        end_idx = min(self.lane_cells, start_idx + self.neighborhood_size)
         
-        # Set positions
-        inputs[:, :, 0] = positions
+        # Extract neighborhood occupancy
+        neighborhood = traffic_context[start_idx:end_idx, frame_idx]
         
-        # Set front vehicle info with presence flags
-        if front_distances is not None:
-            # Where distances are valid (not None), set presence flag to 1
-            front_present = (front_distances > -200).float() 
-            inputs[:, :, 1] = front_distances
-            inputs[:, :, 2] = front_present
+        # Mark cells that are occupied by other vehicles
+        mask = (neighborhood > 0) & (neighborhood != vehicle_id)
         
-        # Set back vehicle info with presence flags
-        if back_distances is not None:
-            # Where distances are valid (not None), set presence flag to 1
-            back_present = (back_distances < 200).float()
-            inputs[:, :, 3] = back_distances
-            inputs[:, :, 4] = back_present
+        # Map to social context tensor
+        offset = 0
+        width = end_idx - start_idx
+        social_context[:width] = mask.float()
         
-        return inputs
+        return social_context
+            
+    def forward(self, traffic_context, target_vehicle_id=None):
+        """
+        Forward pass through the Social LSTM model
+        
+        Args:
+            traffic_context: Traffic context diagram [batch_size, lane_cells, time_span]
+            target_vehicle_id: Optional ID of target vehicle to predict (if None, predict all)
+            
+        Returns:
+            predictions: Dict mapping vehicle_id to predicted trajectories
+            confidences: Dict mapping vehicle_id to prediction confidences
+        """
+        batch_size = traffic_context.shape[0]
+        
+        # Extract vehicle trajectories from input frames
+        vehicle_positions, vehicle_frames = self.extract_vehicle_trajectories(
+            traffic_context, 
+            0,  # Start from first frame
+            self.input_frames
+        )
+        
+        # Initialize prediction containers
+        predictions = {b: {} for b in range(batch_size)}
+        confidences = {b: {} for b in range(batch_size)}
+        
+        # Process each batch and each vehicle
+        for b in range(batch_size):
+            # Filter vehicles if target_vehicle_id is specified
+            if target_vehicle_id is not None:
+                vehicle_ids = [target_vehicle_id] if target_vehicle_id in vehicle_positions[b] else []
+            else:
+                vehicle_ids = list(vehicle_positions[b].keys())
+            
+            for vid in vehicle_ids:
+                # Skip vehicles with insufficient data
+                if len(vehicle_positions[b][vid]) < self.input_frames // 2:
+                    continue
+                
+                # Initialize LSTM hidden state
+                h = torch.zeros(1, 1, self.hidden_size, device=self.device)
+                c = torch.zeros(1, 1, self.hidden_size, device=self.device)
+                
+                # Process input frames
+                for t in range(self.input_frames):
+                    # Skip if vehicle not visible in this frame
+                    if t not in vehicle_frames[b][vid]:
+                        continue
+                    
+                    # Get index in vehicle's trajectory
+                    idx = vehicle_frames[b][vid].index(t)
+                    pos = vehicle_positions[b][vid][idx]
+                    
+                    # Embed position
+                    pos_tensor = torch.tensor([[pos]], dtype=torch.float, device=self.device)
+                    pos_embedded = self.position_embedding(pos_tensor)
+                    
+                    # Get social context
+                    social_context = self.get_social_context(
+                        traffic_context[b], 
+                        t, 
+                        vid, 
+                        pos
+                    )
+                    social_embedded = self.social_pooling(social_context.unsqueeze(0))
+                    
+                    # Combine embeddings
+                    combined = torch.cat((pos_embedded, social_embedded), dim=2)
+                    inputs = self.dropout_layer(self.relu(self.combined_embedding(combined)))
+                    
+                    # LSTM step
+                    _, (h, c) = self.lstm(inputs, (h, c))
+                
+                # Generate predictions for output frames
+                pred_positions = []
+                pred_confidences = []
+                
+                last_pos = vehicle_positions[b][vid][-1]
+                
+                for t in range(self.output_frames):
+                    # Predict next position and confidence
+                    output = self.output_layer(h.squeeze(0))
+                    pos_delta = output[0, 0]  # Position change prediction
+                    confidence = self.sigmoid(output[0, 1])  # Prediction confidence
+                    
+                    # Calculate absolute position
+                    if t == 0:
+                        next_pos = last_pos + pos_delta
+                    else:
+                        next_pos = pred_positions[-1] + pos_delta
+                    
+                    # Store predictions
+                    pred_positions.append(next_pos.item())
+                    pred_confidences.append(confidence.item())
+                    
+                    # Update social context for next prediction
+                    # Create temporary context with predicted position
+                    temp_context = traffic_context[b].clone()
+                    cell_idx = int(next_pos)
+                    if 0 <= cell_idx < self.lane_cells:
+                        temp_context[cell_idx, self.input_frames + t] = vid
+                    
+                    # Get updated social context
+                    social_context = self.get_social_context(
+                        temp_context, 
+                        self.input_frames + t, 
+                        vid, 
+                        int(next_pos)
+                    )
+                    social_embedded = self.social_pooling(social_context.unsqueeze(0))
+                    
+                    # Embed predicted position
+                    pos_tensor = torch.tensor([[next_pos]], dtype=torch.float, device=self.device)
+                    pos_embedded = self.position_embedding(pos_tensor)
+                    
+                    # Combine embeddings
+                    combined = torch.cat((pos_embedded, social_embedded), dim=2)
+                    inputs = self.dropout_layer(self.relu(self.combined_embedding(combined)))
+                    
+                    # LSTM step
+                    _, (h, c) = self.lstm(inputs, (h, c))
+                
+                # Store vehicle predictions
+                predictions[b][vid] = pred_positions
+                confidences[b][vid] = pred_confidences
+        
+        return predictions, confidences

@@ -115,11 +115,10 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
         with torch.no_grad():
             val_bar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Val]')
             for batch in val_bar:
-                targets = batch['target']  
-                post_occlusion = batch['post_occ_X']
-                targets, post_occlusion = targets.to(device), post_occlusion.to(device)
-                
-                outputs = model(post_occlusion)
+                inputs = batch['inputs'].to(device)
+                targets = batch['targets'].to(device)
+
+                outputs = model(inputs)
                 loss_dict = criterion(outputs, targets)
                 loss = loss_dict['total_loss']
                 val_loss += loss.item()
@@ -144,7 +143,7 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 32
     lane_unit = 200  # each lane unit is 0.5 meters
-    time_span = 100
+    time_span = 10
     hidden_size = 64
     social_size = 32
     num_layers = 2
@@ -183,7 +182,7 @@ if __name__ == '__main__':
         train_num = int(history_train_list[-1].split('_')[-1]) + 1
     
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
-    early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=5)
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.01)
     os.makedirs(model_save_path)
     train_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\train\train_dataset.h5'
     val_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\val\val_dataset.h5'
