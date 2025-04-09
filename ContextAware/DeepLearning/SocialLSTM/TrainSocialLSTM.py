@@ -195,7 +195,6 @@ if __name__ == '__main__':
         output_frames=output_frames,
         lane_cells=lane_cells,
         dropout = dropout,
-        output_size=2,  # Position and confidence
         device=device
     )
     
