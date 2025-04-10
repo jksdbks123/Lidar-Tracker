@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 
-class SimplifiedLaneSocialLSTM(nn.Module):
+class LaneSocialLSTM(nn.Module):
     def __init__(self, 
                  hidden_size=64,
                  social_size=32,
@@ -15,7 +15,7 @@ class SimplifiedLaneSocialLSTM(nn.Module):
                  lane_cells=200,
                  dropout=0.2,
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
-        super(SimplifiedLaneSocialLSTM, self).__init__()
+        super(LaneSocialLSTM, self).__init__()
         self.device = device
         self.hidden_size = hidden_size
         self.social_size = social_size
@@ -39,19 +39,18 @@ class SimplifiedLaneSocialLSTM(nn.Module):
             dropout=dropout if num_layers > 1 else 0
         )
         
-        # Output decoder
+        # Decoder network
         self.decoder_rnn = nn.LSTMCell(
             input_size=hidden_size,
             hidden_size=hidden_size
         )
         
-        # Output layers - position and confidence
-        self.output_position = nn.Linear(hidden_size, 1)
-        self.output_confidence = nn.Linear(hidden_size, 1)
+        # Output layers - position distribution across all lane cells
+        self.output_distribution = nn.Linear(hidden_size, lane_cells)
         
         # Activation functions
         self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=1)
         self.dropout = nn.Dropout(dropout)
         self.to(device)
     
@@ -87,15 +86,14 @@ class SimplifiedLaneSocialLSTM(nn.Module):
     
     def forward(self, vehicle_positions, traffic_context):
         """
-        Forward pass with social pooling
+        Forward pass with social pooling and distribution output
         
         Args:
             vehicle_positions: Vehicle front positions [batch_size, input_frames]
             traffic_context: Binary traffic context [batch_size, input_frames, lane_cells]
             
         Returns:
-            predicted_positions: Predicted positions [batch_size, output_frames]
-            confidences: Prediction confidences [batch_size, output_frames]
+            predicted_distributions: Predicted position distributions [batch_size, output_frames, lane_cells]
         """
         batch_size = vehicle_positions.shape[0]
         
@@ -127,8 +125,7 @@ class SimplifiedLaneSocialLSTM(nn.Module):
         decoder_c = c_n[-1]  # [batch_size, hidden_size]
         
         # Storage for predictions
-        predicted_positions = []
-        confidences = []
+        predicted_distributions = []
         
         # Current position starts as the last observed position
         current_pos = vehicle_positions[:, -1]
@@ -141,19 +138,19 @@ class SimplifiedLaneSocialLSTM(nn.Module):
                 (decoder_h, decoder_c)
             )
             
-            # Predict position and confidence
-            pos_pred = self.output_position(decoder_h).squeeze(1)
-            conf_pred = self.sigmoid(self.output_confidence(decoder_h)).squeeze(1)
+            # Predict position distribution across all lane cells
+            logits = self.output_distribution(decoder_h)
+            distribution = self.softmax(logits)
             
             # Store predictions
-            predicted_positions.append(pos_pred)
-            confidences.append(conf_pred)
+            predicted_distributions.append(distribution)
             
-            # Update current position for next iteration (detached to prevent backprop through predictions)
-            current_pos = pos_pred.detach()
+            # Update current position as expected value of distribution (for next iteration)
+            positions = torch.arange(0, self.lane_cells, device=self.device).float()
+            expected_pos = torch.sum(distribution * positions.unsqueeze(0), dim=1)
+            current_pos = expected_pos.detach()
         
         # Stack predictions
-        predicted_positions = torch.stack(predicted_positions, dim=1)  # [batch_size, output_frames]
-        confidences = torch.stack(confidences, dim=1)  # [batch_size, output_frames]
+        predicted_distributions = torch.stack(predicted_distributions, dim=1)  # [batch_size, output_frames, lane_cells]
         
-        return predicted_positions, confidences
+        return predicted_distributions

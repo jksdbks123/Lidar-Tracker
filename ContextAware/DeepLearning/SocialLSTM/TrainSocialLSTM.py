@@ -6,9 +6,9 @@ import numpy as np
 import os
 from tqdm import tqdm
 import json
-from Dataset import SocialLSTMDataset
-from ModelSocial import SimplifiedLaneSocialLSTM
-from CriterionSocial import social_trajectory_loss
+from Dataset import SocialLSTMDataset,MemoryMappedSocialLSTMDataset
+from ModelSocial import LaneSocialLSTM
+from CriterionSocial import combined_distribution_loss
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, path='checkpoint.pt', min_delta=0):
@@ -65,10 +65,11 @@ def train_model(model,
     # Initialize history
     history = {
         'train_loss': [],
-        'train_mse': [],
+        'train_js_loss': [],
+        'train_pos_loss': [],
         'val_loss': [],
-        'val_mse': [],
-        'avg_confidence': [],
+        'val_js_loss': [],
+        'val_pos_loss': [],
         'lr': []
     }
 
@@ -76,71 +77,82 @@ def train_model(model,
         # Training phase
         model.train()
         train_losses = []
-        train_mses = []
+        train_js_losses = []
+        train_pos_losses = []
         train_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Train]')
         
-        for input_positions, input_context, output_positions, output_masks in train_bar:
+        for input_positions, input_context, target_positions, target_distributions, output_masks in train_bar:
             # Move tensors to device
             input_positions = input_positions.to(device)
             input_context = input_context.to(device)
-            output_positions = output_positions.to(device)
+            target_positions = target_positions.to(device)
+            target_distributions = target_distributions.to(device)
             output_masks = output_masks.to(device)
 
             optimizer.zero_grad()
-            # Compute loss
             # Forward pass
-            pred_positions, pred_confidences = model(input_positions, input_context)
-            loss, mse, _, _ = criterion(pred_positions, output_positions, pred_confidences, output_masks)
+            pred_distributions = model(input_positions, input_context)
             
+            # Compute loss
+            loss, js_loss, pos_loss = combined_distribution_loss(
+                pred_distributions, target_distributions, target_positions, output_masks
+            )
+            
+            # Backward pass
             loss.backward()
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
             optimizer.step()
-                        # Record loss
+            # Record loss
             train_losses.append(loss.item())
-            train_mses.append(mse.item())
-            # print(f"Train Loss: {loss.item()}, MSE: {mse.item()}")
-            post_fix = {'Train Loss': loss.item(), 'MSE': mse.item()}
+            train_js_losses.append(js_loss.item())
+            train_pos_losses.append(pos_loss.item())
+            
+            post_fix = {'Train Loss': loss.item(), 'JS Loss': js_loss.item(), 'Pos Loss': pos_loss.item()}
             # Record average confidence
             train_bar.set_postfix(post_fix)
         
         # Validation phase
         model.eval()
         val_losses = []
-        val_mses = []
-        val_confidences = []
+        val_js_losses = []
+        val_pos_losses = []
 
         with torch.no_grad():
             val_bar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Val]')
-            for input_positions, input_context, output_positions, output_masks in val_bar:
+            for input_positions, input_context, target_positions, target_distributions, output_masks in val_bar:
                 
-                intput_positions = input_positions.to(device)
+                # Move tensors to device
+                input_positions = input_positions.to(device)
                 input_context = input_context.to(device)
-                output_positions = output_positions.to(device)
+                target_positions = target_positions.to(device)
+                target_distributions = target_distributions.to(device)
                 output_masks = output_masks.to(device)
 
                 # Forward pass
-                pred_positions, pred_confidences = model(intput_positions, input_context)
+                pred_distributions = model(input_positions, input_context)
+                
                 # Compute loss
-                loss, mse, _, _ = criterion(pred_positions, output_positions, pred_confidences, output_masks)
+                loss, js_loss, pos_loss = combined_distribution_loss(
+                    pred_distributions, target_distributions, target_positions, output_masks
+                )
+                
                 # Record metrics
                 val_losses.append(loss.item())
-                val_mses.append(mse.item())
+                val_js_losses.append(js_loss.item())
+                val_pos_losses.append(pos_loss.item())
                 
-                # Record average confidence
-                valid_conf = pred_confidences * output_masks
-                avg_conf = valid_conf.sum() / (output_masks.sum() + 1e-6)
-                val_confidences.append(avg_conf.item())
 
-                post_fix = {'Val Loss': loss.item(), 'MSE': mse.item(), 'Avg Confidence': avg_conf.item()}
+                post_fix = {'Val Loss': loss.item(), 'JS Loss': js_loss.item(), 'Pos Loss': pos_loss.item()}
                 val_bar.set_postfix(post_fix)
         
         # Calculate average metrics
         avg_train_loss = np.mean(train_losses)
-        avg_train_mse = np.mean(train_mses)
+        avg_train_js_loss = np.mean(train_js_losses)
+        avg_train_pos_loss = np.mean(train_pos_losses)
         avg_val_loss = np.mean(val_losses)
-        avg_val_mse = np.mean(val_mses)
-        avg_confidence = np.mean(val_confidences)
+        avg_val_js_loss = np.mean(val_js_losses)
+        avg_val_pos_loss = np.mean(val_pos_losses)
         
         # Update learning rate
         scheduler.step(avg_val_loss)
@@ -148,19 +160,17 @@ def train_model(model,
         
         # Update history
         history['train_loss'].append(avg_train_loss)
-        history['train_mse'].append(avg_train_mse)
+        history['train_js_loss'].append(avg_train_js_loss)
+        history['train_pos_loss'].append(avg_train_pos_loss)
         history['val_loss'].append(avg_val_loss)
-        history['val_mse'].append(avg_val_mse)
-        history['avg_confidence'].append(avg_confidence)
+        history['val_js_loss'].append(avg_val_js_loss)
+        history['val_pos_loss'].append(avg_val_pos_loss)
         history['lr'].append(current_lr)
         
         # Print epoch summary
         print(f"Epoch {epoch+1}/{num_epochs}: "
-              f"Train Loss: {avg_train_loss:.4f}, "
-              f"Train MSE: {avg_train_mse:.4f}, "
-              f"Val Loss: {avg_val_loss:.4f}, "
-              f"Val MSE: {avg_val_mse:.4f}, "
-              f"Avg Confidence: {avg_confidence:.4f}, "
+              f"Train Loss: {avg_train_loss:.4f} (JS: {avg_train_js_loss:.4f}, Pos: {avg_train_pos_loss:.4f}), "
+              f"Val Loss: {avg_val_loss:.4f} (JS: {avg_val_js_loss:.4f}, Pos: {avg_val_pos_loss:.4f}), "
               f"LR: {current_lr:.6f}")
 
         # Early stopping check
@@ -171,8 +181,9 @@ def train_model(model,
 
 if __name__ == '__main__':
     # Training parameters
+
     patience = 8 
-    hidden_size=64
+    hidden_size=128
     social_size=32
     neighborhood_size=16
     num_layers=1
@@ -182,11 +193,11 @@ if __name__ == '__main__':
     dropout=0.2
     num_epochs = 100
     batch_size = 32
-    learning_rate = 0.001
+    learning_rate = 0.0005
     weight_decay = 0.0001
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Model initialization
-    model = SimplifiedLaneSocialLSTM(
+    model = LaneSocialLSTM(
         hidden_size=hidden_size,
         social_size=social_size,
         neighborhood_size=neighborhood_size,
@@ -199,7 +210,7 @@ if __name__ == '__main__':
     )
     
     # Loss and optimizer
-    criterion = social_trajectory_loss
+    criterion = combined_distribution_loss
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
     
@@ -222,7 +233,7 @@ if __name__ == '__main__':
     early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.01)
     os.makedirs(model_save_path, exist_ok=True)
     train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\train\social_lstm_data.h5'
-    train_dataset = SocialLSTMDataset(
+    train_dataset = MemoryMappedSocialLSTMDataset(
         h5_path=train_h5_dir,
         input_frames=10,
         output_frames=1
@@ -234,7 +245,7 @@ if __name__ == '__main__':
             num_workers=8,
         )
     val_h5_path = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\val\social_lstm_data.h5'
-    val_dataset = SocialLSTMDataset(
+    val_dataset = MemoryMappedSocialLSTMDataset(
         h5_path=val_h5_path,
         input_frames=10,
         output_frames=1

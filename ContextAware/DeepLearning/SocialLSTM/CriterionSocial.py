@@ -1,56 +1,138 @@
 import torch
 
-def masked_mse_loss(predictions, targets, masks):
+def kl_divergence_loss(predictions, targets, masks):
     """
-    Masked MSE loss for trajectory prediction
+    KL divergence loss for distribution prediction
     
     Args:
-        predictions: Predicted positions [batch_size, output_frames]
-        targets: Ground truth positions [batch_size, output_frames]
+        predictions: Predicted distributions [batch_size, output_frames, lane_cells]
+        targets: Target distributions [batch_size, output_frames, lane_cells]
         masks: Binary masks for valid positions [batch_size, output_frames]
         
     Returns:
-        loss: Masked MSE loss
+        loss: KL divergence loss
     """
+    # Add small epsilon to avoid log(0)
+    epsilon = 1e-8
+    predictions = predictions + epsilon
+    targets = targets + epsilon
+    
+    # Normalize distributions
+    predictions = predictions / predictions.sum(dim=2, keepdim=True)
+    targets = targets / targets.sum(dim=2, keepdim=True)
+    
+    # Compute KL divergence
+    kl_div = targets * (torch.log(targets) - torch.log(predictions))
+    kl_div = kl_div.sum(dim=2)  # Sum over lane cells
+    
+    # Apply mask
+    masked_kl_div = kl_div * masks
+    
+    # Average over valid frames
+    loss = masked_kl_div.sum(dim=1) / (masks.sum(dim=1) + epsilon)
+    
+    return loss.mean()
+
+def js_divergence_loss(predictions, targets, masks):
+    """
+    Jensen-Shannon divergence loss for distribution prediction
+    
+    Args:
+        predictions: Predicted distributions [batch_size, output_frames, lane_cells]
+        targets: Target distributions [batch_size, output_frames, lane_cells]
+        masks: Binary masks for valid positions [batch_size, output_frames]
+        
+    Returns:
+        loss: JS divergence loss
+    """
+    # Add small epsilon to avoid log(0)
+    epsilon = 1e-8
+    predictions = predictions + epsilon
+    targets = targets + epsilon
+    
+    # Normalize distributions
+    predictions = predictions / predictions.sum(dim=2, keepdim=True)
+    targets = targets / targets.sum(dim=2, keepdim=True)
+    
+    # Compute midpoint distribution
+    m = 0.5 * (predictions + targets)
+    
+    # Compute KL divergences
+    kl_p_m = predictions * (torch.log(predictions) - torch.log(m))
+    kl_p_m = kl_p_m.sum(dim=2)  # Sum over lane cells
+    
+    kl_t_m = targets * (torch.log(targets) - torch.log(m))
+    kl_t_m = kl_t_m.sum(dim=2)  # Sum over lane cells
+    
+    # Jensen-Shannon divergence
+    js_div = 0.5 * (kl_p_m + kl_t_m)
+    
+    # Apply mask
+    masked_js_div = js_div * masks
+    
+    # Average over valid frames
+    loss = masked_js_div.sum(dim=1) / (masks.sum(dim=1) + epsilon)
+    
+    return loss.mean()
+
+def expected_position_loss(predictions, target_positions, masks):
+    """
+    MSE loss between expected position from distribution and target position
+    
+    Args:
+        predictions: Predicted distributions [batch_size, output_frames, lane_cells]
+        target_positions: Target positions [batch_size, output_frames]
+        masks: Binary masks for valid positions [batch_size, output_frames]
+        
+    Returns:
+        loss: MSE loss of expected positions
+    """
+    batch_size = predictions.shape[0]
+    output_frames = predictions.shape[1]
+    lane_cells = predictions.shape[2]
+    device = predictions.device
+    
+    # Create positions tensor
+    positions = torch.arange(0, lane_cells, device=device).float()
+    
+    # Compute expected positions from predicted distributions
+    expected_positions = torch.sum(predictions * positions.unsqueeze(0).unsqueeze(0), dim=2)
+    
     # Compute squared error
-    squared_error = (predictions - targets) ** 2
+    squared_error = (expected_positions - target_positions) ** 2
     
     # Apply mask
     masked_error = squared_error * masks
     
-    # Sum over time and average over batch
-    loss = masked_error.sum(dim=1) / (masks.sum(dim=1) + 1e-6)
+    # Average over valid frames
+    loss = masked_error.sum(dim=1) / (masks.sum(dim=1) + 1e-8)
     
     return loss.mean()
 
-def social_trajectory_loss(predictions, targets, confidences, masks):
+def combined_distribution_loss(predictions, targets, target_positions, masks, alpha=0.5, beta=0.5):
     """
-    Combined loss function for position prediction and confidence
+    Combined loss function for distribution prediction
     
     Args:
-        predictions: Predicted positions [batch_size, output_frames]
-        targets: Ground truth positions [batch_size, output_frames]
-        confidences: Prediction confidences [batch_size, output_frames]
+        predictions: Predicted distributions [batch_size, output_frames, lane_cells]
+        targets: Target distributions [batch_size, output_frames, lane_cells]
+        target_positions: Target positions [batch_size, output_frames]
         masks: Binary masks for valid positions [batch_size, output_frames]
+        alpha: Weight for JS divergence loss
+        beta: Weight for expected position loss
         
     Returns:
-        loss: Combined loss value
+        loss: Combined loss
+        js_loss: JS divergence loss component
+        pos_loss: Expected position loss component
     """
-    # Basic masked MSE loss
-    mse_loss = masked_mse_loss(predictions, targets, masks)
+    # JS divergence loss
+    js_loss = js_divergence_loss(predictions, targets, masks)
     
-    # Confidence-weighted error
-    weighted_error = ((predictions - targets) ** 2) * confidences * masks
-    confidence_weighted_error = weighted_error.sum(dim=1) / (masks.sum(dim=1) + 1e-6)
-    confidence_weighted_error = confidence_weighted_error.mean()
-    
-    # Confidence calibration (higher confidence for lower error)
-    neg_log_conf = -torch.log(confidences + 1e-6) * masks
-    error_weight = torch.exp(-5.0 * ((predictions - targets) ** 2)) * masks
-    confidence_calibration = (neg_log_conf * error_weight).sum(dim=1) / (masks.sum(dim=1) + 1e-6)
-    confidence_calibration = confidence_calibration.mean()
+    # Expected position loss
+    pos_loss = expected_position_loss(predictions, target_positions, masks)
     
     # Combined loss
-    loss = mse_loss + 0.5 * confidence_weighted_error + 0.2 * confidence_calibration
+    loss = alpha * js_loss + beta * pos_loss
     
-    return loss, mse_loss, confidence_weighted_error, confidence_calibration
+    return loss, js_loss, pos_loss
