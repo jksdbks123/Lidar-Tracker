@@ -139,7 +139,7 @@ def combined_distribution_loss(predictions, targets, target_positions, masks, al
     return loss, js_loss, pos_loss
 
 
-def focal_loss(predictions, target_positions, masks, gamma=2.0, alpha=0.25):
+def focal_loss(predictions, target_positions, masks, gamma=1.0, alpha=0.5):
     """
     Focal loss for lane cell classification
     

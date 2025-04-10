@@ -87,6 +87,7 @@ def train_model(model,
             # Forward pass
             pred_distributions = model(input_positions, input_context)
             
+
             # Compute loss
             loss = criterion(
                 pred_distributions,target_positions, output_masks
@@ -179,7 +180,7 @@ if __name__ == '__main__':
     dropout=0.2
     num_epochs = 100
     batch_size = 32
-    learning_rate = 0.0005
+    learning_rate = 0.001
     weight_decay = 0.0001
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Model initialization
@@ -199,7 +200,7 @@ if __name__ == '__main__':
     # criterion = combined_distribution_loss
     criterion = focal_loss
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
+
     
     # Create model save directory
     model_save_path = "D:\TimeSpaceDiagramDataset\SocialLSTMDataset\models\social_lstm"
@@ -217,7 +218,7 @@ if __name__ == '__main__':
         train_num = int(history_train_list[-1].split('_')[-1]) + 1
     
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
-    early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.01)
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.001)
     os.makedirs(model_save_path, exist_ok=True)
     train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\train\social_lstm_data.h5'
     train_dataset = MemoryMappedSocialLSTMDataset(
@@ -261,6 +262,10 @@ if __name__ == '__main__':
             'weight_decay': weight_decay
         }, f)
     
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(max_lr=0.003,
+    steps_per_epoch=len(train_loader),
+    epochs=50,
+    pct_start=0.3)
 
     # Train model
     train_model(model, 
