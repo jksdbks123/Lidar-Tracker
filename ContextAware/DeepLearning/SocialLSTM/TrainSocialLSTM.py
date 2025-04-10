@@ -262,7 +262,9 @@ if __name__ == '__main__':
             'weight_decay': weight_decay
         }, f)
     
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(max_lr=0.003,
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+    optimizer=optimizer,
+    max_lr=0.003,
     steps_per_epoch=len(train_loader),
     epochs=50,
     pct_start=0.3)

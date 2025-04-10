@@ -24,11 +24,21 @@ class LaneSocialLSTM(nn.Module):
         self.lane_cells = lane_cells
         self.neighborhood_size = neighborhood_size
         
-        # Position embedding (for vehicle's front position)
-        self.position_embedding = nn.Linear(1, hidden_size)
-        
+        # # Position embedding (for vehicle's front position)
+        # self.position_embedding = nn.Linear(1, hidden_size)
+        self.position_embedding = nn.Embedding(lane_cells, hidden_size)
+
         # Social pooling embedding
-        self.social_pooling_embedding = nn.Linear(neighborhood_size, social_size)
+        # self.social_pooling_embedding = nn.Linear(neighborhood_size, social_size)
+        # Social pooling using convolutional layers
+        self.neighborhood_conv = nn.Sequential(
+            nn.Conv1d(1, 16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(16, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(32 * neighborhood_size, social_size)
+        )
         
         # LSTM for sequence processing
         self.lstm = nn.LSTM(
@@ -103,17 +113,20 @@ class LaneSocialLSTM(nn.Module):
         # Process each input time step
         for t in range(self.input_frames):
             # Current position
-            pos = vehicle_positions[:, t].unsqueeze(1).float()  # [batch, 1]
+            # pos = vehicle_positions[:, t].unsqueeze(1).float()  # [batch, 1]
+            pos = vehicle_positions[:, t].long()  # [batch, 1]
             
             # Embed position
-            pos_embedded = self.dropout(self.relu(self.position_embedding(pos)))
+            # pos_embedded = self.dropout(self.relu(self.position_embedding(pos)))
+            pos_embedded = self.dropout(self.position_embedding(pos))  # [batch, hidden_size]
             
             # Get neighborhood for social pooling
             neighborhood = self.get_neighborhood(traffic_context[:, t], vehicle_positions[:, t])
-            
+            neighborhood = neighborhood.unsqueeze(1)
             # Embed social context
-            social_context = self.dropout(self.relu(self.social_pooling_embedding(neighborhood)))
-            
+            # social_context = self.dropout(self.relu(self.social_pooling_embedding(neighborhood)))
+            social_context = self.dropout(self.neighborhood_conv(neighborhood))
+   
             # Combine for LSTM input
             lstm_inputs[:, t] = torch.cat((pos_embedded, social_context), dim=1)
         
