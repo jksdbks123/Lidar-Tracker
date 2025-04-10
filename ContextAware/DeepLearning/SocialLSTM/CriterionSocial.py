@@ -1,4 +1,5 @@
 import torch
+import torch.functional as F
 
 def kl_divergence_loss(predictions, targets, masks):
     """
@@ -136,3 +137,54 @@ def combined_distribution_loss(predictions, targets, target_positions, masks, al
     loss = alpha * js_loss + beta * pos_loss
     
     return loss, js_loss, pos_loss
+
+
+def focal_loss(predictions, target_positions, masks, gamma=2.0, alpha=0.25):
+    """
+    Focal loss for lane cell classification
+    
+    Args:
+        predictions: Logits or probability distributions [batch_size, output_frames, lane_cells]
+        target_positions: Target positions as indices [batch_size, output_frames]
+        masks: Binary masks for valid positions [batch_size, output_frames]
+        gamma: Focusing parameter
+        alpha: Class weight parameter
+        
+    Returns:
+        loss: Masked focal loss
+    """
+    batch_size = predictions.shape[0]
+    output_frames = predictions.shape[1]
+    lane_cells = predictions.shape[2]
+    device = predictions.device
+    
+    # Convert target positions to integer indices if they're not already
+    target_positions = target_positions.long()
+    
+    # Convert to one-hot encoding
+    target_one_hot = torch.zeros(batch_size, output_frames, lane_cells, device=device)
+    for b in range(batch_size):
+        for t in range(output_frames):
+            if masks[b, t] > 0.5:
+                pos = target_positions[b, t]
+                if 0 <= pos < lane_cells:  # Ensure position is valid
+                    target_one_hot[b, t, pos] = 1.0
+    
+    # Apply softmax to get probabilities
+    probs = F.softmax(predictions, dim=-1)
+    
+    # Compute focal loss
+    pt = torch.sum(probs * target_one_hot, dim=-1)  # Probability of the target class
+    focal_weight = alpha * (1 - pt) ** gamma
+    
+    # Compute cross entropy loss
+    log_pt = torch.log(pt + 1e-10)  # Add small epsilon to avoid log(0)
+    loss = -focal_weight * log_pt
+    
+    # Apply mask
+    masked_loss = loss * masks
+    
+    # Average over valid frames
+    final_loss = masked_loss.sum(dim=1) / (masks.sum(dim=1) + 1e-8)
+    
+    return final_loss.mean()

@@ -8,7 +8,7 @@ from tqdm import tqdm
 import json
 from Dataset import SocialLSTMDataset,MemoryMappedSocialLSTMDataset
 from ModelSocial import LaneSocialLSTM
-from CriterionSocial import combined_distribution_loss
+from CriterionSocial import combined_distribution_loss,focal_loss
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, path='checkpoint.pt', min_delta=0):
@@ -65,11 +65,7 @@ def train_model(model,
     # Initialize history
     history = {
         'train_loss': [],
-        'train_js_loss': [],
-        'train_pos_loss': [],
         'val_loss': [],
-        'val_js_loss': [],
-        'val_pos_loss': [],
         'lr': []
     }
 
@@ -77,8 +73,6 @@ def train_model(model,
         # Training phase
         model.train()
         train_losses = []
-        train_js_losses = []
-        train_pos_losses = []
         train_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Train]')
         
         for input_positions, input_context, target_positions, target_distributions, output_masks in train_bar:
@@ -94,8 +88,8 @@ def train_model(model,
             pred_distributions = model(input_positions, input_context)
             
             # Compute loss
-            loss, js_loss, pos_loss = combined_distribution_loss(
-                pred_distributions, target_distributions, target_positions, output_masks
+            loss = criterion(
+                pred_distributions,target_positions, output_masks
             )
             
             # Backward pass
@@ -105,18 +99,18 @@ def train_model(model,
             optimizer.step()
             # Record loss
             train_losses.append(loss.item())
-            train_js_losses.append(js_loss.item())
-            train_pos_losses.append(pos_loss.item())
+            # train_js_losses.append(js_loss.item())
+            # train_pos_losses.append(pos_loss.item())
             
-            post_fix = {'Train Loss': loss.item(), 'JS Loss': js_loss.item(), 'Pos Loss': pos_loss.item()}
+            post_fix = {'Train Loss': loss.item()}
             # Record average confidence
             train_bar.set_postfix(post_fix)
         
         # Validation phase
         model.eval()
         val_losses = []
-        val_js_losses = []
-        val_pos_losses = []
+        # val_js_losses = []
+        # val_pos_losses = []
 
         with torch.no_grad():
             val_bar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Val]')
@@ -133,26 +127,22 @@ def train_model(model,
                 pred_distributions = model(input_positions, input_context)
                 
                 # Compute loss
-                loss, js_loss, pos_loss = combined_distribution_loss(
-                    pred_distributions, target_distributions, target_positions, output_masks
-                )
+                loss = criterion(
+                pred_distributions,target_positions, output_masks
+            )
                 
                 # Record metrics
                 val_losses.append(loss.item())
-                val_js_losses.append(js_loss.item())
-                val_pos_losses.append(pos_loss.item())
+                # val_js_losses.append(js_loss.item())
+                # val_pos_losses.append(pos_loss.item())
                 
 
-                post_fix = {'Val Loss': loss.item(), 'JS Loss': js_loss.item(), 'Pos Loss': pos_loss.item()}
+                post_fix = {'Val Loss': loss.item()}
                 val_bar.set_postfix(post_fix)
         
         # Calculate average metrics
         avg_train_loss = np.mean(train_losses)
-        avg_train_js_loss = np.mean(train_js_losses)
-        avg_train_pos_loss = np.mean(train_pos_losses)
         avg_val_loss = np.mean(val_losses)
-        avg_val_js_loss = np.mean(val_js_losses)
-        avg_val_pos_loss = np.mean(val_pos_losses)
         
         # Update learning rate
         scheduler.step(avg_val_loss)
@@ -160,17 +150,13 @@ def train_model(model,
         
         # Update history
         history['train_loss'].append(avg_train_loss)
-        history['train_js_loss'].append(avg_train_js_loss)
-        history['train_pos_loss'].append(avg_train_pos_loss)
         history['val_loss'].append(avg_val_loss)
-        history['val_js_loss'].append(avg_val_js_loss)
-        history['val_pos_loss'].append(avg_val_pos_loss)
         history['lr'].append(current_lr)
         
         # Print epoch summary
         print(f"Epoch {epoch+1}/{num_epochs}: "
-              f"Train Loss: {avg_train_loss:.4f} (JS: {avg_train_js_loss:.4f}, Pos: {avg_train_pos_loss:.4f}), "
-              f"Val Loss: {avg_val_loss:.4f} (JS: {avg_val_js_loss:.4f}, Pos: {avg_val_pos_loss:.4f}), "
+              f"Train Loss: {avg_train_loss:.4f}, "
+              f"Val Loss: {avg_val_loss:.4f}, "
               f"LR: {current_lr:.6f}")
 
         # Early stopping check
@@ -210,7 +196,8 @@ if __name__ == '__main__':
     )
     
     # Loss and optimizer
-    criterion = combined_distribution_loss
+    # criterion = combined_distribution_loss
+    criterion = focal_loss
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
     
