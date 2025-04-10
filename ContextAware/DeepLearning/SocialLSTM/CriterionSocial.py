@@ -1,5 +1,5 @@
 import torch
-import torch.functional as F
+import torch.nn.functional as F
 
 def kl_divergence_loss(predictions, targets, masks):
     """
