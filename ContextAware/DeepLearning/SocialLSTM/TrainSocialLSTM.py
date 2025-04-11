@@ -8,7 +8,7 @@ from tqdm import tqdm
 import json
 from Dataset import SocialLSTMDataset,MemoryMappedSocialLSTMDataset
 from ModelSocial import LaneSocialLSTM
-from CriterionSocial import combined_distribution_loss,focal_loss
+from CriterionSocial import evaluate_prediction_metrics,focal_loss
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, path='checkpoint.pt', min_delta=0):
@@ -92,7 +92,7 @@ def train_model(model,
             loss = criterion(
                 pred_distributions,target_positions, output_masks
             )
-            
+            evaluation_metrics = evaluate_prediction_metrics(pred_distributions, target_positions, output_masks) 
             # Backward pass
             loss.backward()
             # Gradient clipping
@@ -103,7 +103,8 @@ def train_model(model,
             # train_js_losses.append(js_loss.item())
             # train_pos_losses.append(pos_loss.item())
             
-            post_fix = {'Train Loss': loss.item()}
+            post_fix = evaluation_metrics
+            post_fix.update({'Train Loss': loss.item()})
             # Record average confidence
             train_bar.set_postfix(post_fix)
         
@@ -131,14 +132,14 @@ def train_model(model,
                 loss = criterion(
                 pred_distributions,target_positions, output_masks
             )
-                
+                evaluation_metrics = evaluate_prediction_metrics(pred_distributions, target_positions, output_masks)
+
                 # Record metrics
                 val_losses.append(loss.item())
-                # val_js_losses.append(js_loss.item())
-                # val_pos_losses.append(pos_loss.item())
                 
 
-                post_fix = {'Val Loss': loss.item()}
+                post_fix = evaluation_metrics
+                post_fix.update({'Val Loss': loss.item()})
                 val_bar.set_postfix(post_fix)
         
         # Calculate average metrics
@@ -218,7 +219,7 @@ if __name__ == '__main__':
         train_num = int(history_train_list[-1].split('_')[-1]) + 1
     
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
-    early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.001)
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.0001)
     os.makedirs(model_save_path, exist_ok=True)
     train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\train\social_lstm_data.h5'
     train_dataset = MemoryMappedSocialLSTMDataset(

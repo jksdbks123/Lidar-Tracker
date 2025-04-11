@@ -188,3 +188,80 @@ def focal_loss(predictions, target_positions, masks, gamma=1.0, alpha=0.5):
     final_loss = masked_loss.sum(dim=1) / (masks.sum(dim=1) + 1e-8)
     
     return final_loss.mean()
+
+import numpy as np
+
+def evaluate_prediction_metrics(pred_distributions, target_positions, output_masks):
+    """
+    Calculate practical metrics for trajectory prediction performance
+    
+    Args:
+        pred_distributions: Predicted distributions [batch_size, output_frames, lane_cells]
+        target_positions: Target positions [batch_size, output_frames]
+        output_masks: Masks for valid positions [batch_size, output_frames]
+        
+    Returns:
+        metrics: Dictionary of evaluation metrics
+    """
+    # Move everything to CPU for numpy operations
+    pred_distributions = pred_distributions.detach().cpu().numpy()
+    target_positions = target_positions.detach().cpu().numpy()
+    output_masks = output_masks.detach().cpu().numpy()
+    
+    batch_size, output_frames, lane_cells = pred_distributions.shape
+    
+    # Calculate most likely positions (argmax)
+    argmax_positions = np.argmax(pred_distributions, axis=2)
+    
+    # Calculate expected positions (weighted average)
+    cell_positions = np.arange(lane_cells)
+    expected_positions = np.sum(pred_distributions * cell_positions.reshape(1, 1, -1), axis=2)
+    
+    # Initialize metric arrays
+    argmax_errors = np.zeros((batch_size, output_frames))
+    expected_errors = np.zeros((batch_size, output_frames))
+    
+    # Calculate errors for each prediction
+    for b in range(batch_size):
+        for t in range(output_frames):
+            if output_masks[b, t] > 0.5:  # Only consider valid positions
+                # Error using argmax position
+                argmax_errors[b, t] = abs(argmax_positions[b, t] - target_positions[b, t])
+                
+                # Error using expected position
+                expected_errors[b, t] = abs(expected_positions[b, t] - target_positions[b, t])
+    
+    # Calculate accuracy (within tolerance)
+    tolerance_1 = np.mean((argmax_errors <= 1) * output_masks) / np.mean(output_masks)
+    tolerance_3 = np.mean((argmax_errors <= 3) * output_masks) / np.mean(output_masks)
+    tolerance_5 = np.mean((argmax_errors <= 5) * output_masks) / np.mean(output_masks)
+    
+    # Calculate mean and median errors
+    valid_mask = output_masks > 0.5
+    valid_argmax_errors = argmax_errors[valid_mask]
+    valid_expected_errors = expected_errors[valid_mask]
+    
+    # Calculate metrics
+    metrics = {
+        'mean_argmax_error': float(np.mean(valid_argmax_errors)),
+        'median_argmax_error': float(np.median(valid_argmax_errors)),
+        'mean_expected_error': float(np.mean(valid_expected_errors)),
+        'median_expected_error': float(np.median(valid_expected_errors)),
+        'accuracy_tol_1': float(tolerance_1),
+        'accuracy_tol_3': float(tolerance_3),
+        'accuracy_tol_5': float(tolerance_5)
+    }
+    
+    # Calculate error by prediction horizon
+    horizon_errors = []
+    for t in range(output_frames):
+        valid_t = output_masks[:, t] > 0.5
+        if np.sum(valid_t) > 0:
+            mean_error_t = np.mean(argmax_errors[valid_t, t])
+            horizon_errors.append(mean_error_t)
+        else:
+            horizon_errors.append(np.nan)
+    
+    metrics['horizon_errors'] = horizon_errors
+    
+    return metrics
