@@ -171,11 +171,11 @@ if __name__ == '__main__':
     # Training parameters
 
     patience = 8 
-    hidden_size=128
+    hidden_size=64
     social_size=32
     neighborhood_size=16
     num_layers=1
-    input_frames=10
+    input_frames=5
     output_frames=1
     lane_cells=200
     dropout=0.2
@@ -224,8 +224,8 @@ if __name__ == '__main__':
     train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\train\social_lstm_data.h5'
     train_dataset = MemoryMappedSocialLSTMDataset(
         h5_path=train_h5_dir,
-        input_frames=10,
-        output_frames=1
+        input_frames=input_frames,
+        output_frames=output_frames
     )
     train_loader = DataLoader(
             train_dataset,
@@ -236,8 +236,8 @@ if __name__ == '__main__':
     val_h5_path = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\val\social_lstm_data.h5'
     val_dataset = MemoryMappedSocialLSTMDataset(
         h5_path=val_h5_path,
-        input_frames=10,
-        output_frames=1
+        input_frames=input_frames,
+        output_frames=output_frames
     )
     val_loader = DataLoader(
             val_dataset,
