@@ -171,12 +171,12 @@ if __name__ == '__main__':
     # Training parameters
 
     patience = 8 
-    hidden_size=64
+    hidden_size=128
     social_size=32
     neighborhood_size=16
     num_layers=1
-    input_frames=5
-    output_frames=1
+    input_frames=50
+    output_frames=25
     lane_cells=200
     dropout=0.2
     num_epochs = 100
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
     early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.0001)
     os.makedirs(model_save_path, exist_ok=True)
-    train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\train\social_lstm_data.h5'
+    train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset_50-25\train\social_lstm_data.h5'
     train_dataset = MemoryMappedSocialLSTMDataset(
         h5_path=train_h5_dir,
         input_frames=input_frames,
@@ -233,7 +233,7 @@ if __name__ == '__main__':
             shuffle=False,
             num_workers=8,
         )
-    val_h5_path = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset\val\social_lstm_data.h5'
+    val_h5_path = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset_50-25\val\social_lstm_data.h5'
     val_dataset = MemoryMappedSocialLSTMDataset(
         h5_path=val_h5_path,
         input_frames=input_frames,
