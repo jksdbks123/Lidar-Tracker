@@ -34,52 +34,42 @@ class TrajDataset(Dataset):
         # trajs: list - each element in the list is a np.array of shape (n_frames, 2) : [(t, pos)]
         trajs = get_trajs_from_Kalman_out(Labels, max_prediction_count=2)
         
-        # Process trajectories to create training samples with occlusion augmentation
-        processed_samples = []
+        # If no trajectories found, return dummy tensors
+        if not trajs:
+            return (
+                torch.zeros(self.sequence_length, dtype=torch.float32),  # Sequence tensor
+                torch.zeros(self.sequence_length, dtype=torch.bool),     # Mask tensor
+                torch.zeros(1, dtype=torch.float32)    # Target tensor
+            )
         
-        for traj in trajs:
-            if len(traj) < self.sequence_length + 1:
-                continue  # Skip if trajectory is too short
-            
-            # Find valid sequence windows within the trajectory
-            for start_idx in range(len(traj) - self.sequence_length):
-                # Extract sequence and target
-                seq = traj[start_idx:start_idx+self.sequence_length]
-                next_pos = traj[start_idx+self.sequence_length][1]  # Position part of (t, pos)
-                
-                # Apply random occlusion
-                mask = np.ones(self.sequence_length, dtype=bool)
-                occluded_seq = seq.copy()
-                
-                # Randomly occlude some positions based on occlusion_rate
-                for i in range(self.sequence_length):
-                    if random.random() < self.occlusion_rate:
-                        # Mark as occluded - set position to None (represented as -1)
-                        occluded_seq[i, 1] = -1
-                        mask[i] = False
-                
-                # Only use sequences with at least half non-occluded frames
-                if np.sum(mask) >= self.sequence_length // 2:
-                    processed_samples.append({
-                        'sequence': occluded_seq[:, 1],  # Position values
-                        'mask': mask,
-                        'target': next_pos
-                    })
+        # Process the first valid trajectory
+        traj = trajs[0]  # Take the first trajectory
         
-        # If no valid samples were found, return a dummy sample
-        if not processed_samples:
-            return {
-                'sequence': np.zeros(self.sequence_length),
-                'mask': np.zeros(self.sequence_length, dtype=bool),
-                'target': 0.0
-            }
+        # Check if trajectory has enough points
+        if len(traj) < self.sequence_length + 1:  # Need at least 11 points for 10 input + 1 target
+            return (
+                torch.zeros(self.sequence_length, dtype=torch.float32),
+                torch.zeros(self.sequence_length, dtype=torch.bool),
+                torch.zeros(1, dtype=torch.float32)
+            )
         
-        # Return a randomly selected valid sample
-        sample = random.choice(processed_samples)
+        # Take last 11 points, first 10 as input, last one as target
+        input_points = traj[-(self.sequence_length+1):-1, 1]  # Position values from the trajectory
+        target_point = traj[-1, 1]      # Last position value
+        
+        # Create random occlusion mask
+        mask = np.ones(self.sequence_length, dtype=bool)
+        occluded_input = input_points.copy()
+        
+        # Apply random occlusions
+        for i in range(self.sequence_length):
+            if np.random.random() < 0.2:  # 20% occlusion rate
+                mask[i] = False
+                occluded_input[i] = -1  # Mark as occluded
         
         # Convert to tensors
-        sequence_tensor = torch.tensor(sample['sequence'], dtype=torch.float32)
-        mask_tensor = torch.tensor(sample['mask'], dtype=torch.bool)
-        target_tensor = torch.tensor([sample['target']], dtype=torch.float32)
+        sequence_tensor = torch.tensor(occluded_input, dtype=torch.float32)
+        mask_tensor = torch.tensor(mask, dtype=torch.bool)
+        target_tensor = torch.tensor([target_point], dtype=torch.float32)
         
         return sequence_tensor, mask_tensor, target_tensor

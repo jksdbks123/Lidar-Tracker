@@ -237,7 +237,12 @@ def get_trajs_from_Kalman_out(Labels,center = False, max_prediction_count = 25):
                 }
         
             break
+        if cur_t >= n_frames - 1:
+            break
         cur_t += 1
+        
+    if cur_t >= n_frames - 1:
+        return []
 
 
     for t in range(cur_t,n_frames):

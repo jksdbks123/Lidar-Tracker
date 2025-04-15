@@ -6,9 +6,8 @@ import numpy as np
 import os
 from tqdm import tqdm
 import json
-from Dataset import SocialLSTMDataset,MemoryMappedSocialLSTMDataset
-from ModelSocial import LaneSocialLSTM
-from CriterionSocial import evaluate_prediction_metrics,focal_loss
+from Dataset import TrajDataset
+from Models import TrajectoryLSTM
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, path='checkpoint.pt', min_delta=0):
@@ -75,71 +74,53 @@ def train_model(model,
         train_losses = []
         train_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Train]')
         
-        for input_positions, input_context, target_positions, target_distributions, output_masks in train_bar:
+        for batch_idx, batch in enumerate(train_bar):
+            sequence_tensor, mask_tensor, target_tensor = batch 
             # Move tensors to device
-            input_positions = input_positions.to(device)
-            input_context = input_context.to(device)
-            target_positions = target_positions.to(device)
-            target_distributions = target_distributions.to(device)
-            output_masks = output_masks.to(device)
-
+            sequence_tensor = sequence_tensor.to(device)
+            mask_tensor = mask_tensor.to(device)
+            target_tensor = target_tensor.to(device)
             optimizer.zero_grad()
             # Forward pass
-            pred_distributions = model(input_positions, input_context)
-            
-
+            pred = model(sequence_tensor, mask_tensor)
             # Compute loss
-            loss = criterion(
-                pred_distributions,target_positions, output_masks
-            )
-            evaluation_metrics = evaluate_prediction_metrics(pred_distributions, target_positions, output_masks) 
+            loss = criterion(pred, target_tensor)
+
             # Backward pass
             loss.backward()
             # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
             optimizer.step()
             # Record loss
             train_losses.append(loss.item())
-            # train_js_losses.append(js_loss.item())
-            # train_pos_losses.append(pos_loss.item())
             
-            post_fix = evaluation_metrics
-            post_fix.update({'Train Loss': loss.item()})
+            post_fix = {'Train Loss': loss.item()}
             # Record average confidence
             train_bar.set_postfix(post_fix)
         
         # Validation phase
         model.eval()
         val_losses = []
-        # val_js_losses = []
-        # val_pos_losses = []
 
         with torch.no_grad():
             val_bar = tqdm(val_loader, desc=f'Epoch {epoch+1}/{num_epochs} [Val]')
-            for input_positions, input_context, target_positions, target_distributions, output_masks in val_bar:
-                
+            for batch_idx, batch in enumerate(val_bar):
                 # Move tensors to device
-                input_positions = input_positions.to(device)
-                input_context = input_context.to(device)
-                target_positions = target_positions.to(device)
-                target_distributions = target_distributions.to(device)
-                output_masks = output_masks.to(device)
+                sequence_tensor = sequence_tensor.to(device)
+                mask_tensor = mask_tensor.to(device)
+                target_tensor = target_tensor.to(device)
+                if torch.all(~mask_tensor):
+                    continue
 
                 # Forward pass
-                pred_distributions = model(input_positions, input_context)
+                pred = model(sequence_tensor, mask_tensor)
                 
                 # Compute loss
-                loss = criterion(
-                pred_distributions,target_positions, output_masks
-            )
-                evaluation_metrics = evaluate_prediction_metrics(pred_distributions, target_positions, output_masks)
-
+                loss = criterion(pred, target_tensor)
                 # Record metrics
                 val_losses.append(loss.item())
                 
 
-                post_fix = evaluation_metrics
-                post_fix.update({'Val Loss': loss.item()})
+                post_fix = {'Val Loss': loss.item()}
                 val_bar.set_postfix(post_fix)
         
         # Calculate average metrics
@@ -171,40 +152,34 @@ if __name__ == '__main__':
     # Training parameters
 
     patience = 8 
-    hidden_size=128
-    social_size=32
-    neighborhood_size=16
-    num_layers=1
-    input_frames=50
-    output_frames=25
+    hidden_size=64
+    num_layers=2
+    input_frames=20
+    output_frames=1
     lane_cells=200
+    time_span = 100 # 100 frames in reading dataset
     dropout=0.2
     num_epochs = 100
     batch_size = 32
     learning_rate = 0.001
     weight_decay = 0.0001
+    occlusion_rate = 0.2
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Model initialization
-    model = LaneSocialLSTM(
+    model = TrajectoryLSTM(
         hidden_size=hidden_size,
-        social_size=social_size,
-        neighborhood_size=neighborhood_size,
         num_layers=num_layers,
-        input_frames=input_frames,
-        output_frames=output_frames,
-        lane_cells=lane_cells,
         dropout = dropout,
-        device=device
     )
-    
+    model.to(device)
     # Loss and optimizer
     # criterion = combined_distribution_loss
-    criterion = focal_loss
+    criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     
     # Create model save directory
-    model_save_path = "D:\TimeSpaceDiagramDataset\SocialLSTMDataset\models\social_lstm"
+    model_save_path = "D:\TimeSpaceDiagramDataset\SimpleLSTM"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path, exist_ok=True)
     
@@ -221,47 +196,34 @@ if __name__ == '__main__':
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
     early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.0001)
     os.makedirs(model_save_path, exist_ok=True)
-    train_h5_dir = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset_50-25\train\social_lstm_data.h5'
-    train_dataset = MemoryMappedSocialLSTMDataset(
-        h5_path=train_h5_dir,
-        input_frames=input_frames,
-        output_frames=output_frames
-    )
-    train_loader = DataLoader(
-            train_dataset,
-            batch_size=32,
-            shuffle=False,
-            num_workers=8,
-        )
-    val_h5_path = r'D:\TimeSpaceDiagramDataset\SocialLSTMDataset\dataset_50-25\val\social_lstm_data.h5'
-    val_dataset = MemoryMappedSocialLSTMDataset(
-        h5_path=val_h5_path,
-        input_frames=input_frames,
-        output_frames=output_frames
-    )
-    val_loader = DataLoader(
-            val_dataset,
-            batch_size=32,
-            shuffle=False,
-            num_workers=8,
-
-        )
+    train_dir = r'D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\100_frame\train'
+    train_dataset = TrajDataset(train_dir,
+                          time_span,sequence_length=input_frames,occlusion_rate=occlusion_rate)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=12)
+    val_dir = r'D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\100_frame\val'
+    val_dataset = TrajDataset(val_dir,
+                          time_span,sequence_length=input_frames,occlusion_rate=occlusion_rate)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=12)
+    # Move model to device
     # Save training parameters
     with open(os.path.join(model_save_path, 'training_parameters.json'), 'w') as f:
         json.dump({
             'hidden_size': hidden_size,
-            'social_size': social_size,
-            'neighborhood_size': neighborhood_size,
             'num_layers': num_layers,
             'input_frames': input_frames,
             'output_frames': output_frames,
             'lane_cells': lane_cells,
+            'time_span': time_span,
             'dropout': dropout,
             'num_epochs': num_epochs,
             'batch_size': batch_size,
             'learning_rate': learning_rate,
-            'weight_decay': weight_decay
-        }, f)
+            'weight_decay': weight_decay,
+            'occlusion_rate': occlusion_rate,
+            'patience': patience,
+            'train_num': train_num
+        }, f, indent=4)
+    
     
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
     optimizer=optimizer,
