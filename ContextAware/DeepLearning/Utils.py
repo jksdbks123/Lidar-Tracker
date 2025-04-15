@@ -235,7 +235,9 @@ def get_trajs_from_Kalman_out(Labels,center = False, max_prediction_count = 25):
                     'pred_count': 0,
                     'positions': [(cur_t, det_pos)]
                 }
-        break
+        
+            break
+        cur_t += 1
 
 
     for t in range(cur_t,n_frames):
