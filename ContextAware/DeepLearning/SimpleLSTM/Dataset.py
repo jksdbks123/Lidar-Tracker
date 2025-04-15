@@ -5,6 +5,7 @@ import numpy as np
 from DDBSCAN import Raster_DBSCAN
 from Utils import get_trajs_from_Kalman_out
 import random
+import h5py
 
 class TrajDataset(Dataset):
     def __init__(self, data_dir, time_span, sequence_length=10, occlusion_rate=0.2):
@@ -71,5 +72,88 @@ class TrajDataset(Dataset):
         sequence_tensor = torch.tensor(occluded_input, dtype=torch.float32)
         mask_tensor = torch.tensor(mask, dtype=torch.bool)
         target_tensor = torch.tensor([target_point], dtype=torch.float32)
+        
+        return sequence_tensor, mask_tensor, target_tensor
+    
+
+class PicklableH5Dataset(Dataset):
+    """
+    A wrapper dataset that loads data from the H5 file but is picklable for multiprocessing
+    with additional trajectory variation augmentation
+    """
+    def __init__(self, h5_path, occlusion_rate=0.2, 
+                 position_noise_std=1.0, time_dilation_range=(0.9, 1.1)):
+        self.h5_path = h5_path
+        self.occlusion_rate = occlusion_rate
+        self.position_noise_std = position_noise_std
+        self.time_dilation_range = time_dilation_range
+        
+        # Read all data into memory
+        with h5py.File(h5_path, 'r') as f:
+            self.sequences = f['input_sequences'][:]
+            self.masks = f['masks'][:]
+            self.targets = f['targets'][:]
+    
+    def __len__(self):
+        return len(self.sequences)
+    
+    def __getitem__(self, idx):
+        sequence = self.sequences[idx].copy()
+        mask = self.masks[idx].copy()
+        target = self.targets[idx]
+        
+        # Apply trajectory variation augmentations
+        # 1. Add position noise
+        if self.position_noise_std > 0:
+            noise = np.random.normal(0, self.position_noise_std, size=sequence.shape)
+            sequence = sequence + noise
+        
+        # 2. Apply time dilation/compression (simulate varying speeds)
+        if random.random() < 0.5 and self.time_dilation_range[0] < self.time_dilation_range[1]:
+            # Generate time dilation factor
+            dilation = random.uniform(self.time_dilation_range[0], self.time_dilation_range[1])
+            
+            # Calculate trend from sequence to target
+            seq_len = len(sequence)
+            start_pos = sequence[0]
+            end_pos = sequence[-1]
+            target_pos = target
+            
+            # Apply dilation to create a new sequence that still ends at the target
+            trend = (end_pos - start_pos) / seq_len
+            dilated_trend = trend * dilation
+            
+            # Create new sequence with the dilated trend
+            new_sequence = np.zeros_like(sequence)
+            for i in range(seq_len):
+                new_sequence[i] = start_pos + dilated_trend * i
+            
+            # Adjust target based on the dilation
+            new_target = end_pos + dilated_trend
+            
+            # Add some non-linear variation
+            if random.random() < 0.3:
+                # Add a small sinusoidal component
+                amplitude = abs(end_pos - start_pos) * 0.05  # 5% of total movement
+                frequency = random.uniform(0.5, 2.0)
+                phase = random.uniform(0, 2 * np.pi)
+                for i in range(seq_len):
+                    t = i / seq_len
+                    new_sequence[i] += amplitude * np.sin(2 * np.pi * frequency * t + phase)
+            
+            sequence = new_sequence
+            target = new_target
+        
+        # 3. Apply random occlusion
+        occluded_sequence = sequence.copy()
+        for i in range(len(sequence)):
+            if random.random() < self.occlusion_rate:
+                occluded_sequence[i] = -1
+                mask[i] = False
+        
+        # Convert to tensors
+        sequence_tensor = torch.tensor(occluded_sequence, dtype=torch.float32)
+        mask_tensor = torch.tensor(mask, dtype=torch.bool)
+        target_tensor = torch.tensor([target], dtype=torch.float32)
         
         return sequence_tensor, mask_tensor, target_tensor
