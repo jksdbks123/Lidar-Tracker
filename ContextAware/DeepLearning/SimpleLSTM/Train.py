@@ -6,7 +6,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 import json
-from Dataset import TrajDataset
+from Dataset import TrajDataset,PicklableH5Dataset
 from Models import TrajectoryLSTM
 
 class EarlyStopping:
@@ -179,7 +179,7 @@ if __name__ == '__main__':
 
     
     # Create model save directory
-    model_save_path = "D:\TimeSpaceDiagramDataset\SimpleLSTM"
+    model_save_path = "D:\TimeSpaceDiagramDataset\SimpleLSTM\Models"
     if not os.path.exists(model_save_path):
         os.makedirs(model_save_path, exist_ok=True)
     
@@ -196,13 +196,13 @@ if __name__ == '__main__':
     model_save_path = os.path.join(model_save_path, f'train_{train_num}')
     early_stopping = EarlyStopping(patience=patience, verbose=True, path=model_save_path, min_delta=0.0001)
     os.makedirs(model_save_path, exist_ok=True)
-    train_dir = r'D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\100_frame\train'
-    train_dataset = TrajDataset(train_dir,
-                          time_span,sequence_length=input_frames,occlusion_rate=occlusion_rate)
+    train_dir = r'D:\TimeSpaceDiagramDataset\SimpleLSTM\Dataset\train\train_data.h5'
+    train_dataset = PicklableH5Dataset(train_dir,
+                          occlusion_rate=occlusion_rate)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=12)
-    val_dir = r'D:\TimeSpaceDiagramDataset\EncoderDecoder_EvenlySampled_FreeflowAug_0914_5res_lanechange_signal\100_frame\val'
-    val_dataset = TrajDataset(val_dir,
-                          time_span,sequence_length=input_frames,occlusion_rate=occlusion_rate)
+    val_dir = r'D:\TimeSpaceDiagramDataset\SimpleLSTM\Dataset\val\val_data.h5'
+    val_dataset = PicklableH5Dataset(val_dir,
+                          occlusion_rate=occlusion_rate)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=12)
     # Move model to device
     # Save training parameters

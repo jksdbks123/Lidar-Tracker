@@ -271,7 +271,106 @@ class BidirectionalRNNLaneReconstructorWithAttention(nn.Module):
         reconstructed = reconstructed.reshape(batch_size, num_lane_unit, time_span)
         
         return reconstructed
-    
+
+
+class AttentionModule(nn.Module):
+    def __init__(self, hidden_size):
+        super(AttentionModule, self).__init__()
+        # The hidden size here will be hidden_size * 2 because of bidirectional LSTM
+        self.attention = nn.Linear(hidden_size, 1)
+        
+    def forward(self, encoder_outputs):
+        # encoder_outputs shape: (batch_size, time_span, hidden_size)
+        
+        # Calculate attention scores
+        attention_scores = self.attention(encoder_outputs)  # (batch_size, time_span, 1)
+        
+        # Apply softmax to get attention weights
+        attention_weights = F.softmax(attention_scores, dim=1)  # (batch_size, time_span, 1)
+        
+        # Apply attention weights to encoder outputs
+        context_vector = torch.sum(attention_weights * encoder_outputs, dim=1)  # (batch_size, hidden_size)
+        
+        return context_vector, attention_weights
+
+class BidirectionalLSTMLaneReconstructorWithAttention(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, dropout=0.2):
+        super(BidirectionalLSTMLaneReconstructorWithAttention, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+
+        # Bidirectional Encoder LSTM
+        self.encoder = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=True)
+        
+        # Attention mechanism
+        self.attention = AttentionModule(hidden_size * 2)
+        
+        # Decoder LSTM
+        self.decoder = nn.LSTM(hidden_size * 4, hidden_size * 2, num_layers, batch_first=True)
+        
+        self.dropout = nn.Dropout(dropout)
+        
+        # Output layer
+        self.output_layer = nn.Linear(hidden_size * 2, input_size)
+
+        # Activation function
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # x shape: (batch_size, time_span, num_lane_unit)
+        batch_size, num_lane_unit, time_span = x.size()
+        x = x.view(batch_size, time_span, num_lane_unit)
+        
+        # Encode the input sequence
+        encoder_outputs, (hidden, cell) = self.encoder(x)
+        
+        # Prepare hidden and cell states for the decoder
+        hidden = hidden.view(self.num_layers, 2, batch_size, self.hidden_size)
+        hidden = torch.cat([hidden[:, 0, :, :], hidden[:, 1, :, :]], dim=2)
+        cell = cell.view(self.num_layers, 2, batch_size, self.hidden_size)
+        cell = torch.cat([cell[:, 0, :, :], cell[:, 1, :, :]], dim=2)
+        
+        # Apply attention at each timestep of decoding
+        decoder_inputs = encoder_outputs
+        decoder_outputs = []
+        
+        # Store attention weights for visualization if needed
+        attention_weights_list = []
+        
+        # Initialize decoder hidden state
+        decoder_hidden = (hidden, cell)
+        
+        # Process each timestep
+        for t in range(time_span):
+            # Get attention context for current timestep
+            context_vector, attention_weights = self.attention(encoder_outputs)
+            attention_weights_list.append(attention_weights)
+            
+            # Expand context vector to match timesteps for concatenation
+            context_vector_expanded = context_vector.unsqueeze(1).expand(-1, 1, -1)
+            
+            # Concatenate context vector with current input
+            current_input = decoder_inputs[:, t:t+1, :]
+            augmented_input = torch.cat([current_input, context_vector_expanded], dim=2)
+            
+            # Run through decoder for this timestep
+            output, decoder_hidden = self.decoder(augmented_input, decoder_hidden)
+            decoder_outputs.append(output)
+        
+        # Concatenate outputs from all timesteps
+        decoder_outputs = torch.cat(decoder_outputs, dim=1)
+        decoder_outputs = self.dropout(decoder_outputs)
+        
+        # Apply output layer
+        outputs = self.output_layer(decoder_outputs)
+        
+        # Apply sigmoid to get values between 0 and 1
+        reconstructed = self.sigmoid(outputs)
+        reconstructed = reconstructed.reshape(-1, num_lane_unit, time_span)
+        
+        return reconstructed
+
 class TrajDataset(Dataset):
     def __init__(self, data_dir, time_span):
         self.data_dir = data_dir
