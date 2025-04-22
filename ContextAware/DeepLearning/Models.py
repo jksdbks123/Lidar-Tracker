@@ -46,6 +46,24 @@ class FocalLoss(nn.Module):
         }
         return loss_dict
 
+class BCELoss(nn.Module):
+
+    def __init__(self, reduction='sum'):
+        super(BCELoss, self).__init__()
+        self.reduction = reduction
+    def forward(self, inputs, targets):
+        # Ensure inputs are probabilities
+        BCE_loss = F.binary_cross_entropy(inputs, targets, reduction='none')
+        
+        if self.reduction == 'mean':
+            BCE_loss = torch.mean(BCE_loss)
+        elif self.reduction == 'sum':
+            BCE_loss =  torch.sum(BCE_loss)
+        loss_dict = {
+            'total_loss': BCE_loss,
+        }
+        return loss_dict
+    
 class UnidirectionalLSTMLaneReconstructor(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers,droupout=0.2):
         super(UnidirectionalLSTMLaneReconstructor, self).__init__()
