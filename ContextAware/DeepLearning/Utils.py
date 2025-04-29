@@ -279,7 +279,7 @@ def get_trajs_from_Kalman_out(Labels,center = False, max_prediction_count = 25):
                     distance = abs(track_data['predicted_pos'] - det_pos)
                     
                     # Apply a maximum threshold for association (e.g., 5 lane cells)
-                    if distance > 5.0:
+                    if distance > 10:
                         cost_matrix[i, j] = 1000  # Large cost for impossible associations
                     else:
                         cost_matrix[i, j] = distance
